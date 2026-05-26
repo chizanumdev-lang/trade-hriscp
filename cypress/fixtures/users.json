@@ -1,0 +1,26 @@
+// cypress/fixtures/users.json
+// Test user data for all roles
+{
+  "superAdmin": {
+    "email": "superadmin@tradevu.com",
+    "password": "Admin@12345",
+    "role": "SUPER_ADMIN",
+    "fullName": "Super Admin"
+  },
+  "hrAdmin": {
+    "email": "hradmin@tradevu.com",
+    "password": "HrAdmin@12345",
+    "role": "HR_ADMIN",
+    "fullName": "HR Administrator"
+  },
+  "employee": {
+    "email": "employee@tradevu.com",
+    "password": "Employee@12345",
+    "role": "EMPLOYEE",
+    "fullName": "Jane Employee"
+  },
+  "invalidUser": {
+    "email": "nobody@nowhere.com",
+    "password": "wrongpassword"
+  }
+}

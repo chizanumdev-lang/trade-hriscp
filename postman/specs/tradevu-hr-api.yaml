@@ -1,0 +1,416 @@
+openapi: 3.0.3
+
+info:
+  title: Tradevu HR GraphQL API
+  description: |
+    GraphQL API for the Tradevu HR Management System.
+    All endpoints use POST to `/graphql`. Authentication uses JWT Bearer tokens.
+    
+    ## Authentication
+    - Use `register` or `login` to obtain a JWT token
+    - Pass the token in the `Authorization: Bearer <token>` header on all authenticated requests
+    
+    ## Roles & Permissions
+    | Role          | Permissions |
+    |---------------|-------------|
+    | SUPER_ADMIN   | Full access to all operations |
+    | HR_ADMIN      | Manage employees, leave, documents, policies |
+    | FINANCE_ADMIN | Manage payroll runs and records |
+    | MANAGER       | Approve/reject leave, create goals |
+    | EMPLOYEE      | Self-service: clock in/out, leave requests, view payslips |
+    
+  version: 1.0.0
+  contact:
+    name: Tradevu Engineering
+    email: engineering@tradevu.com
+
+servers:
+  - url: http://localhost:3001
+    description: Local Development
+  - url: https://api-staging.tradevu.com
+    description: Staging
+
+tags:
+  - name: Authentication
+    description: Register, login, and token management
+  - name: Employees
+    description: Employee and department management
+  - name: Leave Management
+    description: Leave types, requests, approvals
+  - name: Attendance
+    description: Clock in/out and attendance tracking
+  - name: Payroll
+    description: Payroll runs, records, and payslip generation
+  - name: Compliance
+    description: Policies, acknowledgments, and announcements
+  - name: Performance
+    description: Goal management and tracking
+  - name: Documents
+    description: Employee document management
+  - name: Notifications
+    description: User notifications
+
+paths:
+  /graphql:
+    post:
+      summary: GraphQL Endpoint
+      description: Single endpoint for all GraphQL operations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  type: string
+                  description: GraphQL query or mutation string
+                variables:
+                  type: object
+                  description: GraphQL variables
+                operationName:
+                  type: string
+                  description: Optional operation name for multi-operation documents
+      responses:
+        '200':
+          description: GraphQL response (always 200, errors in body)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    nullable: true
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GraphQLError'
+
+  /graphql#register:
+    post:
+      tags: [Authentication]
+      summary: Register new organization & super admin
+      description: Creates a new organization and the first SUPER_ADMIN user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              query: "mutation Register($input: RegisterInput!) { register(input: $input) { token user { id email role organizationId } } }"
+              variables:
+                input:
+                  email: admin@company.com
+                  password: SecurePass123!
+                  orgName: Acme Corp
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      register:
+                        $ref: '#/components/schemas/AuthPayload'
+
+  /graphql#login:
+    post:
+      tags: [Authentication]
+      summary: Login with email and password
+      description: Authenticates a user and returns a JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful or error
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    data:
+                      login:
+                        token: "eyJhbGci..."
+                        user:
+                          id: "cuid123"
+                          email: "admin@company.com"
+                          role: "SUPER_ADMIN"
+                invalid:
+                  value:
+                    errors:
+                      - message: "Invalid credentials"
+                        locations: [{ line: 1, column: 18 }]
+                        path: ["login"]
+
+  /graphql#createEmployee:
+    post:
+      tags: [Employees]
+      summary: Create a new employee
+      description: Requires SUPER_ADMIN or HR_ADMIN role
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEmployeeRequest'
+            example:
+              query: "mutation CreateEmployee($input: EmployeeInput!) { createEmployee(input: $input) { id employeeCode fullName email jobTitle employmentStatus } }"
+              variables:
+                input:
+                  fullName: Jane Smith
+                  email: jane.smith@company.com
+                  jobTitle: Software Engineer
+                  hireDate: "2024-01-15"
+                  basicSalary: 8000
+      responses:
+        '200':
+          description: Employee created or authorization error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      createEmployee:
+                        $ref: '#/components/schemas/Employee'
+
+  /graphql#employees:
+    post:
+      tags: [Employees]
+      summary: List all employees in organization
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      employees:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Employee'
+
+  /graphql#createPayrollRun:
+    post:
+      tags: [Payroll]
+      summary: Create a new payroll run
+      description: |
+        Requires SUPER_ADMIN, HR_ADMIN, or FINANCE_ADMIN role.
+        Automatically calculates gross/net pay for all active employees
+        using a flat 10% tax engine.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              query: "mutation CreatePayrollRun($month: String!, $periodStart: String!, $periodEnd: String!) { createPayrollRun(month: $month, periodStart: $periodStart, periodEnd: $periodEnd) { id month status totalGross totalNet } }"
+              variables:
+                month: "2024-05"
+                periodStart: "2024-05-01"
+                periodEnd: "2024-05-31"
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      createPayrollRun:
+                        $ref: '#/components/schemas/PayrollRun'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login or register
+
+  schemas:
+    GraphQLError:
+      type: object
+      properties:
+        message:
+          type: string
+        locations:
+          type: array
+          items:
+            type: object
+            properties:
+              line:
+                type: integer
+              column:
+                type: integer
+        path:
+          type: array
+          items:
+            type: string
+        extensions:
+          type: object
+
+    AuthPayload:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT Bearer token
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [SUPER_ADMIN, HR_ADMIN, FINANCE_ADMIN, MANAGER, EMPLOYEE]
+        organizationId:
+          type: string
+        employeeId:
+          type: string
+          nullable: true
+        isOrgOwner:
+          type: boolean
+
+    Employee:
+      type: object
+      properties:
+        id:
+          type: string
+        employeeCode:
+          type: string
+          pattern: '^EMP-\d{6}$'
+          example: "EMP-000001"
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        jobTitle:
+          type: string
+        departmentId:
+          type: string
+          nullable: true
+        employmentStatus:
+          type: string
+          enum: [ACTIVE, INACTIVE, TERMINATED]
+        hireDate:
+          type: string
+          format: date
+
+    PayrollRun:
+      type: object
+      properties:
+        id:
+          type: string
+        month:
+          type: string
+          example: "2024-05"
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [DRAFT, APPROVED, PAID]
+        totalGross:
+          type: number
+        totalNet:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    RegisterRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        variables:
+          type: object
+          properties:
+            input:
+              type: object
+              required: [email, password, orgName]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                orgName:
+                  type: string
+
+    LoginRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        variables:
+          type: object
+          properties:
+            email:
+              type: string
+              format: email
+            password:
+              type: string
+
+    CreateEmployeeRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        variables:
+          type: object
+          properties:
+            input:
+              type: object
+              required: [fullName, email, jobTitle, hireDate]
+              properties:
+                fullName:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                jobTitle:
+                  type: string
+                departmentId:
+                  type: string
+                hireDate:
+                  type: string
+                  format: date
+                basicSalary:
+                  type: number

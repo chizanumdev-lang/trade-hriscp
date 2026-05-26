@@ -1,0 +1,74 @@
+{
+  "id": "flow-rbac-validation",
+  "name": "Flow: RBAC Permission Validation",
+  "description": "Verifies Role-Based Access Control: tests that each role can only access what it's permitted to. Ensures security boundaries are enforced.",
+  "sequence": [
+    {
+      "step": 1,
+      "name": "Admin creates payroll run (should succeed)",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Create Payroll Run",
+      "role": "SUPER_ADMIN",
+      "expectedOutcome": "Success - SUPER_ADMIN can create payroll runs",
+      "assertions": ["data.createPayrollRun.id is truthy"]
+    },
+    {
+      "step": 2,
+      "name": "Employee tries to create payroll run (should fail)",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Create Payroll Run",
+      "role": "EMPLOYEE (invalid token)",
+      "header": "Authorization: Bearer EMPLOYEE_TOKEN",
+      "expectedOutcome": "Unauthorized error",
+      "assertions": ["errors[0].message === 'Unauthorized'"]
+    },
+    {
+      "step": 3,
+      "name": "Admin can create employees",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Create Employee",
+      "role": "SUPER_ADMIN",
+      "expectedOutcome": "Employee created successfully",
+      "assertions": ["data.createEmployee.id is truthy"]
+    },
+    {
+      "step": 4,
+      "name": "Unauthenticated cannot access employees",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Create Employee (RBAC – Non-Admin Fail)",
+      "role": "NONE",
+      "expectedOutcome": "Unauthenticated or Unauthorized error",
+      "assertions": ["errors[0].message matches /Unauthorized|Unauthenticated/"]
+    },
+    {
+      "step": 5,
+      "name": "Admin can approve payroll run",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Approve Payroll Run",
+      "role": "SUPER_ADMIN",
+      "expectedOutcome": "Payroll run status changes to APPROVED",
+      "assertions": ["data.approvePayrollRun.status === 'APPROVED'"]
+    },
+    {
+      "step": 6,
+      "name": "Admin can create policies",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Create Policy",
+      "role": "SUPER_ADMIN",
+      "expectedOutcome": "Policy created in DRAFT status",
+      "assertions": [
+        "data.createPolicy.id is truthy",
+        "data.createPolicy.status === 'DRAFT'"
+      ]
+    },
+    {
+      "step": 7,
+      "name": "Any authenticated user can acknowledge a policy",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Acknowledge Policy",
+      "role": "Any authenticated user",
+      "expectedOutcome": "Returns true",
+      "assertions": ["data.acknowledgePolicy === true"]
+    }
+  ]
+}

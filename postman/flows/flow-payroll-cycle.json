@@ -1,0 +1,71 @@
+{
+  "id": "flow-payroll-cycle",
+  "name": "Flow: Payroll Monthly Cycle",
+  "description": "Tests a complete monthly payroll run: Login → Create Employees → Create Payroll Run → Verify Records → Approve Run → Generate Payslip",
+  "sequence": [
+    {
+      "step": 1,
+      "name": "Login as Super Admin",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Login (Super Admin)",
+      "expectedOutcome": "authToken stored",
+      "assertions": ["data.login.token is truthy"]
+    },
+    {
+      "step": 2,
+      "name": "Create payroll run for current month",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Create Payroll Run",
+      "expectedOutcome": "DRAFT payroll run created with correct totals",
+      "assertions": [
+        "data.createPayrollRun.status === 'DRAFT'",
+        "data.createPayrollRun.totalGross >= 0",
+        "data.createPayrollRun.totalNet <= data.createPayrollRun.totalGross",
+        "pm.environment.get('createdPayrollRunId') !== ''"
+      ]
+    },
+    {
+      "step": 3,
+      "name": "Verify payroll run appears in list",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Get Payroll Runs",
+      "expectedOutcome": "New payroll run in list with DRAFT status",
+      "assertions": [
+        "data.payrollRuns.length >= 1",
+        "data.payrollRuns.some(pr => pr.id === pm.environment.get('createdPayrollRunId'))"
+      ]
+    },
+    {
+      "step": 4,
+      "name": "Get payroll records for this run",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Get Payroll Runs",
+      "expectedOutcome": "Individual records created per employee",
+      "notes": "Uses payrollRecords query with createdPayrollRunId",
+      "assertions": [
+        "data.payrollRecords is an array",
+        "each record has netPay < grossPay (tax applied)"
+      ]
+    },
+    {
+      "step": 5,
+      "name": "Approve payroll run",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Approve Payroll Run",
+      "expectedOutcome": "Status changes from DRAFT to APPROVED",
+      "assertions": [
+        "data.approvePayrollRun.status === 'APPROVED'"
+      ]
+    },
+    {
+      "step": 6,
+      "name": "Verify employee can see their payroll record",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "My Payroll Records",
+      "expectedOutcome": "Employee-scoped payroll records returned",
+      "assertions": [
+        "data.myPayrollRecords is an array"
+      ]
+    }
+  ]
+}

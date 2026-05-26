@@ -1,0 +1,28 @@
+id: globals-tradevu-hr
+name: Tradevu HR - Globals
+_postman_variable_scope: globals
+values:
+  - key: appName
+    value: "Tradevu HR"
+    type: default
+    enabled: true
+
+  - key: apiVersion
+    value: "1.0.0"
+    type: default
+    enabled: true
+
+  - key: graphqlContentType
+    value: "application/json"
+    type: default
+    enabled: true
+
+  - key: defaultTimeout
+    value: "5000"
+    type: default
+    enabled: true
+
+  - key: maxRetries
+    value: "3"
+    type: default
+    enabled: true

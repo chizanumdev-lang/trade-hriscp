@@ -1,0 +1,364 @@
+id: mock-tradevu-hr
+name: "Tradevu HR - Mock Server"
+description: >
+  Mock responses for the Tradevu HR GraphQL API.
+  Use this when the real backend is unavailable or for isolated frontend testing.
+
+responses:
+  - id: mock-register-success
+    name: "Register - Success"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+      - key: X-Mock-Id
+        value: mock-register-success
+    body: |
+      {
+        "data": {
+          "register": {
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock_payload.mock_signature",
+            "user": {
+              "id": "mock-user-123",
+              "email": "superadmin@tradevu.com",
+              "role": "SUPER_ADMIN",
+              "organizationId": "mock-org-456",
+              "isOrgOwner": true
+            }
+          }
+        }
+      }
+
+  - id: mock-login-success
+    name: "Login - Success"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+    body: |
+      {
+        "data": {
+          "login": {
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock_payload.mock_signature",
+            "user": {
+              "id": "mock-user-123",
+              "email": "superadmin@tradevu.com",
+              "role": "SUPER_ADMIN",
+              "organizationId": "mock-org-456",
+              "employeeId": null,
+              "isOrgOwner": true
+            }
+          }
+        }
+      }
+
+  - id: mock-login-invalid
+    name: "Login - Invalid Credentials"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+    body: |
+      {
+        "errors": [
+          {
+            "message": "Invalid credentials",
+            "locations": [{ "line": 1, "column": 18 }],
+            "path": ["login"],
+            "extensions": { "code": "UNAUTHENTICATED" }
+          }
+        ],
+        "data": null
+      }
+
+  - id: mock-me-authenticated
+    name: "Me Query - Authenticated"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+    body: |
+      {
+        "data": {
+          "me": {
+            "id": "mock-user-123",
+            "email": "superadmin@tradevu.com",
+            "role": "SUPER_ADMIN",
+            "organizationId": "mock-org-456",
+            "employeeId": null,
+            "isOrgOwner": true,
+            "lastLogin": "2024-05-26T09:00:00.000Z",
+            "avatarUrl": null
+          }
+        }
+      }
+
+  - id: mock-employees-list
+    name: "Employees - List"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+    body: |
+      {
+        "data": {
+          "employees": [
+            {
+              "id": "mock-emp-001",
+              "employeeCode": "EMP-000001",
+              "fullName": "Jane Smith",
+              "email": "jane.smith@tradevu.com",
+              "jobTitle": "Software Engineer",
+              "departmentId": "mock-dept-001",
+              "employmentStatus": "ACTIVE",
+              "hireDate": "2024-01-15T00:00:00.000Z"
+            },
+            {
+              "id": "mock-emp-002",
+              "employeeCode": "EMP-000002",
+              "fullName": "John Doe",
+              "email": "john.doe@tradevu.com",
+              "jobTitle": "Product Manager",
+              "departmentId": "mock-dept-002",
+              "employmentStatus": "ACTIVE",
+              "hireDate": "2023-09-01T00:00:00.000Z"
+            },
+            {
+              "id": "mock-emp-003",
+              "employeeCode": "EMP-000003",
+              "fullName": "Sara Johnson",
+              "email": "sara.j@tradevu.com",
+              "jobTitle": "HR Specialist",
+              "departmentId": "mock-dept-003",
+              "employmentStatus": "ACTIVE",
+              "hireDate": "2024-03-10T00:00:00.000Z"
+            }
+          ]
+        }
+      }
+
+  - id: mock-create-employee
+    name: "Create Employee - Success"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+    body: |
+      {
+        "data": {
+          "createEmployee": {
+            "id": "mock-emp-new-001",
+            "employeeCode": "EMP-000004",
+            "fullName": "Jane Smith",
+            "email": "jane.smith@tradevu.com",
+            "jobTitle": "Software Engineer",
+            "departmentId": "mock-dept-001",
+            "employmentStatus": "ACTIVE",
+            "hireDate": "2024-01-15T00:00:00.000Z"
+          }
+        }
+      }
+
+  - id: mock-departments-list
+    name: "Departments - List"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+    body: |
+      {
+        "data": {
+          "departments": [
+            {
+              "id": "mock-dept-001",
+              "name": "Engineering",
+              "code": "ENG",
+              "headEmployeeId": "mock-emp-001"
+            },
+            {
+              "id": "mock-dept-002",
+              "name": "Product",
+              "code": "PROD",
+              "headEmployeeId": null
+            },
+            {
+              "id": "mock-dept-003",
+              "name": "Human Resources",
+              "code": "HR",
+              "headEmployeeId": "mock-emp-003"
+            }
+          ]
+        }
+      }
+
+  - id: mock-leave-types
+    name: "Leave Types - List"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+    body: |
+      {
+        "data": {
+          "leaveTypes": [
+            {
+              "id": "mock-lt-001",
+              "name": "Annual Leave",
+              "daysPerYear": 21,
+              "isPaid": true,
+              "requiresApproval": true
+            },
+            {
+              "id": "mock-lt-002",
+              "name": "Sick Leave",
+              "daysPerYear": 14,
+              "isPaid": true,
+              "requiresApproval": false
+            },
+            {
+              "id": "mock-lt-003",
+              "name": "Maternity Leave",
+              "daysPerYear": 90,
+              "isPaid": true,
+              "requiresApproval": true
+            }
+          ]
+        }
+      }
+
+  - id: mock-payroll-runs
+    name: "Payroll Runs - List"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+    body: |
+      {
+        "data": {
+          "payrollRuns": [
+            {
+              "id": "mock-pr-001",
+              "month": "2024-05",
+              "periodStart": "2024-05-01T00:00:00.000Z",
+              "periodEnd": "2024-05-31T00:00:00.000Z",
+              "status": "APPROVED",
+              "totalGross": 48000,
+              "totalNet": 43200,
+              "createdAt": "2024-05-25T10:00:00.000Z"
+            },
+            {
+              "id": "mock-pr-002",
+              "month": "2024-04",
+              "periodStart": "2024-04-01T00:00:00.000Z",
+              "periodEnd": "2024-04-30T00:00:00.000Z",
+              "status": "PAID",
+              "totalGross": 48000,
+              "totalNet": 43200,
+              "createdAt": "2024-04-25T10:00:00.000Z"
+            }
+          ]
+        }
+      }
+
+  - id: mock-create-payroll
+    name: "Create Payroll Run - Success"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+    body: |
+      {
+        "data": {
+          "createPayrollRun": {
+            "id": "mock-pr-new-001",
+            "month": "2024-05",
+            "periodStart": "2024-05-01T00:00:00.000Z",
+            "periodEnd": "2024-05-31T00:00:00.000Z",
+            "status": "DRAFT",
+            "totalGross": 24000,
+            "totalNet": 21600,
+            "createdAt": "2024-05-26T14:00:00.000Z"
+          }
+        }
+      }
+
+  - id: mock-policies-list
+    name: "Policies - List"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+    body: |
+      {
+        "data": {
+          "policies": [
+            {
+              "id": "mock-policy-001",
+              "title": "Remote Work Policy",
+              "category": "HR",
+              "content": "Employees may work remotely up to 3 days per week.",
+              "status": "ACTIVE",
+              "requiresAck": true
+            },
+            {
+              "id": "mock-policy-002",
+              "title": "Code of Conduct",
+              "category": "COMPLIANCE",
+              "content": "All employees must adhere to the Tradevu Code of Conduct.",
+              "status": "ACTIVE",
+              "requiresAck": true
+            }
+          ]
+        }
+      }
+
+  - id: mock-unauthenticated-error
+    name: "Unauthenticated Error"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+    body: |
+      {
+        "errors": [
+          {
+            "message": "Unauthenticated",
+            "locations": [{ "line": 1, "column": 1 }],
+            "path": ["me"],
+            "extensions": { "code": "UNAUTHENTICATED" }
+          }
+        ],
+        "data": { "me": null }
+      }
+
+  - id: mock-unauthorized-error
+    name: "Unauthorized Error (RBAC)"
+    status: OK
+    code: 200
+    header:
+      - key: Content-Type
+        value: application/json
+    body: |
+      {
+        "errors": [
+          {
+            "message": "Unauthorized",
+            "locations": [{ "line": 1, "column": 18 }],
+            "path": ["createEmployee"],
+            "extensions": { "code": "FORBIDDEN" }
+          }
+        ],
+        "data": { "createEmployee": null }
+      }

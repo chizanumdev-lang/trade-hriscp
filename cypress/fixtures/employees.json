@@ -1,0 +1,33 @@
+// cypress/fixtures/employees.json
+// Test employee data for create/update operations
+{
+  "newEmployee": {
+    "fullName": "Alice Cypress",
+    "email": "alice.cypress@tradevu.com",
+    "jobTitle": "QA Engineer",
+    "hireDate": "2024-06-01",
+    "basicSalary": 7500
+  },
+  "updatedEmployee": {
+    "fullName": "Alice Cypress Updated",
+    "jobTitle": "Senior QA Engineer"
+  },
+  "mockEmployees": [
+    {
+      "id": "emp-001",
+      "employeeCode": "EMP-000001",
+      "fullName": "John Doe",
+      "email": "john.doe@tradevu.com",
+      "jobTitle": "Software Engineer",
+      "employmentStatus": "ACTIVE"
+    },
+    {
+      "id": "emp-002",
+      "employeeCode": "EMP-000002",
+      "fullName": "Jane Smith",
+      "email": "jane.smith@tradevu.com",
+      "jobTitle": "Product Manager",
+      "employmentStatus": "ACTIVE"
+    }
+  ]
+}

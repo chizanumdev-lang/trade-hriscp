@@ -1,0 +1,101 @@
+{
+  "id": "flow-employee-lifecycle",
+  "name": "Flow: Employee Lifecycle",
+  "description": "Tests the full employee management lifecycle: Create Department → Create Employee → Fetch Employee → Delete Employee. Each step depends on the previous one via environment variables.",
+  "sequence": [
+    {
+      "step": 1,
+      "name": "Login as Super Admin",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Login (Super Admin)",
+      "expectedOutcome": "authToken stored",
+      "assertions": ["data.login.token is truthy"]
+    },
+    {
+      "step": 2,
+      "name": "Create Engineering Department",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Create Department",
+      "expectedOutcome": "createdDepartmentId stored in env",
+      "assertions": [
+        "data.createDepartment.id is truthy",
+        "data.createDepartment.name === 'Engineering'",
+        "pm.environment.get('createdDepartmentId') !== ''"
+      ]
+    },
+    {
+      "step": 3,
+      "name": "Verify department appears in list",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "List Departments",
+      "expectedOutcome": "Departments array contains newly created department",
+      "assertions": [
+        "data.departments.length >= 1",
+        "data.departments.some(d => d.id === pm.environment.get('createdDepartmentId'))"
+      ]
+    },
+    {
+      "step": 4,
+      "name": "Create Employee in department",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Create Employee",
+      "expectedOutcome": "createdEmployeeId stored, auto-generated employee code",
+      "assertions": [
+        "data.createEmployee.id is truthy",
+        "data.createEmployee.employeeCode.startsWith('EMP-')",
+        "data.createEmployee.employmentStatus === 'ACTIVE'",
+        "pm.environment.get('createdEmployeeId') !== ''"
+      ]
+    },
+    {
+      "step": 5,
+      "name": "Fetch employee by ID",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Get Single Employee",
+      "expectedOutcome": "Returns correct employee record",
+      "assertions": [
+        "data.employee.id === pm.environment.get('createdEmployeeId')",
+        "data.employee.fullName === 'Jane Smith'"
+      ]
+    },
+    {
+      "step": 6,
+      "name": "Upload document for employee",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Upload Document",
+      "expectedOutcome": "Document linked to employee",
+      "assertions": [
+        "data.uploadDocument.status === 'ACTIVE'",
+        "data.uploadDocument.category === 'CONTRACT'"
+      ]
+    },
+    {
+      "step": 7,
+      "name": "Verify document in employee document list",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Get Employee Documents",
+      "expectedOutcome": "Document appears in list",
+      "assertions": [
+        "data.documents.length >= 1"
+      ]
+    },
+    {
+      "step": 8,
+      "name": "Delete employee",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Delete Employee",
+      "expectedOutcome": "Returns true",
+      "assertions": ["data.deleteEmployee === true"]
+    },
+    {
+      "step": 9,
+      "name": "Verify employee no longer in list",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "List Employees",
+      "expectedOutcome": "Deleted employee not present",
+      "assertions": [
+        "!data.employees.some(e => e.id === pm.environment.get('createdEmployeeId'))"
+      ]
+    }
+  ]
+}

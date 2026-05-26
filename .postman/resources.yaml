@@ -1,0 +1,23 @@
+# Use this workspace to collaborate
+workspace:
+  id: aba39f20-b831-4b2a-9c23-f6d5a4284d04
+
+# All resources below use the Postman v3 YAML format.
+
+localResources:
+  collections:
+    - ../postman/collections/tradevu-hr-api.yaml
+  environments:
+    - ../postman/environments/local.yaml
+    - ../postman/environments/staging.yaml
+  globals:
+    - ../postman/globals/globals.yaml
+  mocks:
+    - ../postman/mocks/tradevu-hr-mock.yaml
+  flows:
+    - ../postman/flows/flow-auth-journey.json
+    - ../postman/flows/flow-employee-lifecycle.json
+    - ../postman/flows/flow-payroll-cycle.json
+    - ../postman/flows/flow-rbac-validation.json
+  specs:
+    - ../postman/specs/tradevu-hr-api.yaml

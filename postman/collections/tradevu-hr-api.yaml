@@ -1,0 +1,1343 @@
+info:
+  _postman_id: tradevu-hr-api-collection
+  name: "Tradevu HR - GraphQL API"
+  description: >
+    Complete GraphQL API test collection for the Tradevu HR Management System.
+    Covers all phases: Auth, Employees, Leave, Attendance, Payroll, Compliance, and Performance.
+  schema: "https://schema.getpostman.com/json/collection/v3.0.0/collection.json"
+
+variable:
+  - key: graphqlUrl
+    value: "http://localhost:3001/graphql"
+
+item:
+  # ─────────────────────────────────────────────
+  # PHASE 0 – Authentication
+  # ─────────────────────────────────────────────
+  - name: "🔐 Phase 0 – Auth"
+    description: "Authentication flows: Register, Login, and token verification"
+    item:
+      - name: "Register New Organization"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.register;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No GraphQL errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns token', () => pm.expect(data.token).to.be.a('string').and.not.empty);
+                pm.test('Returns user with SUPER_ADMIN role', () => pm.expect(data.user.role).to.eql('SUPER_ADMIN'));
+                pm.test('Returns organizationId', () => pm.expect(data.user.organizationId).to.be.a('string').and.not.empty);
+
+                if (data?.token) {
+                  pm.environment.set('authToken', data.token);
+                  pm.environment.set('organizationId', data.user.organizationId);
+                }
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation Register($input: RegisterInput!) {
+                  register(input: $input) {
+                    token
+                    user {
+                      id
+                      email
+                      role
+                      organizationId
+                      isOrgOwner
+                    }
+                  }
+                }
+              variables: |
+                {
+                  "input": {
+                    "email": "{{adminEmail}}",
+                    "password": "{{adminPassword}}",
+                    "orgName": "{{orgName}}"
+                  }
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Login (Super Admin)"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.login;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No GraphQL errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns JWT token', () => pm.expect(data.token).to.be.a('string'));
+                pm.test('User role is SUPER_ADMIN', () => pm.expect(data.user.role).to.eql('SUPER_ADMIN'));
+
+                if (data?.token) {
+                  pm.environment.set('authToken', data.token);
+                  pm.environment.set('organizationId', data.user.organizationId);
+                }
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation Login($email: String!, $password: String!) {
+                  login(email: $email, password: $password) {
+                    token
+                    user {
+                      id
+                      email
+                      role
+                      organizationId
+                      employeeId
+                      isOrgOwner
+                    }
+                  }
+                }
+              variables: |
+                {
+                  "email": "{{adminEmail}}",
+                  "password": "{{adminPassword}}"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Get Current User (me)"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.me;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns authenticated user', () => pm.expect(data).to.have.property('id'));
+                pm.test('Email matches', () => pm.expect(data.email).to.eql(pm.environment.get('adminEmail')));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query Me {
+                  me {
+                    id
+                    email
+                    role
+                    organizationId
+                    employeeId
+                    isOrgOwner
+                  }
+                }
+              variables: "{}"
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Login - Invalid Credentials (Negative)"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+
+                pm.test('Status 200 (GraphQL always 200)', () => pm.response.to.have.status(200));
+                pm.test('Returns GraphQL error for invalid credentials', () => {
+                  pm.expect(res.errors).to.be.an('array').and.not.empty;
+                  pm.expect(res.errors[0].message).to.include('Invalid credentials');
+                });
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation Login($email: String!, $password: String!) {
+                  login(email: $email, password: $password) {
+                    token
+                    user { id email }
+                  }
+                }
+              variables: |
+                {
+                  "email": "{{adminEmail}}",
+                  "password": "wrongpassword123"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Unauthenticated Query (Negative)"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+
+                pm.test('Returns Unauthenticated error', () => {
+                  pm.expect(res.errors).to.be.an('array');
+                  pm.expect(res.errors[0].message).to.include('Unauthenticated');
+                });
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query Me {
+                  me {
+                    id
+                    email
+                  }
+                }
+              variables: "{}"
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+  # ─────────────────────────────────────────────
+  # PHASE 1 – Employees & Departments
+  # ─────────────────────────────────────────────
+  - name: "🏢 Phase 1 – Employees & Departments"
+    description: "CRUD operations for employees and departments"
+    item:
+      - name: "Create Department"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.createDepartment;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns department with ID', () => pm.expect(data.id).to.be.a('string'));
+                pm.test('Department name matches', () => pm.expect(data.name).to.eql('Engineering'));
+
+                if (data?.id) pm.environment.set('createdDepartmentId', data.id);
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation CreateDepartment($name: String!, $code: String) {
+                  createDepartment(name: $name, code: $code) {
+                    id
+                    name
+                    code
+                  }
+                }
+              variables: |
+                {
+                  "name": "Engineering",
+                  "code": "ENG"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "List Departments"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.departments;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns array of departments', () => pm.expect(data).to.be.an('array'));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query GetDepartments {
+                  departments {
+                    id
+                    name
+                    code
+                    headEmployeeId
+                  }
+                }
+              variables: "{}"
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Create Employee"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.createEmployee;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns employee with ID', () => pm.expect(data.id).to.be.a('string'));
+                pm.test('Employee code is generated', () => pm.expect(data.employeeCode).to.match(/^EMP-/));
+                pm.test('Employment status is ACTIVE', () => pm.expect(data.employmentStatus).to.eql('ACTIVE'));
+
+                if (data?.id) pm.environment.set('createdEmployeeId', data.id);
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation CreateEmployee($input: EmployeeInput!) {
+                  createEmployee(input: $input) {
+                    id
+                    employeeCode
+                    fullName
+                    email
+                    jobTitle
+                    departmentId
+                    employmentStatus
+                    hireDate
+                  }
+                }
+              variables: |
+                {
+                  "input": {
+                    "fullName": "Jane Smith",
+                    "email": "jane.smith@tradevu.com",
+                    "jobTitle": "Software Engineer",
+                    "departmentId": "{{createdDepartmentId}}",
+                    "hireDate": "2024-01-15",
+                    "basicSalary": 8000
+                  }
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "List Employees"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.employees;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns array', () => pm.expect(data).to.be.an('array'));
+                pm.test('At least one employee exists', () => pm.expect(data.length).to.be.greaterThan(0));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query GetEmployees {
+                  employees {
+                    id
+                    employeeCode
+                    fullName
+                    email
+                    jobTitle
+                    departmentId
+                    employmentStatus
+                    hireDate
+                  }
+                }
+              variables: "{}"
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Get Single Employee"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.employee;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns specific employee', () => pm.expect(data.id).to.eql(pm.environment.get('createdEmployeeId')));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query GetEmployee($id: ID!) {
+                  employee(id: $id) {
+                    id
+                    employeeCode
+                    fullName
+                    email
+                    jobTitle
+                    employmentStatus
+                    hireDate
+                  }
+                }
+              variables: |
+                {
+                  "id": "{{createdEmployeeId}}"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Delete Employee"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.deleteEmployee;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns true on success', () => pm.expect(data).to.be.true);
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation DeleteEmployee($id: ID!) {
+                  deleteEmployee(id: $id)
+                }
+              variables: |
+                {
+                  "id": "{{createdEmployeeId}}"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Create Employee (RBAC – Non-Admin Fail)"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+
+                pm.test('Returns Unauthorized error for non-admin', () => {
+                  pm.expect(res.errors).to.be.an('array');
+                  pm.expect(res.errors[0].message).to.match(/Unauthorized|Unauthenticated/);
+                });
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer INVALID_TOKEN"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation CreateEmployee($input: EmployeeInput!) {
+                  createEmployee(input: $input) {
+                    id
+                  }
+                }
+              variables: |
+                {
+                  "input": {
+                    "fullName": "Hacker User",
+                    "email": "hacker@evil.com",
+                    "jobTitle": "Attacker",
+                    "hireDate": "2024-01-01"
+                  }
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+  # ─────────────────────────────────────────────
+  # PHASE 2 – Leave Management
+  # ─────────────────────────────────────────────
+  - name: "🏖️ Phase 2 – Leave Management"
+    description: "Leave types, requests, approval/rejection workflows"
+    item:
+      - name: "Create Leave Type"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.createLeaveType;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Leave type created', () => pm.expect(data.id).to.be.a('string'));
+                pm.test('Days per year set correctly', () => pm.expect(data.daysPerYear).to.eql(21));
+
+                if (data?.id) pm.environment.set('createdLeaveTypeId', data.id);
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation CreateLeaveType($name: String!, $daysPerYear: Int!, $isPaid: Boolean, $requiresApproval: Boolean) {
+                  createLeaveType(name: $name, daysPerYear: $daysPerYear, isPaid: $isPaid, requiresApproval: $requiresApproval) {
+                    id
+                    name
+                    daysPerYear
+                    isPaid
+                    requiresApproval
+                  }
+                }
+              variables: |
+                {
+                  "name": "Annual Leave",
+                  "daysPerYear": 21,
+                  "isPaid": true,
+                  "requiresApproval": true
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Get Leave Types"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.leaveTypes;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns array of leave types', () => pm.expect(data).to.be.an('array'));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query GetLeaveTypes {
+                  leaveTypes {
+                    id
+                    name
+                    daysPerYear
+                    isPaid
+                    requiresApproval
+                  }
+                }
+              variables: "{}"
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Get All Leave Requests"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.leaveRequests;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns array', () => pm.expect(data).to.be.an('array'));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query GetLeaveRequests {
+                  leaveRequests {
+                    id
+                    employeeId
+                    leaveTypeId
+                    startDate
+                    endDate
+                    totalDays
+                    status
+                    reason
+                    createdAt
+                  }
+                }
+              variables: "{}"
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+  # ─────────────────────────────────────────────
+  # PHASE 2 – Attendance
+  # ─────────────────────────────────────────────
+  - name: "⏰ Phase 2 – Attendance"
+    description: "Clock in, clock out, and attendance queries"
+    item:
+      - name: "Clock In"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.clockIn;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('Clock in recorded', () => {
+                  if (res.errors) {
+                    pm.expect(res.errors[0].message).to.include('not an employee');
+                  } else {
+                    pm.expect(data.id).to.be.a('string');
+                    pm.expect(data.clockIn).to.be.a('string');
+                  }
+                });
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation ClockIn {
+                  clockIn {
+                    id
+                    employeeId
+                    date
+                    clockIn
+                    status
+                  }
+                }
+              variables: "{}"
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Get Attendance Records"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.attendanceRecords;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns array', () => pm.expect(data).to.be.an('array'));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query GetAttendance($employeeId: ID) {
+                  attendanceRecords(employeeId: $employeeId) {
+                    id
+                    employeeId
+                    date
+                    clockIn
+                    clockOut
+                    status
+                  }
+                }
+              variables: |
+                {
+                  "employeeId": "{{createdEmployeeId}}"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+  # ─────────────────────────────────────────────
+  # PHASE 3 – Payroll
+  # ─────────────────────────────────────────────
+  - name: "💰 Phase 3 – Payroll"
+    description: "Payroll runs, records, approval, and payslip generation"
+    item:
+      - name: "Create Payroll Run"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.createPayrollRun;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Payroll run created', () => pm.expect(data.id).to.be.a('string'));
+                pm.test('Status is DRAFT', () => pm.expect(data.status).to.eql('DRAFT'));
+                pm.test('Total gross is a number', () => pm.expect(data.totalGross).to.be.a('number'));
+
+                if (data?.id) pm.environment.set('createdPayrollRunId', data.id);
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation CreatePayrollRun($month: String!, $periodStart: String!, $periodEnd: String!) {
+                  createPayrollRun(month: $month, periodStart: $periodStart, periodEnd: $periodEnd) {
+                    id
+                    month
+                    periodStart
+                    periodEnd
+                    status
+                    totalGross
+                    totalNet
+                    createdAt
+                  }
+                }
+              variables: |
+                {
+                  "month": "2024-05",
+                  "periodStart": "2024-05-01",
+                  "periodEnd": "2024-05-31"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Get Payroll Runs"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.payrollRuns;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns array', () => pm.expect(data).to.be.an('array'));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query GetPayrollRuns {
+                  payrollRuns {
+                    id
+                    month
+                    periodStart
+                    periodEnd
+                    status
+                    totalGross
+                    totalNet
+                    createdAt
+                  }
+                }
+              variables: "{}"
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Approve Payroll Run"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.approvePayrollRun;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Status changed to APPROVED', () => pm.expect(data.status).to.eql('APPROVED'));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation ApprovePayrollRun($id: ID!) {
+                  approvePayrollRun(id: $id) {
+                    id
+                    status
+                  }
+                }
+              variables: |
+                {
+                  "id": "{{createdPayrollRunId}}"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "My Payroll Records"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.myPayrollRecords;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns array', () => pm.expect(data).to.be.an('array'));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query MyPayrollRecords {
+                  myPayrollRecords {
+                    id
+                    employeeId
+                    basicSalary
+                    grossPay
+                    totalDeductions
+                    netPay
+                    payslipUrl
+                  }
+                }
+              variables: "{}"
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+  # ─────────────────────────────────────────────
+  # PHASE 4 – Compliance & Performance
+  # ─────────────────────────────────────────────
+  - name: "📋 Phase 4 – Compliance & Performance"
+    description: "Policies, announcements, and goal management"
+    item:
+      - name: "Create Policy"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.createPolicy;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Policy created with ID', () => pm.expect(data.id).to.be.a('string'));
+                pm.test('Status is DRAFT', () => pm.expect(data.status).to.eql('DRAFT'));
+
+                if (data?.id) pm.environment.set('createdPolicyId', data.id);
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation CreatePolicy($title: String!, $category: String!, $content: String, $requiresAck: Boolean) {
+                  createPolicy(title: $title, category: $category, content: $content, requiresAck: $requiresAck) {
+                    id
+                    title
+                    category
+                    content
+                    status
+                    requiresAck
+                  }
+                }
+              variables: |
+                {
+                  "title": "Remote Work Policy",
+                  "category": "HR",
+                  "content": "Employees may work remotely up to 3 days per week.",
+                  "requiresAck": true
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Get Policies"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.policies;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns array', () => pm.expect(data).to.be.an('array'));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query GetPolicies {
+                  policies {
+                    id
+                    title
+                    category
+                    status
+                    requiresAck
+                  }
+                }
+              variables: "{}"
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Acknowledge Policy"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.acknowledgePolicy;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns true', () => pm.expect(data).to.be.true);
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation AcknowledgePolicy($policyId: ID!) {
+                  acknowledgePolicy(policyId: $policyId)
+                }
+              variables: |
+                {
+                  "policyId": "{{createdPolicyId}}"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Create Announcement"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.createAnnouncement;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Announcement created', () => pm.expect(data.id).to.be.a('string'));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation CreateAnnouncement($title: String!, $content: String!, $priority: String!) {
+                  createAnnouncement(title: $title, content: $content, priority: $priority) {
+                    id
+                    title
+                    content
+                    priority
+                    createdAt
+                  }
+                }
+              variables: |
+                {
+                  "title": "Q2 Company Update",
+                  "content": "Exciting news about our Q2 performance and upcoming initiatives.",
+                  "priority": "HIGH"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Get Announcements"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.announcements;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns array', () => pm.expect(data).to.be.an('array'));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query GetAnnouncements {
+                  announcements {
+                    id
+                    title
+                    content
+                    priority
+                    createdAt
+                  }
+                }
+              variables: "{}"
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Create Goal"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.createGoal;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Goal created', () => pm.expect(data.id).to.be.a('string'));
+                pm.test('Weight is correct', () => pm.expect(data.weight).to.eql(0.4));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation CreateGoal($employeeId: ID!, $title: String!, $weight: Float!, $period: String!) {
+                  createGoal(employeeId: $employeeId, title: $title, weight: $weight, period: $period) {
+                    id
+                    title
+                    description
+                    weight
+                    status
+                    period
+                  }
+                }
+              variables: |
+                {
+                  "employeeId": "{{createdEmployeeId}}",
+                  "title": "Increase code review coverage to 95%",
+                  "weight": 0.4,
+                  "period": "Q2-2024"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+  # ─────────────────────────────────────────────
+  # PHASE 2 – Documents & Notifications
+  # ─────────────────────────────────────────────
+  - name: "📄 Phase 2 – Documents & Notifications"
+    description: "Document upload and notification management"
+    item:
+      - name: "Upload Document"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.uploadDocument;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Document created', () => pm.expect(data.id).to.be.a('string'));
+                pm.test('Status is ACTIVE', () => pm.expect(data.status).to.eql('ACTIVE'));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                mutation UploadDocument(
+                  $employeeId: ID!
+                  $name: String!
+                  $category: String!
+                  $fileUrl: String!
+                  $fileType: String!
+                  $visibilityLevel: String!
+                ) {
+                  uploadDocument(
+                    employeeId: $employeeId
+                    name: $name
+                    category: $category
+                    fileUrl: $fileUrl
+                    fileType: $fileType
+                    visibilityLevel: $visibilityLevel
+                  ) {
+                    id
+                    name
+                    category
+                    fileUrl
+                    fileType
+                    visibilityLevel
+                    status
+                  }
+                }
+              variables: |
+                {
+                  "employeeId": "{{createdEmployeeId}}",
+                  "name": "Employment Contract",
+                  "category": "CONTRACT",
+                  "fileUrl": "https://storage.tradevu.com/contracts/emp-001.pdf",
+                  "fileType": "PDF",
+                  "visibilityLevel": "PRIVATE"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Get Employee Documents"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.documents;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns array of documents', () => pm.expect(data).to.be.an('array'));
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query GetDocuments($employeeId: ID!) {
+                  documents(employeeId: $employeeId) {
+                    id
+                    name
+                    category
+                    fileUrl
+                    fileType
+                    visibilityLevel
+                    status
+                  }
+                }
+              variables: |
+                {
+                  "employeeId": "{{createdEmployeeId}}"
+                }
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"
+
+      - name: "Get Notifications"
+        event:
+          - listen: test
+            script:
+              type: text/javascript
+              exec: |
+                const res = pm.response.json();
+                const data = res.data?.notifications;
+
+                pm.test('Status 200', () => pm.response.to.have.status(200));
+                pm.test('No errors', () => pm.expect(res.errors).to.be.undefined);
+                pm.test('Returns array', () => pm.expect(data).to.be.an('array'));
+
+                if (data?.length > 0) pm.environment.set('createdNotificationId', data[0].id);
+        request:
+          method: POST
+          header:
+            - key: Content-Type
+              value: application/json
+            - key: Authorization
+              value: "Bearer {{authToken}}"
+          body:
+            mode: graphql
+            graphql:
+              query: |
+                query GetNotifications {
+                  notifications {
+                    id
+                    userId
+                    title
+                    message
+                    category
+                    isRead
+                    createdAt
+                  }
+                }
+              variables: "{}"
+          url:
+            raw: "{{graphqlUrl}}"
+            host:
+              - "{{graphqlUrl}}"

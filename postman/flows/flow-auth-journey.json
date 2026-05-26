@@ -1,0 +1,60 @@
+{
+  "id": "flow-e2e-auth",
+  "name": "Flow: End-to-End Auth Journey",
+  "description": "Tests the full authentication lifecycle: Register → Login → Verify Token → Access Protected Resource → Fail on Invalid Token",
+  "sequence": [
+    {
+      "step": 1,
+      "name": "Register New Organization",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Register New Organization",
+      "expectedOutcome": "authToken populated in environment",
+      "assertions": [
+        "pm.environment.get('authToken') !== ''",
+        "data.register.user.role === 'SUPER_ADMIN'"
+      ]
+    },
+    {
+      "step": 2,
+      "name": "Login with registered credentials",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Login (Super Admin)",
+      "expectedOutcome": "Fresh JWT token, organizationId stored",
+      "assertions": [
+        "data.login.token is truthy",
+        "pm.environment.get('organizationId') !== ''"
+      ]
+    },
+    {
+      "step": 3,
+      "name": "Verify authenticated user (me query)",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Get Current User (me)",
+      "expectedOutcome": "Returns user matching registered email",
+      "assertions": [
+        "data.me.email === adminEmail",
+        "data.me.role === 'SUPER_ADMIN'"
+      ]
+    },
+    {
+      "step": 4,
+      "name": "Attempt unauthenticated access",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Unauthenticated Query (Negative)",
+      "expectedOutcome": "GraphQL Unauthenticated error returned",
+      "assertions": [
+        "errors[0].message includes 'Unauthenticated'"
+      ]
+    },
+    {
+      "step": 5,
+      "name": "Attempt login with wrong password",
+      "collectionRef": "tradevu-hr-api",
+      "requestRef": "Login - Invalid Credentials (Negative)",
+      "expectedOutcome": "GraphQL Invalid credentials error",
+      "assertions": [
+        "errors[0].message === 'Invalid credentials'"
+      ]
+    }
+  ]
+}
