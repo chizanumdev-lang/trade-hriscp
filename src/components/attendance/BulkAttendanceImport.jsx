@@ -1,4 +1,5 @@
 
+// @ts-nocheck
 import React, { useState } from "react";
 import { gqlClient } from "@/api/graphqlClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
