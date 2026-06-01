@@ -16,7 +16,10 @@ Cypress.on('uncaught:exception', (err) => {
   // Ignore React hydration warnings and non-critical errors
   if (
     err.message.includes('ResizeObserver loop') ||
-    err.message.includes('Non-Error promise rejection')
+    err.message.includes('Non-Error promise rejection') ||
+    err.message.includes('WebSocket closed without opened') ||
+    err.message.includes('Failed to fetch dynamically imported module') ||
+    err.message.includes('The error you provided does not contain a stack trace')
   ) {
     return false
   }

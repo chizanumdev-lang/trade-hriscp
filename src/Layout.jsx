@@ -64,7 +64,7 @@ import {
 const navigationStructure = [
   {
     title: "Dashboard",
-    url: createPageUrl("Dashboard"),
+    url: "/",
     icon: LayoutDashboard,
   },
   {
@@ -284,7 +284,7 @@ export default function Layout({ children, currentPageName }) {
     logout();
   };
 
-  const navItems = isEmployee && user?.role !== 'admin' ? employeeNavigation : navigationStructure;
+  const navItems = isEmployee && !user?.role?.includes('ADMIN') && user?.role !== 'admin' ? employeeNavigation : navigationStructure;
 
   return (
     <SidebarProvider>
@@ -311,14 +311,14 @@ export default function Layout({ children, currentPageName }) {
           <SidebarContent className="p-4">
             <SidebarGroup>
               <SidebarGroupLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 mb-2">
-                {isEmployee && user?.role !== 'admin' ? 'Employee Menu' : 'Main Menu'}
+                {isEmployee && !user?.role?.includes('ADMIN') && user?.role !== 'admin' ? 'Employee Menu' : 'Main Menu'}
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {navItems.map((item) => (
                     <NavMenuItem key={item.title} item={item} location={location} />
                   ))}
-                  {(user?.role === 'admin' || user?.isOrgOwner) && (
+                  {(user?.role?.includes('ADMIN') || user?.role === 'admin' || user?.isOrgOwner) && (
                     <SidebarMenuItem>
                       <SidebarMenuButton 
                         asChild 
@@ -362,7 +362,7 @@ export default function Layout({ children, currentPageName }) {
                   <UserCircle className="w-4 h-4 mr-2" />
                   My Profile
                 </DropdownMenuItem>
-                {(user?.role === 'admin' || user?.isOrgOwner) && (
+                {(user?.role?.includes('ADMIN') || user?.role === 'admin' || user?.isOrgOwner) && (
                   <DropdownMenuItem onClick={() => navigate('/Settings')}>
                     <Settings className="w-4 h-4 mr-2" />
                     Settings

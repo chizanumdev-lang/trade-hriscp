@@ -251,8 +251,11 @@ export default function Employees() {
               </div>
             </div>
 
-            {/* Employee Display */}
-            {viewMode === 'list' ? (
+            {filteredEmployees.length === 0 && !isLoading ? (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+                <EmployeeList employees={filteredEmployees} isLoading={isLoading} />
+              </div>
+            ) : viewMode === 'list' ? (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200">
                 <EmployeeList employees={filteredEmployees} isLoading={isLoading} />
               </div>

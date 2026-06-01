@@ -75,7 +75,7 @@ describe('Dashboard', () => {
 
     it('Add New Hire button navigates to employees page', () => {
       cy.contains('button, a', /add new hire/i).click()
-      cy.url({ timeout: 8000 }).should('include', 'Employees')
+      cy.url({ timeout: 8000 }).should('include', 'employees')
     })
   })
 

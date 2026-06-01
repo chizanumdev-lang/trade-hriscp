@@ -23,6 +23,7 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated, navigateToLogin } = useAuth();
+  const isLoginPage = window.location.pathname.toLowerCase().includes('/login');
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -31,6 +32,12 @@ const AuthenticatedApp = () => {
         <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
       </div>
     );
+  }
+
+  // If we are on the login page, render it without layout
+  if (isLoginPage) {
+    const LoginPage = Pages['Login'] || (() => <div>Login component missing</div>);
+    return <LoginPage />;
   }
 
   // Handle authentication errors
@@ -50,7 +57,10 @@ const AuthenticatedApp = () => {
       <Routes>
         <Route path="/" element={<MainPage />} />
         {Object.entries(Pages).map(([path, Page]) => (
-          <Route key={path} path={`/${path}`} element={<Page />} />
+          <Route key={path} path={`/${path.toLowerCase()}`} element={<Page />} />
+        ))}
+        {Object.entries(Pages).map(([path, Page]) => (
+          <Route key={`orig-${path}`} path={`/${path}`} element={<Page />} />
         ))}
         <Route path="*" element={<PageNotFound />} />
       </Routes>

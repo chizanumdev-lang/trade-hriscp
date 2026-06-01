@@ -58,7 +58,7 @@ describe('Authentication', () => {
         cy.loginByApi(superAdmin.email, superAdmin.password)
         cy.visit('/')
         cy.window().then((win) => {
-          const token = win.localStorage.getItem('authToken')
+          const token = win.localStorage.getItem('token')
           expect(token).to.be.a('string').and.not.be.empty
         })
       })
@@ -94,9 +94,9 @@ describe('Authentication', () => {
         cy.contains('button', /admin|user/i).click()
         cy.contains(/logout|sign out/i).click()
 
-        cy.url({ timeout: 8000 }).should('include', 'Login')
+        cy.url({ timeout: 8000 }).should('include', 'login')
         cy.window().then((win) => {
-          expect(win.localStorage.getItem('authToken')).to.be.null
+          expect(win.localStorage.getItem('token')).to.be.null
         })
       })
     })

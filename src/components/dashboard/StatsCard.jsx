@@ -29,7 +29,7 @@ export default function StatsCard({ title, value, icon: Icon, color = "blue", tr
   const colors = colorClasses[color];
 
   return (
-    <Card className="relative overflow-hidden border-slate-200 hover:shadow-lg transition-shadow duration-300">
+    <Card className="Card relative overflow-hidden border-slate-200 hover:shadow-lg transition-shadow duration-300">
       <div className={`absolute top-0 right-0 w-32 h-32 ${colors.bg} opacity-5 rounded-full transform translate-x-8 -translate-y-8`} />
       <CardContent className="p-6">
         <div className="flex justify-between items-start">

@@ -35,9 +35,9 @@ Cypress.Commands.add('loginByApi', (email, password) => {
     expect(response.body.errors).to.be.undefined
 
     const { token, user } = response.body.data.login
-    window.localStorage.setItem('authToken', token)
+    window.localStorage.setItem('token', token)
     window.localStorage.setItem('currentUser', JSON.stringify(user))
-    Cypress.env('authToken', token)
+    Cypress.env('token', token)
     Cypress.env('currentUser', user)
   })
 })
@@ -59,7 +59,7 @@ Cypress.Commands.add('loginByUI', (email, password) => {
  * Usage: cy.logout()
  */
 Cypress.Commands.add('logout', () => {
-  window.localStorage.removeItem('authToken')
+  window.localStorage.removeItem('token')
   window.localStorage.removeItem('currentUser')
 })
 
@@ -72,7 +72,7 @@ Cypress.Commands.add('gql', (query, variables = {}) => {
     method: 'POST',
     url: Cypress.env('graphqlUrl'),
     headers: {
-      Authorization: `Bearer ${Cypress.env('authToken')}`,
+      Authorization: `Bearer ${Cypress.env('token')}`,
       'Content-Type': 'application/json',
     },
     body: { query, variables },

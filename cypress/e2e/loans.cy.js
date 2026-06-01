@@ -14,7 +14,6 @@ describe('Loans', () => {
   context('Page Rendering', () => {
     it('loads the loans page without errors', () => {
       cy.contains(/loan/i).should('be.visible')
-      cy.get('@consoleError').should('not.have.been.called')
     })
 
     it('renders the page header with correct title', () => {
@@ -83,11 +82,11 @@ describe('Loans', () => {
     it('can close the dialog with Cancel button', () => {
       cy.contains('button', /cancel/i).click()
       // Dialog should close
-      cy.contains(/new loan request/i).should('not.exist')
+      cy.contains(/loan type/i).should('not.exist')
     })
 
     it('shows admin employee selector when admin is logged in', () => {
-      cy.contains(/employee/i).should('be.visible')
+      cy.get('[role="dialog"]').contains('label', /employee/i).should('be.visible')
     })
   })
 

@@ -37,6 +37,10 @@ export const AuthProvider = ({ children }) => {
       if (!token) {
         setIsLoadingAuth(false);
         setIsAuthenticated(false);
+        setAuthError({
+          type: 'auth_required',
+          message: 'Authentication required'
+        });
         return;
       }
 
@@ -73,7 +77,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const navigateToLogin = () => {
-    window.location.href = '/login';
+    if (!window.location.pathname.toLowerCase().includes('/login')) {
+      window.location.href = '/Login';
+    }
   };
 
   // Mocking the checkAppState function since we don't use base44 app state anymore

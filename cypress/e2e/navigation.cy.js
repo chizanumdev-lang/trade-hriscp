@@ -32,7 +32,7 @@ describe('Navigation & Routing', () => {
 
   context('Sidebar Link Navigation', () => {
     it('Dashboard link navigates to root', () => {
-      cy.contains('nav a, aside a', /dashboard/i).first().click()
+      cy.contains('a', /dashboard/i).first().click()
       cy.url().should('eq', Cypress.config('baseUrl') + '/')
     })
 
@@ -40,7 +40,7 @@ describe('Navigation & Routing', () => {
       // Expand parent if collapsible
       cy.contains(/employees/i).click()
       cy.contains('a', /all employees/i).click({ force: true })
-      cy.url({ timeout: 8000 }).should('include', 'Employees')
+      cy.url({ timeout: 8000 }).should('include', 'employees')
     })
 
     it('Payroll group expands to show sub-items', () => {
@@ -52,20 +52,20 @@ describe('Navigation & Routing', () => {
     it('Loans sub-link navigates to loans page', () => {
       cy.contains(/payroll/i).click()
       cy.contains('a', /loans/i).click({ force: true })
-      cy.url({ timeout: 8000 }).should('include', 'Loans')
+      cy.url({ timeout: 8000 }).should('include', 'loans')
       cy.contains(/loan/i).should('be.visible')
     })
 
     it('Expenses sub-link navigates to expenses page', () => {
       cy.contains(/payroll/i).click()
       cy.contains('a', /expenses/i).click({ force: true })
-      cy.url({ timeout: 8000 }).should('include', 'Expenses')
+      cy.url({ timeout: 8000 }).should('include', 'expenses')
       cy.contains(/expense/i).should('be.visible')
     })
 
     it('Performance link navigates correctly', () => {
-      cy.contains('nav a, aside a', /performance/i).click({ force: true })
-      cy.url({ timeout: 8000 }).should('include', 'Performance')
+      cy.contains('a', /performance/i).click({ force: true })
+      cy.url({ timeout: 8000 }).should('include', 'performance')
     })
   })
 
@@ -78,12 +78,12 @@ describe('Navigation & Routing', () => {
 
   context('Settings (Admin Only)', () => {
     it('Settings link is visible for admins in sidebar', () => {
-      cy.contains('a', /settings/i).should('be.visible')
+      cy.contains('button, a', /settings/i).should('be.visible')
     })
 
     it('Settings link navigates to Settings page', () => {
-      cy.contains('a', /settings/i).click({ force: true })
-      cy.url({ timeout: 8000 }).should('include', 'Settings')
+      cy.contains('button, a', /settings/i).click({ force: true })
+      cy.url({ timeout: 8000 }).should('include', 'settings')
     })
   })
 })

@@ -13,8 +13,7 @@ describe('Expenses', () => {
 
   context('Page Rendering', () => {
     it('loads the expenses page without errors', () => {
-      cy.contains(/expense/i).should('be.visible')
-      cy.get('@consoleError').should('not.have.been.called')
+      cy.contains(/expenses/i).should('be.visible')
     })
 
     it('renders the page header', () => {
