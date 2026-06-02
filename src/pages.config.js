@@ -80,6 +80,7 @@ import TaskManager from './pages/TaskManager';
 import Templates from './pages/Templates';
 import Training from './pages/Training';
 import Performance from './pages/Performance';
+import KnowledgeBank from './pages/KnowledgeBank';
 import Login from './pages/Login';
 import __Layout from './Layout.jsx';
 
@@ -118,6 +119,7 @@ export const PAGES = {
     "Templates": Templates,
     "Training": Training,
     "Performance": Performance,
+    "KnowledgeBank": KnowledgeBank,
     "Login": Login,
 }
 

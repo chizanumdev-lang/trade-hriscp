@@ -2,7 +2,8 @@
 import React, { useState } from "react";
 import { gqlClient } from "@/api/graphqlClient";
 import { gql } from "graphql-request";
-import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/lib/AuthContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +18,8 @@ import ZKTecoDeviceManager from "../components/attendance/ZKTecoDeviceManager";
 import AttendanceSummary from "../components/attendance/AttendanceSummary";
 
 export default function Attendance() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showDeviceManager, setShowDeviceManager] = useState(false);
@@ -56,6 +59,70 @@ export default function Attendance() {
     queryKey: ['attendance-settings'],
     queryFn: async () => [],
     initialData: [],
+  });
+
+  const { data: myTodayRecord } = useQuery({
+    queryKey: ['attendance-today', user?.email],
+    queryFn: async () => {
+      const GET_MY_ATTENDANCE = gql`
+        query GetMyAttendance($date: String!) {
+          attendanceRecords(date: $date) {
+            id
+            employeeId
+            date
+            clockIn
+            clockOut
+            status
+          }
+        }
+      `;
+      // We pass today's date formatted as YYYY-MM-DD
+      const today = new Date().toISOString().split('T')[0];
+      const data = await gqlClient.request(GET_MY_ATTENDANCE, { date: today });
+      // Find the record for the current user
+      const record = (data.attendanceRecords || []).find(r => r.employeeId === user?.email);
+      return record || null;
+    },
+    enabled: !!user?.email
+  });
+
+  const clockInMutation = useMutation({
+    mutationFn: async () => {
+      const CLOCK_IN = gql`
+        mutation ClockIn {
+          clockIn {
+            id
+            clockIn
+            status
+          }
+        }
+      `;
+      return await gqlClient.request(CLOCK_IN);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
+    }
+  });
+
+  const clockOutMutation = useMutation({
+    mutationFn: async () => {
+      if (!myTodayRecord?.id) return;
+      const CLOCK_OUT = gql`
+        mutation ClockOut {
+          clockOut {
+            id
+            clockOut
+            status
+          }
+        }
+      `;
+      return await gqlClient.request(CLOCK_OUT);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
+    }
   });
 
   const currentSettings = settings[0] || {
@@ -113,7 +180,24 @@ export default function Attendance() {
               Track and manage employee attendance records
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-3 bg-white p-2 rounded-lg shadow-sm border border-slate-200">
+              <Button 
+                onClick={() => clockInMutation.mutate()} 
+                disabled={!!myTodayRecord?.clockIn || clockInMutation.isPending}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {myTodayRecord?.clockIn ? `Clocked In at ${myTodayRecord.clockIn}` : 'Clock In'}
+              </Button>
+              <Button 
+                onClick={() => clockOutMutation.mutate()} 
+                disabled={!myTodayRecord?.clockIn || !!myTodayRecord?.clockOut || clockOutMutation.isPending}
+                variant={myTodayRecord?.clockOut ? "outline" : "destructive"}
+              >
+                {myTodayRecord?.clockOut ? `Clocked Out at ${myTodayRecord.clockOut}` : 'Clock Out'}
+              </Button>
+            </div>
+            <div className="flex gap-3 flex-wrap">
             <Button size="sm" variant="outline" onClick={handlePrintReport}>
               <Printer className="w-4 h-4 mr-2" />
               Print
@@ -149,6 +233,7 @@ export default function Attendance() {
               <Upload className="w-4 h-4 mr-2" />
               Import Attendance
             </Button>
+            </div>
           </div>
         </div>
 

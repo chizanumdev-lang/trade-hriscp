@@ -29,7 +29,8 @@ import {
   ShieldCheck,
   Laptop,
   CheckCircle,
-  TrendingUp // New import
+  TrendingUp,
+  BookOpen
 } from "lucide-react";
 import {
   Sidebar,
@@ -119,6 +120,7 @@ const navigationStructure = [
     isParent: true,
     children: [
       { title: "AI Compliance Monitor", url: createPageUrl("ComplianceDashboard"), icon: ShieldCheck }, // Added item
+      { title: "Knowledge Bank", url: createPageUrl("KnowledgeBank"), icon: BookOpen },
       { title: "HR Letters", url: createPageUrl("HRLetters"), icon: FileText },
       { title: "Surveys", url: createPageUrl("Surveys"), icon: MessageSquare },
       { title: "Templates", url: createPageUrl("Templates"), icon: FileText },

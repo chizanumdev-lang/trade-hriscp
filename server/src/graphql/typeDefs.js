@@ -164,6 +164,54 @@ export const typeDefs = `#graphql
     weight: Float!
     status: String!
     period: String!
+    selfRating: Float
+    managerRating: Float
+  }
+  
+  type CheckIn {
+    id: ID!
+    employeeId: ID!
+    managerId: ID!
+    period: String!
+    scheduledDate: String
+    completedDate: String
+    selfAppraisal: String
+    managerNotes: String
+    overallRating: Float
+    status: String!
+  }
+
+  type OnboardingTask {
+    id: ID!
+    employeeId: ID!
+    title: String!
+    description: String
+    category: String!
+    assignedTo: String
+    isCompleted: Boolean!
+    dueDate: String
+    completedAt: String
+    status: String!
+  }
+
+  type Offboarding {
+    id: ID!
+    employeeId: ID!
+    exitType: String!
+    exitDate: String!
+    reason: String
+    assetReturned: Boolean!
+    accessRevoked: Boolean!
+    handoverComplete: Boolean!
+    finalPayrollProcessed: Boolean!
+  }
+
+  type Celebration {
+    employeeId: ID!
+    fullName: String!
+    type: String! # "BIRTHDAY" or "WORK_ANNIVERSARY"
+    date: String!
+    years: Int # for work anniversaries
   }
   type CloudinarySignature {
     signature: String!
@@ -198,6 +246,13 @@ export const typeDefs = `#graphql
     policies: [Policy]
     announcements: [Announcement]
     goals(employeeId: ID!): [Goal]
+    
+    # Phase 5 & 6 Queries
+    checkIns(employeeId: ID!): [CheckIn]
+    onboardingTasks(employeeId: ID): [OnboardingTask]
+    offboardingDetails(employeeId: ID!): Offboarding
+    allOffboardings: [Offboarding]
+    upcomingCelebrations(month: Int!): [Celebration]
     profileUpdateRequests: [ProfileUpdateRequest]
   }
 
@@ -284,9 +339,17 @@ export const typeDefs = `#graphql
     requestCompensationUpdate(employeeId: ID!, basicSalary: Float!, allowances: String, reason: String!): SalaryHistory!
 
     # Phase 4 Mutations
-    createPolicy(title: String!, category: String!, content: String, requiresAck: Boolean): Policy!
+    createPolicy(title: String!, category: String!, content: String, requiresAck: Boolean): Policy
     acknowledgePolicy(policyId: ID!): Boolean
-    createAnnouncement(title: String!, content: String!, priority: String!): Announcement!
-    createGoal(employeeId: ID!, title: String!, weight: Float!, period: String!): Goal!
+    createAnnouncement(title: String!, content: String!, priority: String!): Announcement
+    createGoal(employeeId: ID!, title: String!, weight: Float!, period: String!): Goal
+    
+    # Phase 5 & 6 Mutations
+    createCheckIn(employeeId: ID!, period: String!, scheduledDate: String): CheckIn
+    updateCheckIn(id: ID!, selfAppraisal: String, managerNotes: String, overallRating: Float, status: String): CheckIn
+    createOnboardingTask(employeeId: ID!, title: String!, description: String, category: String!, assignedTo: String, dueDate: String): OnboardingTask
+    updateOnboardingTask(id: ID!, status: String, isCompleted: Boolean): OnboardingTask
+    initiateOffboarding(employeeId: ID!, exitType: String!, exitDate: String!, reason: String): Offboarding
+    updateOffboarding(id: ID!, assetReturned: Boolean, accessRevoked: Boolean, handoverComplete: Boolean): Offboarding!
   }
 `;

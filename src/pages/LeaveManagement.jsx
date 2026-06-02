@@ -54,23 +54,36 @@ export default function LeaveManagement() {
     }
   }, [employees, user]);
 
+  const { data: leaveTypes = [] } = useQuery({
+    queryKey: ['leave-types'],
+    queryFn: async () => {
+      const TYPE_QUERY = gql`query { leaveTypes { id name daysPerYear isPaid } }`;
+      const data = await gqlClient.request(TYPE_QUERY);
+      return data.leaveTypes || [];
+    },
+    initialData: [],
+  });
+
   const { data: leaveRequests = [] } = useQuery({
     queryKey: ['leave-requests'],
     queryFn: async () => {
       const LEAVE_QUERY = gql`
-        query { leaveRequests { id employeeId startDate endDate totalDays status reason createdAt } }
+        query { leaveRequests { id employeeId leaveTypeId startDate endDate totalDays status reason createdAt } }
       `;
       const data = await gqlClient.request(LEAVE_QUERY);
-      return (data.leaveRequests || []).map(l => ({
-        ...l,
-        employee_email: l.employeeId, // Assuming employeeId is email for now since we lack full populating
-        employee_name: l.employeeId,
-        leave_type: 'annual', // Mocked
-        start_date: l.startDate,
-        end_date: l.endDate,
-        total_days: l.totalDays,
-        approvers: [] // Mocked
-      }));
+      return (data.leaveRequests || []).map(l => {
+        const type = leaveTypes.find(t => t.id === l.leaveTypeId)?.name || 'annual';
+        return {
+          ...l,
+          employee_email: l.employeeId, // Assuming employeeId is email for now since we lack full populating
+          employee_name: l.employeeId,
+          leave_type: type.toLowerCase(),
+          start_date: l.startDate,
+          end_date: l.endDate,
+          total_days: l.totalDays,
+          approvers: [] // Mocked
+        };
+      });
     },
     initialData: [],
   });
@@ -78,15 +91,22 @@ export default function LeaveManagement() {
   const createLeaveMutation = useMutation({
     mutationFn: async (data) => {
       const CREATE_LEAVE = gql`
-        mutation CreateLeave($employeeId: ID!, $startDate: String!, $endDate: String!, $totalDays: Int!, $reason: String) {
-          createLeaveRequest(employeeId: $employeeId, startDate: $startDate, endDate: $endDate, totalDays: $totalDays, reason: $reason) { id }
+        mutation CreateLeave($employeeId: ID!, $leaveTypeId: String!, $startDate: String!, $endDate: String!, $totalDays: Float!, $reason: String) {
+          submitLeaveRequest(input: {
+            leaveTypeId: $leaveTypeId,
+            startDate: $startDate,
+            endDate: $endDate,
+            totalDays: $totalDays,
+            reason: $reason
+          }) { id }
         }
       `;
       return gqlClient.request(CREATE_LEAVE, {
-        employeeId: data.employee_email, // Using email as temp id or we should lookup actual ID
+        employeeId: data.employee_email,
+        leaveTypeId: data.leave_type,
         startDate: new Date(data.start_date).toISOString(),
         endDate: new Date(data.end_date).toISOString(),
-        totalDays: parseInt(data.total_days),
+        totalDays: parseFloat(data.total_days),
         reason: data.reason
       });
     },
@@ -106,13 +126,22 @@ export default function LeaveManagement() {
   });
 
   const updateLeaveMutation = useMutation({
-    mutationFn: async ({ id, data }) => {
-      const UPDATE_LEAVE = gql`
-        mutation UpdateLeave($id: ID!, $status: String!) {
-          updateLeaveRequest(id: $id, status: $status) { id status }
-        }
-      `;
-      return gqlClient.request(UPDATE_LEAVE, { id, status: data.status });
+    mutationFn: async ({ id, status }) => {
+      if (status === 'APPROVED') {
+        const APPROVE_LEAVE = gql`
+          mutation ApproveLeave($id: ID!) {
+            approveLeaveRequest(id: $id) { id status }
+          }
+        `;
+        return gqlClient.request(APPROVE_LEAVE, { id });
+      } else if (status === 'REJECTED') {
+        const REJECT_LEAVE = gql`
+          mutation RejectLeave($id: ID!) {
+            rejectLeaveRequest(id: $id) { id status }
+          }
+        `;
+        return gqlClient.request(REJECT_LEAVE, { id });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
@@ -135,37 +164,17 @@ export default function LeaveManagement() {
     setUploadingFile(false);
   };
 
-  const handleApprove = (request, approverEmail) => {
-    const updatedApprovers = request.approvers.map(approver => 
-      approver.email === approverEmail 
-        ? { ...approver, status: 'approved', approved_date: new Date().toISOString() }
-        : approver
-    );
-    
-    const allApproved = updatedApprovers.every(a => a.status === 'approved');
-    
+  const handleApprove = (request) => {
     updateLeaveMutation.mutate({
       id: request.id,
-      data: {
-        approvers: updatedApprovers,
-        status: allApproved ? 'approved' : 'pending'
-      }
+      status: 'APPROVED'
     });
   };
 
-  const handleReject = (request, approverEmail) => {
-    const updatedApprovers = request.approvers.map(approver => 
-      approver.email === approverEmail 
-        ? { ...approver, status: 'rejected', approved_date: new Date().toISOString() }
-        : approver
-    );
-    
+  const handleReject = (request) => {
     updateLeaveMutation.mutate({
       id: request.id,
-      data: {
-        approvers: updatedApprovers,
-        status: 'rejected'
-      }
+      status: 'REJECTED'
     });
   };
 
@@ -189,13 +198,13 @@ export default function LeaveManagement() {
 
   const myRequests = leaveRequests.filter(r => r.employee_email === user?.email);
   const pendingApprovals = leaveRequests.filter(r => 
-    r.approvers?.some(a => a.email === user?.email && a.status === 'pending')
+    r.status === 'PENDING'
   );
 
   const statusColors = {
-    pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    approved: 'bg-green-100 text-green-700 border-green-200',
-    rejected: 'bg-red-100 text-red-700 border-red-200',
+    PENDING: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    APPROVED: 'bg-green-100 text-green-700 border-green-200',
+    REJECTED: 'bg-red-100 text-red-700 border-red-200',
   };
 
   return (
@@ -215,13 +224,33 @@ export default function LeaveManagement() {
               Request time off and manage approvals
             </p>
           </div>
-          <Button 
-            onClick={() => setShowForm(!showForm)}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Leave Request
-          </Button>
+            <Button 
+              onClick={() => setShowForm(!showForm)}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Leave Request
+            </Button>
+        </div>
+
+        {/* Leave Balances */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {leaveTypes.map(type => {
+            const usedDays = myRequests
+              .filter(r => r.leaveTypeId === type.id && r.status === 'APPROVED')
+              .reduce((sum, r) => sum + r.totalDays, 0);
+            const remaining = type.daysPerYear - usedDays;
+            
+            return (
+              <Card key={type.id} className="border-slate-200">
+                <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                  <p className="text-sm font-medium text-slate-500 uppercase">{type.name}</p>
+                  <p className="text-3xl font-bold text-blue-600 my-2">{remaining}</p>
+                  <p className="text-xs text-slate-400">of {type.daysPerYear} days available</p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Request Form */}
@@ -275,13 +304,9 @@ export default function LeaveManagement() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="annual">Annual Leave</SelectItem>
-                        <SelectItem value="sick">Sick Leave</SelectItem>
-                        <SelectItem value="personal">Personal Leave</SelectItem>
-                        <SelectItem value="emergency">Emergency Leave</SelectItem>
-                        <SelectItem value="unpaid">Unpaid Leave</SelectItem>
-                        <SelectItem value="maternity">Maternity Leave</SelectItem>
-                        <SelectItem value="paternity">Paternity Leave</SelectItem>
+                        {leaveTypes.map(type => (
+                          <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -407,7 +432,7 @@ export default function LeaveManagement() {
                         <Button 
                           size="sm" 
                           className="bg-green-600 hover:bg-green-700"
-                          onClick={() => handleApprove(request, user.email)}
+                          onClick={() => handleApprove(request)}
                         >
                           <CheckCircle className="w-4 h-4 mr-1" />
                           Approve
@@ -415,7 +440,7 @@ export default function LeaveManagement() {
                         <Button 
                           size="sm" 
                           variant="destructive"
-                          onClick={() => handleReject(request, user.email)}
+                          onClick={() => handleReject(request)}
                         >
                           <XCircle className="w-4 h-4 mr-1" />
                           Reject

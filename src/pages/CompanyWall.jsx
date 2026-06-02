@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Home, Heart, MessageSquare, Send, Image, Video, PinIcon, Upload, Users } from "lucide-react";
 import { format } from "date-fns";
+import CelebrationsWidget from "@/components/dashboard/CelebrationsWidget";
 
 export default function CompanyWall() {
   const queryClient = useQueryClient();
@@ -191,7 +192,8 @@ export default function CompanyWall() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3 space-y-6">
         {/* Header */}
         <div className="text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm mb-4">
@@ -450,6 +452,12 @@ export default function CompanyWall() {
               );
             })
           )}
+        </div>
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          <CelebrationsWidget />
         </div>
       </div>
     </div>

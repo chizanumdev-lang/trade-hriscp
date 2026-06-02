@@ -23,6 +23,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { uploadToCloudinary } from "@/utils/cloudinary";
+import OnboardingProgressWidget from "@/components/employee-detail/OnboardingProgressWidget";
 
 const menuItems = [
   { id: 'personal', label: 'Personal', icon: User },
@@ -1791,6 +1792,8 @@ export default function EmployeeDetail() {
                   )}
                 </Button>
               </div>
+
+              <OnboardingProgressWidget employeeId={employeeId} />
 
               {renderContent()}
             </div>

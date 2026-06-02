@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { gqlClient } from "@/api/graphqlClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,112 +42,102 @@ export default function Performance() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: evaluations = [], isLoading } = useQuery({
-    queryKey: ["evaluations"],
+  const { user } = useAuth();
+
+  const { data: goals = [], isLoading: loadingGoals } = useQuery({
+    queryKey: ["goals", user?.email],
     queryFn: async () => {
-      // Mock evaluations
-      return [];
+      if (!user?.email) return [];
+      const GET_GOALS = gql`
+        query GetGoals($employeeId: ID!) {
+          goals(employeeId: $employeeId) {
+            id title description weight status period selfRating managerRating
+          }
+        }
+      `;
+      const data = await gqlClient.request(GET_GOALS, { employeeId: user.email });
+      return data.goals || [];
     },
+    enabled: !!user?.email
+  });
+
+  const { data: checkIns = [], isLoading: loadingCheckIns } = useQuery({
+    queryKey: ["checkIns", user?.email],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      const GET_CHECKINS = gql`
+        query GetCheckIns($employeeId: ID!) {
+          checkIns(employeeId: $employeeId) {
+            id employeeId period scheduledDate completedDate selfAppraisal managerNotes overallRating status
+          }
+        }
+      `;
+      const data = await gqlClient.request(GET_CHECKINS, { employeeId: user.email });
+      return data.checkIns || [];
+    },
+    enabled: !!user?.email
   });
 
   const { data: employees = [] } = useQuery({
     queryKey: ["employees"],
     queryFn: async () => {
-      // Mock employees
-      return [
-        { id: 'emp_1', full_name: 'John Doe', job_title: 'Engineer' }
-      ];
+      const EMP_QUERY = gql`query { employees { id fullName email jobTitle } }`;
+      const data = await gqlClient.request(EMP_QUERY);
+      return (data.employees || []).map(e => ({ ...e, full_name: e.fullName }));
     },
+    initialData: [],
   });
 
-  const { data: trainingNeeds = [] } = useQuery({
-    queryKey: ["trainingNeeds"],
-    queryFn: async () => {
-      // Mock training needs
-      return [];
-    },
+  const [newGoal, setNewGoal] = useState({
+    title: "",
+    period: "Q3 2026",
+    weight: 10,
   });
 
-  const [newEvaluation, setNewEvaluation] = useState({
-    employee_id: "",
-    evaluation_type: "manager",
-    period: "",
-    competencies: {
-      communication: 0,
-      teamwork: 0,
-      problem_solving: 0,
-      technical_skills: 0,
-      leadership: 0,
-    },
-    strengths: "",
-    areas_for_improvement: "",
-    overall_rating: 0,
-    document_url: "",
-  });
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
-
-  const createEvaluationMutation = useMutation({
+  const createGoalMutation = useMutation({
     mutationFn: async (data) => {
-      // Mock user and create evaluation
-      const user = { email: "mock_evaluator@example.com" };
-      console.log("Mock create evaluation", data);
-      return {
-        ...data,
-        id: `eval_${Date.now()}`,
-        evaluator_email: user.email,
-        status: "draft",
-      };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["evaluations"] });
-      setIsDialogOpen(false);
-      setUploadedFile(null);
-      setNewEvaluation({
-        employee_id: "",
-        evaluation_type: "manager",
-        period: "",
-        competencies: {
-          communication: 0,
-          teamwork: 0,
-          problem_solving: 0,
-          technical_skills: 0,
-          leadership: 0,
-        },
-        strengths: "",
-        areas_for_improvement: "",
-        overall_rating: 0,
-        document_url: "",
+      const CREATE_GOAL = gql`
+        mutation CreateGoal($employeeId: ID!, $title: String!, $weight: Float!, $period: String!) {
+          createGoal(employeeId: $employeeId, title: $title, weight: $weight, period: $period) {
+            id
+          }
+        }
+      `;
+      return await gqlClient.request(CREATE_GOAL, {
+        employeeId: user?.email,
+        title: data.title,
+        weight: parseFloat(data.weight),
+        period: data.period
       });
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
+      setIsDialogOpen(false);
+      setNewGoal({ title: "", period: "Q3 2026", weight: 10 });
+    },
   });
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    try {
-      const file_url = URL.createObjectURL(file);
-      setNewEvaluation({ ...newEvaluation, document_url: file_url });
-      setUploadedFile(file.name);
-    } catch (error) {
-      console.error("Error uploading file:", error);
-    } finally {
-      setIsUploading(false);
+  const updateCheckInMutation = useMutation({
+    mutationFn: async ({ id, data }) => {
+      const UPDATE_CHECKIN = gql`
+        mutation UpdateCheckIn($id: ID!, $selfAppraisal: String, $status: String) {
+          updateCheckIn(id: $id, selfAppraisal: $selfAppraisal, status: $status) { id }
+        }
+      `;
+      return await gqlClient.request(UPDATE_CHECKIN, { id, ...data });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["checkIns"] });
     }
-  };
+  });
 
   // Calculate stats
-  const totalEvaluations = evaluations.length;
-  const completedEvaluations = evaluations.filter((e) => e.status === "reviewed").length;
-  const avgRating =
-    evaluations.length > 0
-      ? (
-          evaluations.reduce((sum, e) => sum + (e.overall_rating || 0), 0) / evaluations.length
-        ).toFixed(1)
-      : 0;
-  const pendingEvaluations = evaluations.filter((e) => e.status === "draft").length;
+  const totalGoals = goals.length;
+  const completedGoals = goals.filter((g) => g.status === "COMPLETED").length;
+  const avgRating = checkIns.length > 0
+    ? (checkIns.reduce((sum, c) => sum + (c.overallRating || 0), 0) / checkIns.length).toFixed(1)
+    : 0;
+  const pendingCheckIns = checkIns.filter((c) => c.status === "SCHEDULED").length;
 
   const getEmployeeName = (employeeId) => {
     const employee = employees.find((e) => e.id === employeeId);
@@ -155,9 +146,10 @@ export default function Performance() {
 
   const getStatusColor = (status) => {
     const colors = {
-      draft: "bg-yellow-100 text-yellow-800",
-      submitted: "bg-blue-100 text-blue-800",
-      reviewed: "bg-green-100 text-green-800",
+      SCHEDULED: "bg-yellow-100 text-yellow-800",
+      COMPLETED: "bg-green-100 text-green-800",
+      DRAFT: "bg-gray-100 text-gray-800",
+      ACTIVE: "bg-blue-100 text-blue-800",
     };
     return colors[status] || "bg-gray-100 text-gray-800";
   };
@@ -187,178 +179,54 @@ export default function Performance() {
             <DialogTrigger asChild>
               <Button className="bg-blue-600 hover:bg-blue-700">
                 <Plus className="w-4 h-4 mr-2" />
-                New Evaluation
+                New Goal
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Create Performance Evaluation</DialogTitle>
+                <DialogTitle>Create Performance Goal</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label>Employee</Label>
-                  <Select
-                    value={newEvaluation.employee_id}
-                    onValueChange={(value) =>
-                      setNewEvaluation({ ...newEvaluation, employee_id: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select employee" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {employees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.id}>
-                          {emp.full_name} - {emp.job_title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Goal Title</Label>
+                  <Input
+                    value={newGoal.title}
+                    onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
+                    placeholder="e.g., Increase sales by 10%"
+                  />
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Evaluation Type</Label>
+                    <Label>Period</Label>
                     <Select
-                      value={newEvaluation.evaluation_type}
-                      onValueChange={(value) =>
-                        setNewEvaluation({ ...newEvaluation, evaluation_type: value })
-                      }
+                      value={newGoal.period}
+                      onValueChange={(value) => setNewGoal({ ...newGoal, period: value })}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="self">Self Evaluation</SelectItem>
-                        <SelectItem value="manager">Manager Review</SelectItem>
-                        <SelectItem value="peer">Peer Review</SelectItem>
-                        <SelectItem value="360">360 Review</SelectItem>
+                        <SelectItem value="Q1 2026">Q1 2026</SelectItem>
+                        <SelectItem value="Q2 2026">Q2 2026</SelectItem>
+                        <SelectItem value="Q3 2026">Q3 2026</SelectItem>
+                        <SelectItem value="Q4 2026">Q4 2026</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-
                   <div>
-                    <Label>Period</Label>
+                    <Label>Weight (%)</Label>
                     <Input
-                      placeholder="e.g., Q1 2026"
-                      value={newEvaluation.period}
-                      onChange={(e) =>
-                        setNewEvaluation({ ...newEvaluation, period: e.target.value })
-                      }
+                      type="number"
+                      value={newGoal.weight}
+                      onChange={(e) => setNewGoal({ ...newGoal, weight: e.target.value })}
                     />
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="mb-2 block">Competencies (1-5)</Label>
-                  <div className="space-y-3">
-                    {Object.keys(newEvaluation.competencies).map((key) => (
-                      <div key={key} className="flex items-center justify-between">
-                        <span className="text-sm capitalize">
-                          {key.replace(/_/g, " ")}
-                        </span>
-                        <div className="flex gap-2">
-                          {[1, 2, 3, 4, 5].map((rating) => (
-                            <button
-                              key={rating}
-                              type="button"
-                              onClick={() =>
-                                setNewEvaluation({
-                                  ...newEvaluation,
-                                  competencies: {
-                                    ...newEvaluation.competencies,
-                                    [key]: rating,
-                                  },
-                                })
-                              }
-                              className={`w-8 h-8 rounded-full border-2 transition-all ${
-                                newEvaluation.competencies[key] >= rating
-                                  ? "bg-blue-600 border-blue-600 text-white"
-                                  : "border-gray-300 hover:border-blue-400"
-                              }`}
-                            >
-                              {rating}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Strengths</Label>
-                  <Textarea
-                    value={newEvaluation.strengths}
-                    onChange={(e) =>
-                      setNewEvaluation({ ...newEvaluation, strengths: e.target.value })
-                    }
-                    placeholder="Key strengths observed..."
-                    rows={3}
-                  />
-                </div>
-
-                <div>
-                  <Label>Areas for Improvement</Label>
-                  <Textarea
-                    value={newEvaluation.areas_for_improvement}
-                    onChange={(e) =>
-                      setNewEvaluation({
-                        ...newEvaluation,
-                        areas_for_improvement: e.target.value,
-                      })
-                    }
-                    placeholder="Areas that need improvement..."
-                    rows={3}
-                  />
-                </div>
-
-                <div>
-                  <Label>Overall Rating (1-5)</Label>
-                  <div className="flex gap-2 mt-2">
-                    {[1, 2, 3, 4, 5].map((rating) => (
-                      <button
-                        key={rating}
-                        type="button"
-                        onClick={() =>
-                          setNewEvaluation({ ...newEvaluation, overall_rating: rating })
-                        }
-                        className={`flex-1 h-12 rounded-lg border-2 transition-all ${
-                          newEvaluation.overall_rating === rating
-                            ? "bg-blue-600 border-blue-600 text-white font-bold"
-                            : "border-gray-300 hover:border-blue-400"
-                        }`}
-                      >
-                        {rating}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Supporting Document (Optional)</Label>
-                  <div className="mt-2">
-                    <Input
-                      type="file"
-                      onChange={handleFileUpload}
-                      disabled={isUploading}
-                      accept=".pdf,.doc,.docx,.txt,.xls,.xlsx"
-                    />
-                    {isUploading && (
-                      <p className="text-sm text-blue-600 mt-2">Uploading...</p>
-                    )}
-                    {uploadedFile && (
-                      <p className="text-sm text-green-600 mt-2">✓ {uploadedFile}</p>
-                    )}
                   </div>
                 </div>
 
                 <Button
-                  onClick={() => createEvaluationMutation.mutate(newEvaluation)}
-                  disabled={!newEvaluation.employee_id || !newEvaluation.period}
+                  onClick={() => createGoalMutation.mutate(newGoal)}
+                  disabled={!newGoal.title || createGoalMutation.isPending}
                   className="w-full"
                 >
-                  Create Evaluation
+                  {createGoalMutation.isPending ? "Creating..." : "Create Goal"}
                 </Button>
               </div>
             </DialogContent>
@@ -371,9 +239,9 @@ export default function Performance() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600">Total Evaluations</p>
+                  <p className="text-sm text-slate-600">Total Goals</p>
                   <p className="text-3xl font-bold text-slate-900 mt-1">
-                    {totalEvaluations}
+                    {totalGoals}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -387,9 +255,9 @@ export default function Performance() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600">Completed</p>
+                  <p className="text-sm text-slate-600">Completed Goals</p>
                   <p className="text-3xl font-bold text-slate-900 mt-1">
-                    {completedEvaluations}
+                    {completedGoals}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
@@ -417,9 +285,9 @@ export default function Performance() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600">Pending</p>
+                  <p className="text-sm text-slate-600">Pending Check-ins</p>
                   <p className="text-3xl font-bold text-slate-900 mt-1">
-                    {pendingEvaluations}
+                    {pendingCheckIns}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
@@ -439,109 +307,65 @@ export default function Performance() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 mt-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <Input
-                  placeholder="Search evaluations..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
+            <h2 className="text-xl font-semibold mb-4">My Goals</h2>
             <div className="grid gap-4">
-              {evaluations
-                .filter((evaluation) =>
-                  getEmployeeName(evaluation.employee_id)
-                    .toLowerCase()
-                    .includes(searchTerm.toLowerCase())
-                )
-                .map((evaluation) => (
-                  <Card key={evaluation.id} className="hover:shadow-lg transition-shadow">
+              {goals.map((goal) => (
+                  <Card key={goal.id} className="hover:shadow-lg transition-shadow">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h3 className="text-lg font-semibold text-slate-900">
-                              {getEmployeeName(evaluation.employee_id)}
+                              {goal.title}
                             </h3>
-                            <Badge className={getStatusColor(evaluation.status)}>
-                              {evaluation.status}
+                            <Badge className={getStatusColor(goal.status)}>
+                              {goal.status}
                             </Badge>
-                            <Badge variant="outline">{evaluation.evaluation_type}</Badge>
                           </div>
                           <div className="flex items-center gap-4 text-sm text-slate-600 mb-3">
                             <span className="flex items-center gap-1">
                               <Calendar className="w-4 h-4" />
-                              {evaluation.period}
+                              {goal.period}
                             </span>
-                            <span>By: {evaluation.evaluator_email}</span>
+                            <span>Weight: {goal.weight}%</span>
                           </div>
-                          {evaluation.overall_rating > 0 && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-slate-600">Overall Rating:</span>
-                              <div className="flex gap-1">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`w-4 h-4 ${
-                                      i < evaluation.overall_rating
-                                        ? "fill-yellow-500 text-yellow-500"
-                                        : "text-gray-300"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <span
-                                className={`font-semibold ${getRatingColor(
-                                  evaluation.overall_rating
-                                )}`}
-                              >
-                                {evaluation.overall_rating}/5
-                              </span>
-                            </div>
-                          )}
                         </div>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
-
-              {evaluations.length === 0 && (
-                <Card>
-                  <CardContent className="p-12 text-center">
-                    <Target className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                      No evaluations yet
-                    </h3>
-                    <p className="text-slate-600">
-                      Start by creating your first performance evaluation
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           </TabsContent>
 
           <TabsContent value="pending" className="space-y-4 mt-6">
+            <h2 className="text-xl font-semibold mb-4">Pending Check-ins</h2>
             <div className="grid gap-4">
-              {evaluations
-                .filter((e) => e.status === "draft" || e.status === "submitted")
-                .map((evaluation) => (
-                  <Card key={evaluation.id} className="hover:shadow-lg transition-shadow">
+              {checkIns
+                .filter((c) => c.status === "SCHEDULED")
+                .map((checkIn) => (
+                  <Card key={checkIn.id} className="hover:shadow-lg transition-shadow">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
-                        <div>
+                        <div className="w-full">
                           <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                            {getEmployeeName(evaluation.employee_id)}
+                            Check-in for {checkIn.period}
                           </h3>
-                          <div className="flex items-center gap-3 text-sm text-slate-600">
-                            <span>{evaluation.period}</span>
-                            <Badge className={getStatusColor(evaluation.status)}>
-                              {evaluation.status}
+                          <div className="flex items-center gap-3 text-sm text-slate-600 mb-4">
+                            <span>Scheduled: {checkIn.scheduledDate}</span>
+                            <Badge className={getStatusColor(checkIn.status)}>
+                              {checkIn.status}
                             </Badge>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Self Appraisal Notes</Label>
+                            <Textarea 
+                              placeholder="Write your reflections here..." 
+                              onBlur={(e) => updateCheckInMutation.mutate({
+                                id: checkIn.id,
+                                data: { selfAppraisal: e.target.value, status: 'COMPLETED' }
+                              })}
+                            />
+                            <p className="text-xs text-slate-500">Clicking outside the box will submit your appraisal.</p>
                           </div>
                         </div>
                       </div>
@@ -552,44 +376,39 @@ export default function Performance() {
           </TabsContent>
 
           <TabsContent value="completed" className="space-y-4 mt-6">
+            <h2 className="text-xl font-semibold mb-4">Completed Check-ins</h2>
             <div className="grid gap-4">
-              {evaluations
-                .filter((e) => e.status === "reviewed")
-                .map((evaluation) => (
-                  <Card key={evaluation.id} className="hover:shadow-lg transition-shadow">
+              {checkIns
+                .filter((c) => c.status === "COMPLETED")
+                .map((checkIn) => (
+                  <Card key={checkIn.id} className="hover:shadow-lg transition-shadow">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
                         <div>
                           <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                            {getEmployeeName(evaluation.employee_id)}
+                            Check-in for {checkIn.period}
                           </h3>
                           <div className="flex items-center gap-3 text-sm text-slate-600 mb-3">
-                            <span>{evaluation.period}</span>
-                            <Badge className={getStatusColor(evaluation.status)}>
-                              {evaluation.status}
+                            <span>Completed on {checkIn.completedDate || checkIn.scheduledDate}</span>
+                            <Badge className={getStatusColor(checkIn.status)}>
+                              {checkIn.status}
                             </Badge>
                           </div>
-                          {evaluation.overall_rating > 0 && (
+                          {checkIn.overallRating > 0 && (
                             <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">Manager Rating:</span>
                               <div className="flex gap-1">
                                 {[...Array(5)].map((_, i) => (
                                   <Star
                                     key={i}
                                     className={`w-4 h-4 ${
-                                      i < evaluation.overall_rating
+                                      i < checkIn.overallRating
                                         ? "fill-yellow-500 text-yellow-500"
                                         : "text-gray-300"
                                     }`}
                                   />
                                 ))}
                               </div>
-                              <span
-                                className={`font-semibold ${getRatingColor(
-                                  evaluation.overall_rating
-                                )}`}
-                              >
-                                {evaluation.overall_rating}/5
-                              </span>
                             </div>
                           )}
                         </div>

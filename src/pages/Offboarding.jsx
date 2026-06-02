@@ -41,43 +41,59 @@ export default function Offboarding() {
   const { data: offboardings = [] } = useQuery({
     queryKey: ['offboardings'],
     queryFn: async () => {
-      // Mock offboardings
-      return [];
+      const OFFBOARDINGS_QUERY = gql`
+        query GetAllOffboardings {
+          allOffboardings {
+            id
+            employeeId
+            exitType
+            exitDate
+            reason
+            assetReturned
+            accessRevoked
+            handoverComplete
+            finalPayrollProcessed
+          }
+        }
+      `;
+      const data = await gqlClient.request(OFFBOARDINGS_QUERY);
+      return data.allOffboardings || [];
     },
     initialData: [],
   });
 
-  const { data: employees = [] } = useQuery({
+  const { data: employeesData } = useQuery({
     queryKey: ['employees'],
     queryFn: async () => {
-      // Mock employees
-      return [];
+      const EMPLOYEES_QUERY = gql`
+        query GetEmployees {
+          employees {
+            id
+            fullName
+            jobTitle
+          }
+        }
+      `;
+      return await gqlClient.request(EMPLOYEES_QUERY);
     },
-    initialData: [],
   });
+  const employees = employeesData?.employees || [];
 
   const createOffboardingMutation = useMutation({
     mutationFn: async (data) => {
-      const employee = employees.find(e => e.id === data.employee_id) || { full_name: "Mock Employee" };
-      
-      const defaultChecklist = [
-        { task: 'Complete offboarding', completed: false },
-        { task: 'Exit interview', completed: false },
-        { task: 'Return company assets', completed: false },
-        { task: 'Access revocation', completed: false },
-        { task: 'Final settlement', completed: false },
-        { task: 'Certificate issuance', completed: false },
-      ];
-
-      return {
-        ...data,
-        id: `offboarding_${Date.now()}`,
-        organization_id: user?.organization_id,
-        employee_name: employee.full_name,
-        checklist: defaultChecklist,
-        status: 'in_progress',
-        completion_percentage: 0,
-      };
+      const INITIATE_OFFBOARDING = gql`
+        mutation InitiateOffboarding($employeeId: ID!, $exitType: String!, $exitDate: String!, $reason: String) {
+          initiateOffboarding(employeeId: $employeeId, exitType: $exitType, exitDate: $exitDate, reason: $reason) {
+            id
+          }
+        }
+      `;
+      return await gqlClient.request(INITIATE_OFFBOARDING, {
+        employeeId: data.employee_id,
+        exitType: data.exitType || 'RESIGNATION',
+        exitDate: data.last_working_day,
+        reason: data.reason || ''
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['offboardings'] });
@@ -90,6 +106,22 @@ export default function Offboarding() {
         final_settlement: 0,
       });
     },
+  });
+
+  const updateOffboardingMutation = useMutation({
+    mutationFn: async ({ id, data }) => {
+      const UPDATE_OFFBOARDING = gql`
+        mutation UpdateOffboarding($id: ID!, $assetReturned: Boolean, $accessRevoked: Boolean, $handoverComplete: Boolean) {
+          updateOffboarding(id: $id, assetReturned: $assetReturned, accessRevoked: $accessRevoked, handoverComplete: $handoverComplete) {
+            id
+          }
+        }
+      `;
+      return await gqlClient.request(UPDATE_OFFBOARDING, { id, ...data });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['offboardings'] });
+    }
   });
 
   return (
@@ -161,24 +193,39 @@ export default function Offboarding() {
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {offboardings.map(offboarding => (
+          {offboardings.map(offboarding => {
+            const employee = employees.find(e => e.id === offboarding.employeeId) || { fullName: "Unknown Employee" };
+            const checklist = [
+              { task: 'Return company assets', field: 'assetReturned', completed: offboarding.assetReturned },
+              { task: 'Access revocation', field: 'accessRevoked', completed: offboarding.accessRevoked },
+              { task: 'Handover complete', field: 'handoverComplete', completed: offboarding.handoverComplete },
+              { task: 'Final settlement processed', field: 'finalPayrollProcessed', completed: offboarding.finalPayrollProcessed },
+            ];
+
+            return (
             <Card key={offboarding.id} className="border-slate-200 overflow-hidden">
               <div className="bg-gradient-to-r from-teal-500 to-cyan-600 p-6 text-white">
                 <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white shadow-lg">
                   <span className="text-3xl">👋</span>
                 </div>
-                <h3 className="font-bold text-xl text-center">{offboarding.employee_name}</h3>
-                <p className="text-center text-teal-100 text-sm">Offboarding Journey</p>
+                <h3 className="font-bold text-xl text-center">{employee.fullName}</h3>
+                <p className="text-center text-teal-100 text-sm">Offboarding Journey ({offboarding.exitType})</p>
               </div>
               <CardContent className="p-6 space-y-4">
                 <div className="space-y-3">
-                  {offboarding.checklist?.map((item, idx) => (
+                  {checklist.map((item, idx) => (
                     <div key={idx} className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        item.completed ? 'bg-green-500' : 'bg-slate-200'
+                      <button 
+                        onClick={() => {
+                          if (item.field !== 'finalPayrollProcessed') {
+                            updateOffboardingMutation.mutate({ id: offboarding.id, data: { [item.field]: !item.completed } });
+                          }
+                        }}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                        item.completed ? 'bg-green-500' : 'bg-slate-200 hover:bg-slate-300'
                       }`}>
                         {item.completed && <CheckCircle className="w-4 h-4 text-white" />}
-                      </div>
+                      </button>
                       <span className={`text-sm ${item.completed ? 'text-slate-900' : 'text-slate-500'}`}>
                         {item.task}
                       </span>
@@ -190,39 +237,14 @@ export default function Offboarding() {
                   <div className="flex items-center gap-2 text-sm">
                     <Calendar className="w-4 h-4 text-slate-400" />
                     <div>
-                      <p className="text-xs text-slate-500">Notice Date</p>
-                      <p className="font-medium">{format(new Date(offboarding.notice_date), 'MMM dd, yyyy')}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="w-4 h-4 text-slate-400" />
-                    <div>
-                      <p className="text-xs text-slate-500">Last Working Day</p>
-                      <p className="font-medium">{format(new Date(offboarding.last_working_day), 'MMM dd, yyyy')}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="w-4 h-4 text-slate-400" />
-                    <div>
-                      <p className="text-xs text-slate-500">Termination Date</p>
-                      <p className="font-medium">{format(new Date(offboarding.termination_date), 'MMM dd, yyyy')}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <DollarSign className="w-4 h-4 text-slate-400" />
-                    <div>
-                      <p className="text-xs text-slate-500">Final Settlement</p>
-                      <p className="font-medium">{offboarding.final_settlement?.toLocaleString()} SAR</p>
+                      <p className="text-xs text-slate-500">Exit Date</p>
+                      <p className="font-medium">{format(new Date(offboarding.exitDate), 'MMM dd, yyyy')}</p>
                     </div>
                   </div>
                 </div>
-
-                <Button className="w-full bg-red-600 hover:bg-red-700 mt-4">
-                  Complete
-                </Button>
               </CardContent>
             </Card>
-          ))}
+          )})}
 
           {offboardings.length === 0 && (
             <Card className="col-span-full border-slate-200">

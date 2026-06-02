@@ -20,6 +20,7 @@ import StatsCard from "../components/dashboard/StatsCard";
 import EmployeeList from "../components/dashboard/EmployeeList";
 import RecentActivity from "../components/dashboard/RecentActivity";
 import QuickActions from "../components/dashboard/QuickActions";
+import CelebrationsWidget from "../components/dashboard/CelebrationsWidget";
 
 export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -180,7 +181,8 @@ export default function Dashboard() {
         </div>
 
         {/* Recent Activity - Takes 1 column */}
-        <div>
+        <div className="space-y-6">
+          <CelebrationsWidget />
           <RecentActivity tasks={tasks} employees={employees} />
         </div>
       </div>

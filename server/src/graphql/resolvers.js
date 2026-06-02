@@ -174,6 +174,60 @@ export const resolvers = {
         include: { employee: true },
         orderBy: { createdAt: 'desc' }
       });
+    },
+    
+    // Phase 5 & 6 Queries
+    checkIns: async (_, { employeeId }, { prisma, requireAuth }) => {
+      requireAuth();
+      return prisma.checkIn.findMany({ where: { employeeId }, orderBy: { period: 'desc' } });
+    },
+    onboardingTasks: async (_, { employeeId }, { prisma, requireAuth }) => {
+      requireAuth();
+      const where = employeeId ? { employeeId } : {};
+      return prisma.onboardingTask.findMany({ where });
+    },
+    offboardingDetails: async (_, { employeeId }, { prisma, requireAuth }) => {
+      requireAuth();
+      return prisma.offboarding.findUnique({ where: { employeeId } });
+    },
+    allOffboardings: async (_, __, { prisma, requireAuth }) => {
+      requireAuth();
+      return prisma.offboarding.findMany({
+        include: { employee: true }
+      });
+    },
+    upcomingCelebrations: async (_, { month }, { prisma, user, requireAuth }) => {
+      requireAuth();
+      const employees = await prisma.employee.findMany({
+        where: { organizationId: user.organizationId, employmentStatus: 'ACTIVE' },
+        select: { id: true, fullName: true, dateOfBirth: true, hireDate: true }
+      });
+      
+      const celebrations = [];
+      employees.forEach(emp => {
+        if (emp.dateOfBirth && emp.dateOfBirth.getMonth() + 1 === month) {
+          celebrations.push({
+            employeeId: emp.id,
+            fullName: emp.fullName,
+            type: 'BIRTHDAY',
+            date: emp.dateOfBirth.toISOString(),
+            years: null
+          });
+        }
+        if (emp.hireDate && emp.hireDate.getMonth() + 1 === month) {
+          const years = new Date().getFullYear() - emp.hireDate.getFullYear();
+          if (years > 0) {
+            celebrations.push({
+              employeeId: emp.id,
+              fullName: emp.fullName,
+              type: 'WORK_ANNIVERSARY',
+              date: emp.hireDate.toISOString(),
+              years: years
+            });
+          }
+        }
+      });
+      return celebrations;
     }
   },
 
@@ -874,6 +928,70 @@ export const resolvers = {
       return prisma.goal.create({
         data: { employeeId, title, weight, period }
       });
+    },
+
+    // Phase 5 & 6 Mutations
+    createCheckIn: async (_, { employeeId, period, scheduledDate }, { prisma, user, requireRole }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
+      return prisma.checkIn.create({
+        data: { employeeId, managerId: user.employeeId, period, scheduledDate: scheduledDate ? new Date(scheduledDate) : null }
+      });
+    },
+    updateCheckIn: async (_, { id, selfAppraisal, managerNotes, overallRating, status }, { prisma, requireAuth }) => {
+      requireAuth();
+      const data = {};
+      if (selfAppraisal !== undefined) data.selfAppraisal = selfAppraisal;
+      if (managerNotes !== undefined) data.managerNotes = managerNotes;
+      if (overallRating !== undefined) data.overallRating = overallRating;
+      if (status !== undefined) {
+        data.status = status;
+        if (status === 'completed') data.completedDate = new Date();
+      }
+      return prisma.checkIn.update({ where: { id }, data });
+    },
+    createOnboardingTask: async (_, { employeeId, title, description, category, assignedTo, dueDate }, { prisma, requireAuth }) => {
+      requireAuth();
+      return prisma.onboardingTask.create({
+        data: {
+          employeeId,
+          title,
+          description,
+          category,
+          assignedTo,
+          dueDate: dueDate ? new Date(dueDate) : null
+        }
+      });
+    },
+    updateOnboardingTask: async (_, { id, status, isCompleted }, { prisma, requireAuth }) => {
+      requireAuth();
+      const data = {};
+      if (status !== undefined) data.status = status;
+      if (isCompleted !== undefined) {
+        data.isCompleted = isCompleted;
+        if (isCompleted) data.completedAt = new Date();
+      }
+      return prisma.onboardingTask.update({ where: { id }, data });
+    },
+    initiateOffboarding: async (_, { employeeId, exitType, exitDate, reason }, { prisma, requireRole }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
+      // Also update employee status
+      await prisma.employee.update({
+        where: { id: employeeId },
+        data: { employmentStatus: 'OFFBOARDED' } // could be RESIGNED or TERMINATED based on exitType but sticking to OFFBOARDED
+      });
+      return prisma.offboarding.upsert({
+        where: { employeeId },
+        update: { exitType, exitDate: new Date(exitDate), reason },
+        create: { employeeId, exitType, exitDate: new Date(exitDate), reason }
+      });
+    },
+    updateOffboarding: async (_, { id, assetReturned, accessRevoked, handoverComplete }, { prisma, requireRole }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
+      const data = {};
+      if (assetReturned !== undefined) data.assetReturned = assetReturned;
+      if (accessRevoked !== undefined) data.accessRevoked = accessRevoked;
+      if (handoverComplete !== undefined) data.handoverComplete = handoverComplete;
+      return prisma.offboarding.update({ where: { id }, data });
     }
   },
   Employee: {
