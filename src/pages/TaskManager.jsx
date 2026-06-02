@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { gqlClient } from "@/api/graphqlClient";
+import { gql } from 'graphql-request';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Kanban, FolderKanban } from "lucide-react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+
+const GET_TASKS = gql`
+  query GetTasks {
+    onboardingTasks {
+      id
+      title
+      description
+      isCompleted
+      status
+      category
+      assignedTo
+      employeeId
+    }
+  }
+`;
+
+const EMPLOYEES_QUERY = gql`
+  query GetTaskManagerEmployees {
+    employees {
+      id
+      fullName
+    }
+  }
+`;
+
+const UPDATE_TASK = gql`
+  mutation UpdateOnboardingTask($id: ID!, $status: String!) {
+    updateOnboardingTask(id: $id, status: $status) {
+      id
+      isCompleted
+      status
+    }
+  }
+`;
 
 export default function TaskManager() {
   const queryClient = useQueryClient();
@@ -54,23 +89,40 @@ export default function TaskManager() {
     loadUser();
   }, []);
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: async () => [],
-    initialData: [],
-  });
-
-  const { data: allTasks = [] } = useQuery({
-    queryKey: ['task-items'],
-    queryFn: async () => [],
-    initialData: [],
-  });
-
-  const { data: employees = [] } = useQuery({
+  const { data: employeesData = {} } = useQuery({
     queryKey: ['employees'],
-    queryFn: async () => [],
-    initialData: [],
+    queryFn: async () => await gqlClient.request(EMPLOYEES_QUERY),
   });
+  const employees = employeesData.employees || [];
+
+  const { data: allTasksData = {} } = useQuery({
+    queryKey: ['onboarding-tasks'],
+    queryFn: async () => await gqlClient.request(GET_TASKS),
+  });
+
+  // Dynamically create projects from unique employee IDs in onboarding tasks
+  const uniqueEmployeeIds = Array.from(new Set((allTasksData.onboardingTasks || []).map(t => t.employeeId).filter(Boolean)));
+  const projects = uniqueEmployeeIds.map(empId => {
+    const emp = employees.find(e => e.id === empId);
+    return {
+      id: empId,
+      project_name: emp ? `Onboarding: ${emp.fullName}` : 'Onboarding: Unknown',
+      description: 'Employee onboarding process',
+      status: 'in_progress'
+    };
+  });
+
+  // Map onboarding tasks to Kanban format
+  const allTasks = (allTasksData.onboardingTasks || []).map(t => ({
+    id: t.id,
+    title: t.title,
+    description: t.description || `Category: ${t.category}`,
+    status: t.status || (t.isCompleted ? 'done' : 'todo'),
+    priority: 'medium',
+    assigned_to: t.assignedTo || 'Unassigned',
+    project_id: t.employeeId,
+    is_onboarding: true
+  }));
 
   const createProjectMutation = useMutation({
     mutationFn: async (data) => {
@@ -124,21 +176,44 @@ export default function TaskManager() {
 
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      console.log("Mock update task", id, data);
-      return { id, ...data };
+      // If it's an onboarding task, update it on the backend
+      return await gqlClient.request(UPDATE_TASK, { id, status: data.status });
+    },
+    onMutate: async ({ id, data }) => {
+      await queryClient.cancelQueries({ queryKey: ['onboarding-tasks'] });
+      const previousData = queryClient.getQueryData(['onboarding-tasks']);
+      
+      queryClient.setQueryData(['onboarding-tasks'], (old) => {
+        if (!old || !old.onboardingTasks) return old;
+        return {
+          ...old,
+          onboardingTasks: old.onboardingTasks.map(task => 
+            task.id === id ? { ...task, status: data.status, isCompleted: data.status === 'done' } : task
+          )
+        };
+      });
+      
+      return { previousData };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['task-items'] });
+      queryClient.invalidateQueries({ queryKey: ['onboarding-tasks'] });
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['onboarding-tasks'], context.previousData);
+      }
       console.error("Error updating task:", error);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['onboarding-tasks'] });
     }
   });
 
   // Filter tasks by project if selected
+  // Show all tasks to everyone, as requested
   const tasks = selectedProject 
     ? allTasks.filter(t => t.project_id === selectedProject.id)
-    : allTasks.filter(t => t.assigned_to === user?.email || t.assigned_by === user?.email);
+    : allTasks;
 
   const tasksByStatus = {
     backlog: tasks.filter(t => t.status === 'backlog'),

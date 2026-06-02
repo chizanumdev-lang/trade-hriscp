@@ -71,17 +71,21 @@ export default function EmployeeList({ employees, isLoading }) {
             {/* Employee Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-slate-900 truncate">
+                <h3 className="font-semibold text-slate-900 truncate flex items-center gap-2">
                   {employee.full_name}
+                  <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-normal">
+                    {employee.employeeCode}
+                  </span>
                 </h3>
-                <Badge variant="outline" className={`${statusColors[employee.onboarding_status]} border`}>
-                  {statusLabels[employee.onboarding_status]}
+                <Badge variant="outline" className={`${statusColors[employee.onboarding_status] || 'bg-slate-100 text-slate-800'} border`}>
+                  {statusLabels[employee.onboarding_status] || employee.onboarding_status || 'Draft'}
                 </Badge>
               </div>
               <div className="flex items-center gap-3 text-sm text-slate-500">
                 <span className="flex items-center gap-1">
                   <Briefcase className="w-3.5 h-3.5" />
                   {employee.job_title}
+                  {employee.department_name && <span className="text-slate-400"> • {employee.department_name}</span>}
                 </span>
                 <span className="flex items-center gap-1">
                   <Mail className="w-3.5 h-3.5" />

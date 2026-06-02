@@ -31,3 +31,9 @@ dist-ssr
 cypress/videos
 cypress/screenshots
 cypress/
+# Cypress tests
+cypress/
+cypress.config.js
+cypress.env.json
+*.cy.js
+*.cy.ts

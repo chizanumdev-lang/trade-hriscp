@@ -31,16 +31,24 @@ export default function EmployeeCard({ employee }) {
               <h3 className="font-bold text-lg text-slate-900 truncate group-hover:text-blue-600 transition-colors">
                 {employee.full_name}
               </h3>
-              <Badge variant="outline" className={`${statusColors[employee.employment_status || 'active']} border text-xs mt-1`}>
-                {(employee.employment_status || 'active').replace('_', ' ')}
-              </Badge>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                  {employee.employeeCode}
+                </span>
+                <Badge variant="outline" className={`${statusColors[employee.employment_status || 'active']} border text-[10px]`}>
+                  {(employee.employment_status || 'active').replace('_', ' ')}
+                </Badge>
+              </div>
             </div>
           </div>
 
           <div className="space-y-2 text-sm text-slate-600">
             <div className="flex items-center gap-2">
               <Briefcase className="w-4 h-4 text-slate-400" />
-              <span className="truncate">{employee.job_title}</span>
+              <span className="truncate">
+                {employee.job_title}
+                {employee.department_name && <span className="text-slate-400"> • {employee.department_name}</span>}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <Mail className="w-4 h-4 text-slate-400" />
@@ -52,10 +60,12 @@ export default function EmployeeCard({ employee }) {
                 <span>{employee.phone}</span>
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-slate-400" />
-              <span>Joined {format(new Date(employee.start_date), "MMM d, yyyy")}</span>
-            </div>
+            {employee.start_date && !isNaN(new Date(employee.start_date).getTime()) && (
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                <span>Joined {format(new Date(employee.start_date), "MMM d, yyyy")}</span>
+              </div>
+            )}
           </div>
 
           {employee.employment_type && (

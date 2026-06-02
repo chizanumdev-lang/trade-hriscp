@@ -55,20 +55,31 @@ export default function EmployeeDetail() {
       const EMP_QUERY = gql`
         query GetEmployee($id: ID!) {
           employee(id: $id) {
-            id fullName email jobTitle departmentId employmentStatus hireDate
+            id fullName email privateEmail phone dateOfBirth gender maritalStatus nationality nationalId passportNumber jobTitle departmentId employmentStatus employmentType hireDate
           }
         }
       `;
       const data = await gqlClient.request(EMP_QUERY, { id: employeeId });
       if (!data.employee) return null;
+      const emp = data.employee;
       return {
-        ...data.employee,
-        full_name: data.employee.fullName,
-        job_title: data.employee.jobTitle,
-        department_id: data.employee.departmentId,
-        employment_status: data.employee.employmentStatus,
-        start_date: data.employee.hireDate,
-        personal_info: {}, // Mocked
+        ...emp,
+        full_name: emp.fullName,
+        job_title: emp.jobTitle,
+        department_id: emp.departmentId,
+        employment_status: emp.employmentStatus,
+        employment_type: emp.employmentType,
+        start_date: emp.hireDate,
+        private_email: emp.privateEmail,
+        phone: emp.phone,
+        personal_info: {
+          date_of_birth: emp.dateOfBirth ? new Date(emp.dateOfBirth).toISOString().split('T')[0] : '',
+          gender: emp.gender,
+          marital_status: emp.maritalStatus,
+          nationality: emp.nationality,
+          national_id: emp.nationalId,
+          iqama_number: emp.passportNumber
+        },
         contract_details: {}, // Mocked
         leave_balances: {}, // Mocked
       };
@@ -154,8 +165,32 @@ export default function EmployeeDetail() {
 
   const updateEmployeeMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      // Mocked for now - needs backend schema update for full profile edits
-      return { id };
+      const UPDATE_EMP = gql`
+        mutation UpdateEmployee($id: ID!, $input: UpdateEmployeeInput!) {
+          updateEmployee(id: $id, input: $input) {
+            id
+          }
+        }
+      `;
+      const input = {
+        privateEmail: data.private_email || undefined,
+        phone: data.phone || undefined,
+        dateOfBirth: data.personal_info?.date_of_birth || undefined,
+        gender: data.personal_info?.gender || undefined,
+        maritalStatus: data.personal_info?.marital_status || undefined,
+        nationality: data.personal_info?.nationality || undefined,
+        nationalId: data.personal_info?.national_id || undefined,
+        passportNumber: data.personal_info?.iqama_number || undefined,
+        jobTitle: data.job_title || undefined,
+        departmentId: data.department_id || undefined,
+        employmentType: data.employment_type || undefined,
+        employmentStatus: data.employment_status || undefined,
+        hireDate: data.start_date || undefined
+      };
+      
+      Object.keys(input).forEach(key => input[key] === undefined && delete input[key]);
+      
+      return gqlClient.request(UPDATE_EMP, { id, input });
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });

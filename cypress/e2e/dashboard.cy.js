@@ -29,8 +29,7 @@ describe('Dashboard', () => {
 
     it('highlights the active navigation item when on dashboard', () => {
       // Active nav item should have a distinct style (purple background in this app)
-      cy.contains('a', 'Dashboard').should('have.class', 'text-purple-700').or('have.attr', 'aria-current', 'page')
-        .or('have.class', 'bg-purple-50')
+      cy.get('a[href="/"]').filter(':contains("Dashboard")').should('have.class', 'text-purple-700')
     })
 
     it('expands collapsible nav groups on click', () => {
@@ -89,8 +88,7 @@ describe('Dashboard', () => {
     })
 
     it('renders status filter dropdown', () => {
-      cy.get('select').contains(/all status|status/i).should('exist')
-        .or(() => cy.get('select').should('be.visible'))
+      cy.get('select').should('be.visible').and('contain', 'All Status')
     })
 
     it('filters employees by search term', () => {

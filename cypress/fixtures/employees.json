@@ -1,5 +1,3 @@
-// cypress/fixtures/employees.json
-// Test employee data for create/update operations
 {
   "newEmployee": {
     "fullName": "Alice Cypress",
@@ -19,7 +17,8 @@
       "fullName": "John Doe",
       "email": "john.doe@tradevu.com",
       "jobTitle": "Software Engineer",
-      "employmentStatus": "ACTIVE"
+      "employmentStatus": "ACTIVE",
+      "start_date": "2023-01-15T00:00:00Z"
     },
     {
       "id": "emp-002",
@@ -27,7 +26,8 @@
       "fullName": "Jane Smith",
       "email": "jane.smith@tradevu.com",
       "jobTitle": "Product Manager",
-      "employmentStatus": "ACTIVE"
+      "employmentStatus": "ACTIVE",
+      "start_date": "2023-03-20T00:00:00Z"
     }
   ]
 }

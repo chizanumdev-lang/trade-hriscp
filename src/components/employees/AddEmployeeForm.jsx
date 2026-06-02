@@ -21,6 +21,10 @@ export default function AddEmployeeForm({ templates, departments, onSubmit, onCa
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!formData.template_id) {
+      alert("Please select an onboarding template.");
+      return;
+    }
     onSubmit(formData);
   };
 
@@ -137,10 +141,10 @@ export default function AddEmployeeForm({ templates, departments, onSubmit, onCa
               Onboarding Template
             </h3>
             <div className="space-y-2">
-              <Label htmlFor="template_id">Select Template (Optional)</Label>
-              <Select value={formData.template_id} onValueChange={(value) => handleChange("template_id", value)}>
+              <Label htmlFor="template_id">Select Template *</Label>
+              <Select value={formData.template_id} onValueChange={(value) => handleChange("template_id", value)} required>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a template or skip" />
+                  <SelectValue placeholder="Choose a template" />
                 </SelectTrigger>
                 <SelectContent>
                   {templates.map((template) => (

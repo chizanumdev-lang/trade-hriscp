@@ -31,10 +31,16 @@ export default function Employees() {
         query GetEmployeesList {
           employees {
             id
+            employeeCode
             fullName
             email
             jobTitle
+            department {
+              name
+            }
             employmentStatus
+            onboardingStatus
+            onboardingProgress
             hireDate
           }
         }
@@ -44,7 +50,10 @@ export default function Employees() {
         ...emp,
         full_name: emp.fullName,
         job_title: emp.jobTitle,
+        department_name: emp.department?.name,
         employment_status: emp.employmentStatus,
+        onboarding_status: emp.onboardingStatus,
+        progress_percentage: emp.onboardingProgress,
         start_date: emp.hireDate
       }));
     },
@@ -53,7 +62,11 @@ export default function Employees() {
 
   const { data: templates = [] } = useQuery({
     queryKey: ['templates'],
-    queryFn: async () => [],
+    queryFn: async () => [
+      { id: 'standard', name: 'Standard Onboarding (IT, Laptop, Access)' },
+      { id: 'developer', name: 'Developer Onboarding (IT, Codebase, Access)' },
+      { id: 'sales', name: 'Sales Onboarding (IT, CRM, Access)' }
+    ],
     initialData: [],
   });
 
@@ -88,7 +101,8 @@ export default function Employees() {
           jobTitle: employeeData.job_title,
           departmentId: employeeData.department_id,
           hireDate: employeeData.start_date,
-          basicSalary: parseFloat(employeeData.basic_salary) || 0
+          basicSalary: parseFloat(employeeData.basic_salary) || 0,
+          templateId: employeeData.template_id
         }
       });
 

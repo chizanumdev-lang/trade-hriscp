@@ -214,13 +214,13 @@ function NavMenuItem({ item, location }) {
         <CollapsibleContent className="pl-4 space-y-1">
           {item.children.map((child) => (
             <SidebarMenuItem key={child.title}>
-              <SidebarMenuButton 
-                asChild 
-                className={`hover:bg-purple-50 hover:text-purple-700 transition-all duration-200 rounded-lg ${
-                  location.pathname === child.url ? 'bg-purple-50 text-purple-700 font-medium shadow-sm' : 'text-slate-600'
-                }`}
-              >
-                <Link to={child.url} className="flex items-center gap-3 px-3 py-2">
+              <SidebarMenuButton asChild>
+                <Link 
+                  to={child.url} 
+                  className={`flex items-center gap-3 px-3 py-2 hover:bg-purple-50 hover:text-purple-700 transition-all duration-200 rounded-lg ${
+                    location.pathname === child.url ? 'bg-purple-50 text-purple-700 font-medium shadow-sm' : 'text-slate-600'
+                  }`}
+                >
                   <child.icon className="w-4 h-4" />
                   <span className="text-sm">{child.title}</span>
                 </Link>
@@ -234,13 +234,13 @@ function NavMenuItem({ item, location }) {
 
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton 
-        asChild 
-        className={`hover:bg-purple-50 hover:text-purple-700 transition-all duration-200 rounded-lg mb-1 ${
-          location.pathname === item.url ? 'bg-purple-50 text-purple-700 font-medium shadow-sm' : 'text-slate-600'
-        }`}
-      >
-        <Link to={item.url} className="flex items-center gap-3 px-3 py-2.5">
+      <SidebarMenuButton asChild className="mb-1">
+        <Link 
+          to={item.url} 
+          className={`flex items-center gap-3 px-3 py-2.5 hover:bg-purple-50 hover:text-purple-700 transition-all duration-200 rounded-lg ${
+            location.pathname === item.url ? 'bg-purple-50 text-purple-700 font-medium shadow-sm' : 'text-slate-600'
+          }`}
+        >
           <item.icon className="w-5 h-5" />
           <span className="font-medium">{item.title}</span>
         </Link>

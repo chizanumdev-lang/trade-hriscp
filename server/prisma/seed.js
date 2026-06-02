@@ -21,44 +21,107 @@ async function main() {
   const hrAdminPassword = await bcrypt.hash('HrAdmin@12345', 10)
   const employeePassword = await bcrypt.hash('Employee@12345', 10)
 
+  // Seed Departments
+  const departments = ['Engineering', 'Product', 'Sales', 'Marketing', 'Human Resources'];
+  for (const dept of departments) {
+    const existingDept = await prisma.department.findFirst({
+      where: { name: dept, organizationId: org.id }
+    });
+    if (!existingDept) {
+      await prisma.department.create({
+        data: {
+          name: dept,
+          code: dept.toUpperCase().substring(0, 3),
+          organizationId: org.id,
+        }
+      });
+    }
+  }
+
+  // Seed Employees First
+  const superAdminEmployee = await prisma.employee.upsert({
+    where: { email: 'superadmin@tradevu.com' },
+    update: {},
+    create: {
+      employeeCode: 'EMP-0001',
+      organizationId: org.id,
+      fullName: 'Super Admin',
+      email: 'superadmin@tradevu.com',
+      hireDate: new Date(),
+      jobTitle: 'Super Administrator',
+      employmentStatus: 'ACTIVE',
+    }
+  });
+
+  const hrAdminEmployee = await prisma.employee.upsert({
+    where: { email: 'hradmin@tradevu.com' },
+    update: {},
+    create: {
+      employeeCode: 'EMP-0002',
+      organizationId: org.id,
+      fullName: 'HR Administrator',
+      email: 'hradmin@tradevu.com',
+      hireDate: new Date(),
+      jobTitle: 'HR Administrator',
+      employmentStatus: 'ACTIVE',
+    }
+  });
+
+  const standardEmployee = await prisma.employee.upsert({
+    where: { email: 'employee@tradevu.com' },
+    update: {},
+    create: {
+      employeeCode: 'EMP-0003',
+      organizationId: org.id,
+      fullName: 'Jane Employee',
+      email: 'employee@tradevu.com',
+      hireDate: new Date(),
+      jobTitle: 'Software Engineer',
+      employmentStatus: 'ACTIVE',
+    }
+  });
+
   // Super Admin
   await prisma.user.upsert({
     where: { email: 'superadmin@tradevu.com' },
-    update: { passwordHash: superAdminPassword },
+    update: { passwordHash: superAdminPassword, employeeId: superAdminEmployee.id },
     create: {
       email: 'superadmin@tradevu.com',
       passwordHash: superAdminPassword,
       role: 'SUPER_ADMIN',
       organizationId: org.id,
-      isOrgOwner: true
+      isOrgOwner: true,
+      employeeId: superAdminEmployee.id
     }
   })
 
   // HR Admin
   await prisma.user.upsert({
     where: { email: 'hradmin@tradevu.com' },
-    update: { passwordHash: hrAdminPassword },
+    update: { passwordHash: hrAdminPassword, employeeId: hrAdminEmployee.id },
     create: {
       email: 'hradmin@tradevu.com',
       passwordHash: hrAdminPassword,
       role: 'HR_ADMIN',
       organizationId: org.id,
+      employeeId: hrAdminEmployee.id
     }
   })
 
   // Employee
   await prisma.user.upsert({
     where: { email: 'employee@tradevu.com' },
-    update: { passwordHash: employeePassword },
+    update: { passwordHash: employeePassword, employeeId: standardEmployee.id },
     create: {
       email: 'employee@tradevu.com',
       passwordHash: employeePassword,
       role: 'EMPLOYEE',
       organizationId: org.id,
+      employeeId: standardEmployee.id
     }
   })
 
-  console.log('Seeded database with test users')
+  console.log('Seeded database with test users and employees')
 }
 
 main()

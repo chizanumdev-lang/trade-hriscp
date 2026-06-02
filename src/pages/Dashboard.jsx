@@ -35,6 +35,8 @@ export default function Dashboard() {
             fullName
             email
             jobTitle
+            onboardingStatus
+            onboardingProgress
           }
         }
       `;
@@ -44,8 +46,8 @@ export default function Dashboard() {
         ...emp,
         full_name: emp.fullName,
         job_title: emp.jobTitle,
-        onboarding_status: 'completed', // Mocked until phase 6
-        progress_percentage: 100
+        onboarding_status: emp.onboardingStatus || 'not_started',
+        progress_percentage: emp.onboardingProgress || 0
       }));
     },
     initialData: [],

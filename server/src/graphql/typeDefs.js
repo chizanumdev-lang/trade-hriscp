@@ -77,8 +77,24 @@ export const typeDefs = `#graphql
     category: String!
     fileUrl: String!
     fileType: String!
+    fileSize: Int
+    currentVersion: Int!
     visibilityLevel: String!
     status: String!
+    uploadedBy: String!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type DocumentVersion {
+    id: ID!
+    documentId: String!
+    version: Int!
+    fileUrl: String!
+    fileType: String!
+    fileSize: Int
+    uploadedBy: String!
+    createdAt: String!
   }
 
   type Notification {
@@ -137,6 +153,12 @@ export const typeDefs = `#graphql
     status: String!
     period: String!
   }
+  type CloudinarySignature {
+    signature: String!
+    timestamp: Int!
+    apiKey: String!
+    cloudName: String!
+  }
 
   type Query {
     me: User
@@ -149,7 +171,9 @@ export const typeDefs = `#graphql
     leaveTypes: [LeaveType]
     leaveRequests(employeeId: ID): [LeaveRequest]
     attendanceRecords(employeeId: ID, date: String): [Attendance]
-    documents(employeeId: ID!): [Document]
+    documents(employeeId: ID, category: String): [Document]
+    documentHistory(documentId: ID!): [DocumentVersion]
+    getCloudinarySignature: CloudinarySignature!
     notifications: [Notification]
 
     # Phase 3 Queries
@@ -161,6 +185,30 @@ export const typeDefs = `#graphql
     policies: [Policy]
     announcements: [Announcement]
     goals(employeeId: ID!): [Goal]
+    profileUpdateRequests: [ProfileUpdateRequest]
+  }
+
+  type ApprovalRecord {
+    id: ID!
+    entityType: String!
+    entityId: String!
+    approverUserId: String!
+    action: String!
+    comments: String
+    previousStatus: String
+    createdAt: String!
+  }
+
+  type ProfileUpdateRequest {
+    id: ID!
+    employeeId: String!
+    fieldName: String!
+    currentValue: String
+    requestedValue: String!
+    status: String!
+    reviewedBy: String
+    createdAt: String!
+    employee: Employee!
   }
 
   input RegisterInput {
@@ -193,7 +241,12 @@ export const typeDefs = `#graphql
     createEmployee(input: EmployeeInput!): Employee!
     deleteEmployee(id: ID!): Boolean
     
-    createDepartment(name: String!, code: String): Department!
+    createDepartment(name: String!, code: String, headEmployeeId: String): Department!
+    updateDepartment(id: ID!, name: String, code: String, headEmployeeId: String): Department!
+    approveDepartment(id: ID!): Department!
+    deleteDepartment(id: ID!): Boolean
+
+    processApproval(entityType: String!, entityId: ID!, action: String!, comments: String): ApprovalRecord!
 
     # Phase 2 Mutations
     createLeaveType(name: String!, daysPerYear: Int!, isPaid: Boolean, requiresApproval: Boolean): LeaveType!
@@ -204,7 +257,10 @@ export const typeDefs = `#graphql
     clockIn: Attendance!
     clockOut: Attendance!
     
-    uploadDocument(employeeId: ID!, name: String!, category: String!, fileUrl: String!, fileType: String!, visibilityLevel: String!): Document!
+    uploadDocument(employeeId: ID!, name: String!, category: String!, fileUrl: String!, fileType: String!, fileSize: Int, visibilityLevel: String!): Document!
+    replaceDocumentVersion(id: ID!, fileUrl: String!, fileType: String!, fileSize: Int): Document!
+    archiveDocument(id: ID!): Document!
+    deleteDocument(id: ID!): Document!
     
     markNotificationRead(id: ID!): Notification!
 
