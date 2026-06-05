@@ -5,18 +5,44 @@
 
 describe('Employees', () => {
   beforeEach(() => {
-    cy.interceptGQL('GetEmployees', {
+    cy.interceptGQL('GetEmployeesList', {
       data: {
         employees: [
-          { id: '1', fullName: 'Alice Smith', email: 'alice@example.com', jobTitle: 'Developer', department: 'Engineering', status: 'ACTIVE' },
-          { id: '2', fullName: 'Bob Jones', email: 'bob@example.com', jobTitle: 'Designer', department: 'Design', status: 'ACTIVE' }
+          { 
+            id: '1', 
+            employeeCode: 'E001',
+            fullName: 'Alice Smith', 
+            email: 'alice@example.com', 
+            jobTitle: 'Developer', 
+            department: { name: 'Engineering' }, 
+            employmentStatus: 'active',
+            onboardingStatus: 'COMPLETED',
+            onboardingProgress: 100,
+            hireDate: '2023-01-01'
+          },
+          { 
+            id: '2', 
+            employeeCode: 'E002',
+            fullName: 'Bob Jones', 
+            email: 'bob@example.com', 
+            jobTitle: 'Designer', 
+            department: { name: 'Design' }, 
+            employmentStatus: 'active',
+            onboardingStatus: 'COMPLETED',
+            onboardingProgress: 100,
+            hireDate: '2023-05-15'
+          }
         ]
       }
-    }).as('GetEmployees')
+    }).as('GetEmployeesList')
     
+    cy.interceptGQL('GetDepartments', {
+      data: { departments: [{ id: 'd1', name: 'Engineering' }, { id: 'd2', name: 'Design' }] }
+    }).as('GetDepartments')
+
     cy.loginByApi()
     cy.visit('/Employees')
-    cy.wait('@GetEmployees')
+    cy.wait('@GetEmployeesList')
   })
 
   context('Page Rendering', () => {
@@ -112,7 +138,7 @@ describe('Employees', () => {
         // Only test navigation if employees exist
         if (!$body.text().match(/no employees|empty/i)) {
           cy.get('[class*="card"], tr, [class*="employee-row"]').first().click()
-          cy.url({ timeout: 8000 }).should('include', 'EmployeeDetail')
+          cy.url({ timeout: 8000 }).should('match', /employeedetail/i)
         }
       })
     })

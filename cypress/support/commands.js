@@ -20,9 +20,17 @@ Cypress.Commands.add('loginByApi', (email, password) => {
     isOrgOwner: true
   }
 
-  cy.window().then((win) => {
+  // Set localStorage reliably before app code runs on the next visit
+  cy.on('window:before:load', (win) => {
     win.localStorage.setItem('token', token)
     win.localStorage.setItem('currentUser', JSON.stringify(user))
+  })
+  
+  // Intercept the Me query that AuthContext calls on app mount
+  cy.interceptGQL('Me', {
+    data: {
+      me: user
+    }
   })
   
   Cypress.env('token', token)
@@ -103,13 +111,20 @@ Cypress.Commands.add('noConsoleErrors', () => {
  */
 Cypress.Commands.add('interceptGQL', (operationName, responseOverride) => {
   cy.intercept('POST', Cypress.env('graphqlUrl'), (req) => {
-    // Some libraries send query as text, but typically it's { operationName: '...', query: '...' }
-    if (req.body && req.body.operationName === operationName) {
-      // Return the mock response
+    let matches = false;
+    if (typeof req.body === 'string') {
+      matches = req.body.includes(operationName);
+    } else if (req.body) {
+      matches = (req.body.operationName === operationName) || 
+                (req.body.query && req.body.query.includes(operationName));
+    }
+
+    if (matches) {
+      req.alias = operationName;
       req.reply({
         statusCode: 200,
         body: responseOverride,
       })
     }
-  }).as(operationName)
+  })
 })

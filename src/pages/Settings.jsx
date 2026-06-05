@@ -168,8 +168,8 @@ export default function Settings() {
       console.log("Mock update shift", id, data);
       return { id, ...data };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shifts'] });
+    onSuccess: (data) => {
+      queryClient.setQueryData(['shifts'], old => old.map(s => s.id === data.id ? data : s));
       setShowShiftDialog(false);
       setEditingShift(null);
     },
@@ -185,8 +185,8 @@ export default function Settings() {
         total_hours: calculateHours(data.start_time, data.end_time, data.break_duration_minutes),
       };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shifts'] });
+    onSuccess: (data) => {
+      queryClient.setQueryData(['shifts'], old => [...(old || []), data]);
       setShowShiftDialog(false);
       setShiftForm({
         shift_name: '',
@@ -209,8 +209,8 @@ export default function Settings() {
         is_active: true,
       };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+    onSuccess: (data) => {
+      queryClient.setQueryData(['workflows'], old => [...(old || []), data]);
       setShowWorkflowDialog(false);
       setWorkflowForm({
         workflow_name: '',
@@ -225,8 +225,8 @@ export default function Settings() {
       console.log("Mock update workflow", id, data);
       return { id, ...data };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+    onSuccess: (data) => {
+      queryClient.setQueryData(['workflows'], old => old.map(w => w.id === data.id ? data : w));
       setShowWorkflowDialog(false);
       setEditingWorkflow(null);
     },

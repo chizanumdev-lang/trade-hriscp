@@ -1348,6 +1348,15 @@ export default function EmployeeDetail() {
                           <Badge variant="outline">{doc.category}</Badge>
                           <Badge variant="secondary" className="bg-slate-200 text-slate-700">{doc.visibilityLevel === 'hr_only' ? 'HR Only' : doc.visibilityLevel === 'manager' ? 'Manager+' : 'Employee+'}</Badge>
                           <Badge variant="secondary" className="bg-blue-100 text-blue-700">v{doc.currentVersion || 1}</Badge>
+                          {doc.status && (
+                            <Badge variant="secondary" className={
+                              doc.status === 'EXPIRING_SOON' ? 'bg-amber-100 text-amber-700' :
+                              doc.status === 'EXPIRED' ? 'bg-red-100 text-red-700' :
+                              'bg-green-100 text-green-700'
+                            }>
+                              {doc.status}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
