@@ -746,15 +746,20 @@ export default function EmployeeDetail() {
                 <div className="space-y-2">
                   <Label>Employment Status</Label>
                   <Select
-                    value={editData.employment_status || 'active'}
+                    value={editData.employment_status || 'ACTIVE'}
                     onValueChange={(value) => setEditData(prev => ({ ...prev, employment_status: value }))}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="on_leave">On Leave</SelectItem>
-                      <SelectItem value="suspended">Suspended</SelectItem>
-                      <SelectItem value="terminated">Terminated</SelectItem>
+                      <SelectItem value="DRAFT">Draft</SelectItem>
+                      <SelectItem value="PENDING_ONBOARDING">Pending Onboarding</SelectItem>
+                      <SelectItem value="PROBATION">Probation</SelectItem>
+                      <SelectItem value="ACTIVE">Active</SelectItem>
+                      <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                      <SelectItem value="RESIGNED">Resigned</SelectItem>
+                      <SelectItem value="TERMINATED">Terminated</SelectItem>
+                      <SelectItem value="OFFBOARDED">Offboarded</SelectItem>
+                      <SelectItem value="ARCHIVED">Archived</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
