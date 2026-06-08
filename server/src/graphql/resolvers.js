@@ -420,10 +420,11 @@ export const resolvers = {
     },
     updateEmployeeSelf: async (_, { input }, { prisma, user }) => {
       if (!user) throw new Error("Not authenticated");
-      const id = user.id;
-      
       const existing = await prisma.employee.findFirst({
-        where: { id, organizationId: user.organizationId }
+        where: { 
+          organizationId: user.organizationId,
+          ...(user.employeeId ? { id: user.employeeId } : { email: user.email })
+        }
       });
       if (!existing) throw new Error("Employee not found");
       
@@ -438,12 +439,12 @@ export const resolvers = {
       if (input.passportNumber !== undefined) updateData.passportNumber = input.passportNumber;
       
       const updated = await prisma.employee.update({
-        where: { id },
+        where: { id: existing.id },
         data: updateData
       });
       
-      await createAuditLog({ actorId: user.id, entityType: 'Employee', entityId: id, action: 'UPDATE_SELF' });
-      await checkAndPromoteEmployee(id, prisma);
+      await createAuditLog({ actorId: user.id, entityType: 'Employee', entityId: existing.id, action: 'UPDATE_SELF' });
+      await checkAndPromoteEmployee(existing.id, prisma);
       return updated;
     },
     deleteEmployee: async (_, { id }, { prisma, user, requireRole }) => {
