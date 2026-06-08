@@ -91,8 +91,8 @@ const APPROVE_LEAVE = gql`
 `;
 
 const REJECT_LEAVE = gql`
-  mutation RejectLeave($id: ID!) {
-    rejectLeaveRequest(id: $id) {
+  mutation RejectLeave($id: ID!, $reason: String!) {
+    rejectLeaveRequest(id: $id, reason: $reason) {
       id
       status
     }
@@ -109,13 +109,63 @@ const APPROVE_PROFILE = gql`
 `;
 
 const REJECT_PROFILE = gql`
-  mutation RejectProfile($id: ID!) {
-    rejectProfileUpdateRequest(id: $id) {
+  mutation RejectProfile($id: ID!, $reason: String!) {
+    rejectProfileUpdateRequest(id: $id, reason: $reason) {
       id
       status
     }
   }
 `;
+
+
+const RejectDialog = ({ onReject, title = "Reject Request" }) => {
+  const [reason, setReason] = React.useState("");
+  const [open, setOpen] = React.useState(false);
+
+  const handleReject = () => {
+    if (!reason.trim()) return;
+    onReject(reason);
+    setOpen(false);
+    setReason("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-2">
+          <XCircle className="w-4 h-4" />
+          Reject
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">Reason for rejection (Required)</label>
+            <textarea
+              className="w-full min-h-[100px] p-3 rounded-md border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Please provide a reason..."
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button 
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={!reason.trim()} 
+              onClick={handleReject}
+            >
+              Confirm Rejection
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 export default function PendingApprovals() {
   const queryClient = useQueryClient();
@@ -302,14 +352,7 @@ export default function PendingApprovals() {
                             </div>
                           </DialogContent>
                         </Dialog>
-                        <Button 
-                          variant="outline" 
-                          className="text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
-                          onClick={() => rejectDocument({ id: doc.id })}
-                        >
-                          <XCircle className="w-4 h-4" />
-                          Reject
-                        </Button>
+                        <RejectDialog onReject={(reason) => rejectDocument({ id: doc.id, reason })} title={`Reject Document: ${doc.name}`} />
                         <Button 
                           className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
                           onClick={() => approveDocument({ id: doc.id })}
@@ -346,14 +389,7 @@ export default function PendingApprovals() {
                         {leave.reason && <p className="text-sm text-slate-500 italic mt-1">"{leave.reason}"</p>}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button 
-                          variant="outline" 
-                          className="text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
-                          onClick={() => rejectLeave({ id: leave.id })}
-                        >
-                          <XCircle className="w-4 h-4" />
-                          Reject
-                        </Button>
+                        <RejectDialog onReject={(reason) => rejectLeave({ id: leave.id, reason })} title="Reject Leave Request" />
                         <Button 
                           className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
                           onClick={() => approveLeave({ id: leave.id })}
@@ -394,14 +430,7 @@ export default function PendingApprovals() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button 
-                          variant="outline" 
-                          className="text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
-                          onClick={() => rejectProfile({ id: update.id })}
-                        >
-                          <XCircle className="w-4 h-4" />
-                          Reject
-                        </Button>
+                        <RejectDialog onReject={(reason) => rejectProfile({ id: update.id, reason })} title="Reject Profile Update" />
                         <Button 
                           className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
                           onClick={() => approveProfile({ id: update.id })}

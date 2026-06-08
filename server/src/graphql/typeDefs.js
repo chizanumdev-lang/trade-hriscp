@@ -363,7 +363,7 @@ export const typeDefs = `#graphql
     createLeaveType(name: String!, daysPerYear: Int!, isPaid: Boolean, requiresApproval: Boolean): LeaveType!
     submitLeaveRequest(input: LeaveRequestInput!): LeaveRequest!
     approveLeaveRequest(id: ID!): LeaveRequest!
-    rejectLeaveRequest(id: ID!): LeaveRequest!
+    rejectLeaveRequest(id: ID!, reason: String!): LeaveRequest!
     
     clockIn: Attendance!
     clockOut: Attendance!
@@ -373,20 +373,25 @@ export const typeDefs = `#graphql
     archiveDocument(id: ID!): Document!
     deleteDocument(id: ID!): Document!
     approveDocument(id: ID!): Document!
-    rejectDocument(id: ID!, reason: String): Document!
+    rejectDocument(id: ID!, reason: String!): Document!
     approveProfileUpdateRequest(id: ID!): ProfileUpdateRequest!
-    rejectProfileUpdateRequest(id: ID!, reason: String): ProfileUpdateRequest!
+    rejectProfileUpdateRequest(id: ID!, reason: String!): ProfileUpdateRequest!
     
     markNotificationRead(id: ID!): Notification!
 
     # Phase 3 Mutations
     createPayrollRun(month: String!, periodStart: String!, periodEnd: String!): PayrollRun!
+    submitPayrollRun(id: ID!): PayrollRun!
     approvePayrollRun(id: ID!): PayrollRun!
+    rejectPayrollRun(id: ID!, reason: String!): PayrollRun!
     generatePayslip(recordId: ID!): String!
     requestCompensationUpdate(employeeId: ID!, basicSalary: Float!, allowances: String, reason: String!): SalaryHistory!
 
     # Phase 4 Mutations
     createPolicy(title: String!, category: String!, content: String, requiresAck: Boolean): Policy
+    submitPolicy(id: ID!): Policy!
+    approvePolicy(id: ID!): Policy!
+    rejectPolicy(id: ID!, reason: String!): Policy!
     acknowledgePolicy(policyId: ID!): Boolean
     createAnnouncement(title: String!, content: String!, priority: String!): Announcement
     createGoal(employeeId: ID!, title: String!, weight: Float!, period: String!): Goal

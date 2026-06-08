@@ -36,3 +36,34 @@ export const createAuditLog = async ({
     console.error('Failed to create audit log:', error);
   }
 };
+
+/**
+ * Creates an ApprovalRecord for tracking the approval engine steps.
+ */
+export const recordApprovalEvent = async ({
+  entityType,
+  entityId,
+  approverUserId,
+  action,
+  comments,
+  previousStatus
+}) => {
+  try {
+    const data = {
+      entityType,
+      entityId,
+      approverUserId,
+      action,
+      comments,
+      previousStatus
+    };
+    
+    // Add specific foreign keys if needed
+    if (entityType === 'LeaveRequest') data.leaveRequestId = entityId;
+    if (entityType === 'PayrollRun') data.payrollRunId = entityId;
+
+    await prisma.approvalRecord.create({ data });
+  } catch (error) {
+    console.error('Failed to create approval record:', error);
+  }
+};

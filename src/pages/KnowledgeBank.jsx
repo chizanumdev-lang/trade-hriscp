@@ -36,6 +36,15 @@ const CREATE_POLICY_MUTATION = gql`
   }
 `;
 
+const SUBMIT_POLICY_MUTATION = gql`
+  mutation SubmitPolicy($id: ID!) {
+    submitPolicy(id: $id) {
+      id
+      status
+    }
+  }
+`;
+
 const ACKNOWLEDGE_POLICY_MUTATION = gql`
   mutation AcknowledgePolicy($policyId: ID!) {
     acknowledgePolicy(policyId: $policyId)
@@ -68,6 +77,13 @@ export default function KnowledgeBank() {
       queryClient.invalidateQueries({ queryKey: ['policies'] });
       setShowAddDialog(false);
       setNewPolicy({ title: "", category: "hr_policy", content: "", requiresAck: true });
+    }
+  });
+
+  const submitPolicyMutation = useMutation({
+    mutationFn: async (id) => await gqlClient.request(SUBMIT_POLICY_MUTATION, { id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['policies'] });
     }
   });
 
@@ -125,12 +141,12 @@ export default function KnowledgeBank() {
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
               <DialogTrigger asChild>
                 <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                  <Plus className="w-4 h-4 mr-2" /> Publish Document
+                  <Plus className="w-4 h-4 mr-2" /> Create Document
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Publish New Document</DialogTitle>
+                  <DialogTitle>Create New Document</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
                   <div className="space-y-2">
@@ -186,7 +202,7 @@ export default function KnowledgeBank() {
                       onClick={() => createPolicyMutation.mutate(newPolicy)}
                       disabled={!newPolicy.title || createPolicyMutation.isPending}
                     >
-                      {createPolicyMutation.isPending ? "Publishing..." : "Publish"}
+                      {createPolicyMutation.isPending ? "Saving..." : "Save Draft"}
                     </Button>
                   </div>
                 </div>
@@ -250,6 +266,16 @@ export default function KnowledgeBank() {
                   <p className="text-slate-600 text-sm line-clamp-3 mb-6">
                     {policy.content || "No preview available. Click to view full document."}
                   </p>
+                  {policy.status === 'DRAFT' && isHRAdmin && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full mb-4 text-blue-600 border-blue-200 hover:bg-blue-50"
+                      onClick={() => submitPolicyMutation.mutate(policy.id)}
+                      disabled={submitPolicyMutation.isPending}
+                    >
+                      {submitPolicyMutation.isPending ? "Submitting..." : "Submit for Approval"}
+                    </Button>
+                  )}
                   
                   <div className="flex justify-between items-center pt-4 border-t border-slate-100">
                     <Dialog>

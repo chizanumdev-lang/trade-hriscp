@@ -78,6 +78,21 @@ export default function Payroll() {
     }
   });
 
+  const submitRunMutation = useMutation({
+    mutationFn: async (id) => {
+      const MUTATION = `mutation SubmitRun($id: ID!) { submitPayrollRun(id: $id) { id status } }`;
+      await gqlClient.request(MUTATION, { id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['payroll-runs']);
+      toast.success("Payroll run submitted for approval");
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error("Failed to submit payroll run");
+    }
+  });
+
   const approveRunMutation = useMutation({
     mutationFn: async (id) => {
       const MUTATION = `mutation ApproveRun($id: ID!) { approvePayrollRun(id: $id) { id status } }`;
@@ -123,7 +138,16 @@ export default function Payroll() {
                 {run?.status}
               </Badge>
             </div>
-            {run?.status === 'DRAFT' && canApprove && (
+            {run?.status === 'DRAFT' && (
+              <Button 
+                onClick={() => submitRunMutation.mutate(run.id)}
+                disabled={submitRunMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {submitRunMutation.isPending ? 'Submitting...' : 'Submit for Approval'}
+              </Button>
+            )}
+            {run?.status === 'PENDING_APPROVAL' && canApprove && (
               <Button 
                 onClick={() => approveRunMutation.mutate(run.id)}
                 disabled={approveRunMutation.isPending}
