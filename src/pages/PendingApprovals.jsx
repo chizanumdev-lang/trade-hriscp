@@ -275,9 +275,16 @@ export default function PendingApprovals() {
                               ) : ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(doc.fileType?.toLowerCase()) || doc.fileType?.startsWith('image/') || doc.fileUrl.match(/\.(jpeg|jpg|gif|png)$/i) ? (
                                 <img src={doc.fileUrl} alt={doc.name} className="max-w-full max-h-full object-contain" />
                               ) : doc.fileType?.toLowerCase() === 'pdf' || doc.fileUrl.toLowerCase().endsWith('.pdf') ? (
-                                <object data={doc.fileUrl} type="application/pdf" className="w-full h-full">
-                                  <p className="text-center p-4">Your browser does not support PDFs. <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Download the PDF</a>.</p>
-                                </object>
+                                doc.fileUrl.includes('res.cloudinary.com') ? (
+                                  <div className="flex flex-col items-center w-full h-full p-4 overflow-auto">
+                                    <img src={doc.fileUrl.replace(/\.pdf$/i, '.jpg')} alt={doc.name} className="max-w-full h-auto object-contain shadow-sm border border-slate-200" />
+                                    <p className="text-xs text-slate-500 mt-2 text-center">Previewing first page. Click "Open in New Tab" to view the full PDF.</p>
+                                  </div>
+                                ) : (
+                                  <object data={doc.fileUrl} type="application/pdf" className="w-full h-full">
+                                    <p className="text-center p-4">Your browser does not support PDFs. <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Download the PDF</a>.</p>
+                                  </object>
+                                )
                               ) : (
                                 <iframe src={doc.fileUrl} className="w-full h-full border-0" title={doc.name} />
                               )}
