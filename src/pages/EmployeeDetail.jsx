@@ -225,39 +225,7 @@ export default function EmployeeDetail() {
     const a = document.createElement("a");
     a.href = encodedUri;
     a.download = `${employee?.full_name}_attendance_${format(new Date(), 'yyyy-MM')}.csv`;
-    a.click();
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center p-8 bg-white rounded-xl shadow border border-red-200">
-          <h2 className="text-xl font-semibold text-red-600 mb-2">Error Loading Employee</h2>
-          <p className="text-slate-600 mb-4">{error?.message || "Failed to fetch employee details"}</p>
-          <Button onClick={() => window.location.reload()}>Try Again</Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!employee) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center p-8 bg-white rounded-xl shadow border border-slate-200">
-          <h2 className="text-xl font-semibold text-slate-800 mb-2">Employee Not Found</h2>
-          <p className="text-slate-600 mb-4">The employee you're looking for doesn't exist or you don't have access.</p>
-        </div>
-      </div>
-    );
-  }
 
   const [compForm, setCompForm] = useState({ basicSalary: '', housing: '', transport: '', food: '', other: '', reason: '' });
   const [showCompDialog, setShowCompDialog] = useState(false);
@@ -1783,6 +1751,37 @@ export default function EmployeeDetail() {
         );
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center p-8 bg-white rounded-xl shadow border border-red-200">
+          <h2 className="text-xl font-semibold text-red-600 mb-2">Error Loading Employee</h2>
+          <p className="text-slate-600 mb-4">{error?.message || "Failed to fetch employee details"}</p>
+          <Button onClick={() => window.location.reload()}>Try Again</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!employee) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center p-8 bg-white rounded-xl shadow border border-slate-200">
+          <h2 className="text-xl font-semibold text-slate-800 mb-2">Employee Not Found</h2>
+          <p className="text-slate-600 mb-4">The employee you're looking for doesn't exist or you don't have access.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-8">
