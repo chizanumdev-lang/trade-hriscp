@@ -1445,7 +1445,7 @@ export default function EmployeeDetail() {
                         <div key={hist.id} className="flex justify-between items-center p-3 border border-slate-200 rounded-lg">
                           <div>
                             <p className="font-medium">Version {hist.version}</p>
-                            <p className="text-xs text-slate-500">Uploaded {format(new Date(parseInt(hist.createdAt)), 'PPpp')}</p>
+                            <p className="text-xs text-slate-500">Uploaded {format(!isNaN(Number(hist.createdAt)) ? new Date(Number(hist.createdAt)) : new Date(hist.createdAt), 'PPpp')}</p>
                           </div>
                           <Button size="sm" variant="outline" asChild>
                             <a href={hist.fileUrl} target="_blank" rel="noopener noreferrer">View</a>
