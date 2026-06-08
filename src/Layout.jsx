@@ -303,8 +303,8 @@ export default function Layout({ children, currentPageName }) {
                 <img src={organization.logo_url} alt="Logo" className="w-10 h-10 rounded-xl object-cover" />
               ) : (
                 <img 
-                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/69951f4d3ce6a608fcf7e916/273166988_Tradevu-Icon.png" 
-                  alt="Logo" 
+                  src="/logo-icon.png" 
+                  alt="Tradevu Logo" 
                   className="w-10 h-10 object-contain" 
                 />
               )}
