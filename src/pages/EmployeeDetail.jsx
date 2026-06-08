@@ -91,7 +91,7 @@ export default function EmployeeDetail() {
         private_email: e.privateEmail,
         job_title: e.jobTitle,
         department_name: e.department?.name || 'N/A',
-        status: e.employmentStatus,
+        employment_status: e.employmentStatus,
         employment_type: e.employmentType,
         start_date: e.hireDate ? new Date(Number(e.hireDate)).toISOString().split('T')[0] : '',
         personal_info: {
