@@ -361,7 +361,7 @@ NET SALARY: ${payroll.net_salary} SAR
                   </div>
                   <div className="space-y-2">
                     <Label>Start Date</Label>
-                    <Input value={format(new Date(employee.start_date), 'MMM dd, yyyy')} disabled />
+                    <Input value={employee.start_date ? format(isNaN(Number(employee.start_date)) ? new Date(employee.start_date) : new Date(Number(employee.start_date)), 'MMM dd, yyyy') : ''} disabled />
                   </div>
                   {isEditing && (
                     <>
@@ -377,7 +377,7 @@ NET SALARY: ${payroll.net_salary} SAR
                         <Label>Date of Birth</Label>
                         <Input
                           type="date"
-                          value={editData.dateOfBirth ? new Date(editData.dateOfBirth).toISOString().split('T')[0] : ''}
+                          value={editData.dateOfBirth ? (isNaN(Number(editData.dateOfBirth)) ? new Date(editData.dateOfBirth) : new Date(Number(editData.dateOfBirth))).toISOString().split('T')[0] : ''}
                           onChange={(e) => setEditData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
                         />
                       </div>
