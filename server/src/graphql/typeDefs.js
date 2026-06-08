@@ -38,6 +38,9 @@ export const typeDefs = `#graphql
     passportNumber: String
     jobTitle: String!
     departmentId: String
+    bankName: String
+    bankAccountNumber: String
+    pensionId: String
     department: Department
     employmentStatus: String!
     employmentType: String
@@ -323,6 +326,9 @@ export const typeDefs = `#graphql
     employmentType: String
     employmentStatus: String
     hireDate: String
+    bankName: String
+    bankAccountNumber: String
+    pensionId: String
   }
 
   input LeaveRequestInput {

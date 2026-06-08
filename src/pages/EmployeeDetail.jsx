@@ -4,6 +4,7 @@ import { gql } from "graphql-request";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { 
   ArrowLeft, Mail, Phone, Calendar, Briefcase, FileText, 
   User, DollarSign, Clock, Laptop, TrendingUp, StickyNote,
@@ -78,7 +79,7 @@ export default function EmployeeDetail() {
       const EMP_QUERY = gql`
         query GetEmployee($id: ID!) {
           employee(id: $id) {
-            id fullName email privateEmail phone dateOfBirth gender maritalStatus nationality nationalId passportNumber jobTitle departmentId department { name } employmentStatus employmentType hireDate basicSalary allowances
+            id fullName email privateEmail phone dateOfBirth gender maritalStatus nationality nationalId passportNumber jobTitle departmentId department { name } employmentStatus employmentType hireDate basicSalary allowances bankName bankAccountNumber pensionId
           }
         }
       `;
@@ -108,7 +109,10 @@ export default function EmployeeDetail() {
         leave_balances: {}, // Mocked
         payroll_details: {
           basic_salary: emp.basicSalary,
-          allowances: emp.allowances ? (typeof emp.allowances === 'string' ? JSON.parse(emp.allowances) : emp.allowances) : {}
+          allowances: emp.allowances ? (typeof emp.allowances === 'string' ? JSON.parse(emp.allowances) : emp.allowances) : {},
+          bank_name: emp.bankName,
+          iban: emp.bankAccountNumber,
+          gosi_number: emp.pensionId
         }
       };
     },
@@ -284,7 +288,10 @@ export default function EmployeeDetail() {
         departmentId: data.department_id || undefined,
         employmentType: data.employment_type || undefined,
         employmentStatus: data.employment_status || undefined,
-        hireDate: data.start_date || undefined
+        hireDate: data.start_date || undefined,
+        bankName: data.payroll_details?.bank_name || undefined,
+        bankAccountNumber: data.payroll_details?.iban || undefined,
+        pensionId: data.payroll_details?.gosi_number || undefined
       };
       
       Object.keys(input).forEach(key => input[key] === undefined && delete input[key]);
@@ -294,7 +301,11 @@ export default function EmployeeDetail() {
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
       setIsEditing(false);
+      toast.success("Saved successfully");
     },
+    onError: (error) => {
+      toast.error("Failed to save: " + error.message);
+    }
   });
 
   const createDocumentMutation = useMutation({
