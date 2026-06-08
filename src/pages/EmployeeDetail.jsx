@@ -4,7 +4,6 @@ import { gql } from "graphql-request";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import { 
   ArrowLeft, Mail, Phone, Calendar, Briefcase, FileText, 
   User, DollarSign, Clock, Laptop, TrendingUp, StickyNote,
