@@ -310,7 +310,30 @@ export const resolvers = {
         }
       });
       
-      // Auto-generate onboarding tasks as per PRD 06
+      return emp;
+    },
+    startOnboarding: async (_, { employeeId }, { prisma, user, requireRole }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
+      
+      const emp = await prisma.employee.findFirst({
+        where: { id: employeeId, organizationId: user.organizationId }
+      });
+      
+      if (!emp) throw new Error("Employee not found");
+      if (emp.employmentStatus !== 'PENDING_ONBOARDING') {
+        throw new Error("Employee is not in PENDING_ONBOARDING state");
+      }
+      
+      // Update employee status
+      const updatedEmp = await prisma.employee.update({
+        where: { id: employeeId },
+        data: {
+          employmentStatus: 'ONGOING_ONBOARDING',
+          onboardingStatus: 'in_progress'
+        }
+      });
+      
+      // Generate onboarding tasks
       const tasks = [
         { title: 'IT setup', category: 'it_setup' },
         { title: 'Laptop provision', category: 'it_setup' },
@@ -324,12 +347,14 @@ export const resolvers = {
             employeeId: emp.id,
             title: task.title,
             category: task.category,
-            assignedTo: employeeData.fullName,
+            assignedTo: emp.fullName,
           }
         });
       }
       
-      return emp;
+      await createAuditLog({ actorId: user.id, entityType: 'Employee', entityId: emp.id, action: 'START_ONBOARDING' });
+      
+      return updatedEmp;
     },
     updateEmployee: async (_, { id, input }, { prisma, user, requireRole }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);

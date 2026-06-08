@@ -1841,6 +1841,43 @@ export default function EmployeeDetail() {
                 </Button>
               </div>
 
+              {['SUPER_ADMIN', 'HR_ADMIN'].includes(user?.role) && employee.employment_status === 'PENDING_ONBOARDING' && (
+                <div className="mb-6">
+                  <Card className="border-green-200 bg-green-50">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-green-900">Employee Actions</h3>
+                        <p className="text-sm text-green-700">This employee has completed their Draft profile and is ready for onboarding.</p>
+                      </div>
+                      <Button 
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        onClick={async () => {
+                          try {
+                            const START_ONBOARDING = gql`
+                              mutation StartOnboarding($employeeId: ID!) {
+                                startOnboarding(employeeId: $employeeId) {
+                                  id
+                                  employmentStatus
+                                  onboardingStatus
+                                }
+                              }
+                            `;
+                            await gqlClient.request(START_ONBOARDING, { employeeId });
+                            toast.success("Onboarding started! Tasks have been generated.");
+                            queryClient.invalidateQueries(['employee', employeeId]);
+                          } catch (err) {
+                            toast.error("Failed to start onboarding.");
+                            console.error(err);
+                          }
+                        }}
+                      >
+                        Start Onboarding
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
               {renderContent()}
             </div>
           </div>
