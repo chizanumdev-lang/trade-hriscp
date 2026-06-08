@@ -310,6 +310,7 @@ export const typeDefs = `#graphql
     departmentId: String
     hireDate: String!
     basicSalary: Float
+    templateId: String
   }
 
   input UpdateEmployeeInput {
