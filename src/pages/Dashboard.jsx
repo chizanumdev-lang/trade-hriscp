@@ -22,9 +22,17 @@ import RecentActivity from "../components/dashboard/RecentActivity";
 import QuickActions from "../components/dashboard/QuickActions";
 import CelebrationsWidget from "../components/dashboard/CelebrationsWidget";
 
+import { useAuth } from "@/lib/AuthContext";
+import { Navigate } from "react-router-dom";
+
 export default function Dashboard() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  if (user?.role === 'EMPLOYEE') {
+    return <Navigate to="/employeeselfservice" />;
+  }
 
   const { data: employees = [], isLoading: loadingEmployees } = useQuery({
     queryKey: ['employees'],

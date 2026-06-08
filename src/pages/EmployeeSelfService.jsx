@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { gqlClient } from "@/api/graphqlClient";
+import { gql } from "graphql-request";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,43 +14,46 @@ import {
   Plane, Receipt, Shield
 } from "lucide-react";
 import { format } from "date-fns";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function EmployeeSelfService() {
   const queryClient = useQueryClient();
-  const [user, setUser] = useState(null);
-  const [employee, setEmployee] = useState(null);
+  const { user } = useAuth();
+  const employeeId = user?.employeeId;
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
 
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = {
-          email: "mock_user@example.com",
-          role: "admin",
-          organization_id: "org_1",
-          full_name: "Mock User"
-        };
-        setUser(currentUser);
-        
-        const employees = [{
-          id: 'emp_1',
-          email: currentUser.email,
-          full_name: currentUser.full_name,
-          job_title: "Mock Employee",
-          department_id: "Engineering",
-          start_date: new Date().toISOString()
-        }];
-        if (employees.length > 0) {
-          setEmployee(employees[0]);
-          setEditData(employees[0]);
+  const { data: employee, isLoading: isLoadingEmployee } = useQuery({
+    queryKey: ['employee', employeeId],
+    queryFn: async () => {
+      if (!employeeId) return null;
+      const EMP_QUERY = gql`
+        query GetEmployeeSelfService($id: ID!) {
+          employee(id: $id) {
+            id fullName email phone privateEmail dateOfBirth gender maritalStatus nationality nationalId passportNumber jobTitle departmentId department { name } hireDate employmentStatus
+          }
         }
-      } catch (error) {
-        console.error("Error loading user:", error);
-      }
-    };
-    loadUser();
-  }, []);
+      `;
+      const data = await gqlClient.request(EMP_QUERY, { id: employeeId });
+      if (!data.employee) return null;
+      const emp = data.employee;
+      return {
+        ...emp,
+        full_name: emp.fullName,
+        job_title: emp.jobTitle,
+        department_id: emp.department?.name || emp.departmentId,
+        start_date: emp.hireDate,
+        employment_status: emp.employmentStatus,
+      };
+    },
+    enabled: !!employeeId,
+  });
+
+  useEffect(() => {
+    if (employee) {
+      setEditData(employee);
+    }
+  }, [employee]);
 
   const { data: payrolls = [] } = useQuery({
     queryKey: ['my-payrolls', employee?.id],
@@ -95,11 +99,27 @@ export default function EmployeeSelfService() {
 
   const updateEmployeeMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      console.log("Mock update employee", id, data);
-      return { id, ...data };
+      const mutation = gql`
+        mutation UpdateEmployeeSelf($id: ID!, $input: UpdateEmployeeInput!) {
+          updateEmployee(id: $id, input: $input) {
+            id
+          }
+        }
+      `;
+      const input = {
+        phone: data.phone,
+        privateEmail: data.privateEmail,
+        dateOfBirth: data.dateOfBirth,
+        gender: data.gender,
+        maritalStatus: data.maritalStatus,
+        nationality: data.nationality,
+        nationalId: data.nationalId,
+        passportNumber: data.passportNumber
+      };
+      return gqlClient.request(mutation, { id, input });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries();
+      queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
       setIsEditing(false);
     },
   });
@@ -168,6 +188,18 @@ NET SALARY: ${payroll.net_salary} SAR
             Manage your profile, view documents, and track your information
           </p>
         </div>
+
+        {employee.employment_status === 'DRAFT' && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 mb-6">
+            <h3 className="font-semibold text-lg flex items-center gap-2">
+              <span className="w-2 h-2 bg-yellow-500 rounded-full inline-block"></span>
+              Draft Status
+            </h3>
+            <p className="mt-1 text-sm">
+              Your profile is currently in <strong>DRAFT</strong> status. To proceed to Pending Onboarding, please ensure you have provided your personal details (Phone, Private Email, Date of Birth, Gender, Marital Status, Nationality, National ID, Passport Number) below, uploaded at least one required document in the Documents tab, and your HR administrator has assigned you a manager.
+            </p>
+          </div>
+        )}
 
         {/* Quick Stats */}
         <div className="grid md:grid-cols-4 gap-6">
@@ -322,33 +354,56 @@ NET SALARY: ${payroll.net_salary} SAR
                   {isEditing && (
                     <>
                       <div className="space-y-2">
-                        <Label>Emergency Contact Name</Label>
+                        <Label>Private Email</Label>
                         <Input
-                          value={editData.personal_info?.emergency_contact || ''}
-                          onChange={(e) => setEditData(prev => ({
-                            ...prev,
-                            personal_info: { ...prev.personal_info, emergency_contact: e.target.value }
-                          }))}
+                          type="email"
+                          value={editData.privateEmail || ''}
+                          onChange={(e) => setEditData(prev => ({ ...prev, privateEmail: e.target.value }))}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Emergency Contact Phone</Label>
+                        <Label>Date of Birth</Label>
                         <Input
-                          value={editData.personal_info?.emergency_phone || ''}
-                          onChange={(e) => setEditData(prev => ({
-                            ...prev,
-                            personal_info: { ...prev.personal_info, emergency_phone: e.target.value }
-                          }))}
+                          type="date"
+                          value={editData.dateOfBirth ? new Date(editData.dateOfBirth).toISOString().split('T')[0] : ''}
+                          onChange={(e) => setEditData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
                         />
                       </div>
-                      <div className="space-y-2 col-span-2">
-                        <Label>Address</Label>
+                      <div className="space-y-2">
+                        <Label>Gender</Label>
                         <Input
-                          value={editData.personal_info?.address || ''}
-                          onChange={(e) => setEditData(prev => ({
-                            ...prev,
-                            personal_info: { ...prev.personal_info, address: e.target.value }
-                          }))}
+                          value={editData.gender || ''}
+                          onChange={(e) => setEditData(prev => ({ ...prev, gender: e.target.value }))}
+                          placeholder="Male / Female / Other"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Marital Status</Label>
+                        <Input
+                          value={editData.maritalStatus || ''}
+                          onChange={(e) => setEditData(prev => ({ ...prev, maritalStatus: e.target.value }))}
+                          placeholder="Single / Married"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Nationality</Label>
+                        <Input
+                          value={editData.nationality || ''}
+                          onChange={(e) => setEditData(prev => ({ ...prev, nationality: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>National ID</Label>
+                        <Input
+                          value={editData.nationalId || ''}
+                          onChange={(e) => setEditData(prev => ({ ...prev, nationalId: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Passport Number</Label>
+                        <Input
+                          value={editData.passportNumber || ''}
+                          onChange={(e) => setEditData(prev => ({ ...prev, passportNumber: e.target.value }))}
                         />
                       </div>
                     </>

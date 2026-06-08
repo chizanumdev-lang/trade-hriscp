@@ -46,7 +46,11 @@ export default function Login() {
       if (data.login && data.login.token) {
         localStorage.setItem('token', data.login.token);
         await checkAppState();
-        window.location.href = '/';
+        if (data.login.user.role === 'EMPLOYEE') {
+          window.location.href = '/employeeselfservice';
+        } else {
+          window.location.href = '/';
+        }
       }
     } catch (err) {
       console.error('Login error:', err);
