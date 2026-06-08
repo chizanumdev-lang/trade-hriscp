@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { 
   User, Calendar, DollarSign, FileText, Laptop, 
   TrendingUp, Download, Edit, Save, Clock, CheckCircle,
-  Plane, Receipt, Shield
+  Plane, Receipt, Shield, Upload
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/AuthContext";
@@ -23,6 +24,8 @@ export default function EmployeeSelfService() {
   const employeeId = user?.employeeId;
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [uploadData, setUploadData] = useState({ name: '', category: 'General' });
 
   const { data: employee, isLoading: isLoadingEmployee } = useQuery({
     queryKey: ['employee', employeeId],
@@ -693,14 +696,66 @@ NET SALARY: ${payroll.net_salary} SAR
           {/* Documents Tab */}
           <TabsContent value="documents">
             <Card className="border-slate-200">
-              <CardHeader className="border-b border-slate-200">
+              <CardHeader className="border-b border-slate-200 flex flex-row items-center justify-between">
                 <CardTitle>My Documents</CardTitle>
+                <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Document
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Upload Document</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Document Name</Label>
+                        <Input 
+                          placeholder="e.g. Passport, Resume, Degree"
+                          value={uploadData.name}
+                          onChange={(e) => setUploadData(prev => ({ ...prev, name: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Category</Label>
+                        <Input 
+                          placeholder="e.g. Identity, Educational, Financial"
+                          value={uploadData.category}
+                          onChange={(e) => setUploadData(prev => ({ ...prev, category: e.target.value }))}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500 italic mt-2">
+                        Note: Actual file upload to cloud storage is bypassed in this MVP environment. This will simply register the document record.
+                      </p>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
+                      <Button 
+                        disabled={!uploadData.name || !uploadData.category || uploadDocumentMutation.isPending}
+                        onClick={() => {
+                          uploadDocumentMutation.mutate({
+                            employeeId,
+                            name: uploadData.name,
+                            category: uploadData.category,
+                            fileUrl: 'https://example.com/mock-document.pdf',
+                            fileType: 'pdf',
+                            visibilityLevel: 'EMPLOYEE'
+                          });
+                        }}
+                      >
+                        {uploadDocumentMutation.isPending ? "Uploading..." : "Upload"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent className="p-6">
                 {documents.length === 0 ? (
                   <div className="text-center py-12">
                     <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                    <p className="text-slate-500">No documents</p>
+                    <p className="text-slate-500">No documents uploaded yet</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -712,7 +767,7 @@ NET SALARY: ${payroll.net_salary} SAR
                           </div>
                           <div>
                             <p className="font-medium text-slate-900">{doc.document_name}</p>
-                            <p className="text-sm text-slate-500">{doc.file_name}</p>
+                            <p className="text-sm text-slate-500">{doc.category} • {doc.file_name}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
