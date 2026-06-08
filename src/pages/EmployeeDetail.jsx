@@ -20,8 +20,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { format } from "date-fns";
+import { format as dateFnsFormat } from "date-fns";
 import { toast } from "sonner";
+
+const format = (dateInput, formatStr) => {
+  try {
+    if (!dateInput) return 'N/A';
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return dateFnsFormat(date, formatStr);
+  } catch (e) {
+    return 'Invalid Date';
+  }
+};
+
 import { uploadToCloudinary } from "@/utils/cloudinary";
 import OnboardingProgressWidget from "@/components/employee-detail/OnboardingProgressWidget";
 
