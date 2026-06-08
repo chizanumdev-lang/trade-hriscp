@@ -398,8 +398,14 @@ export const resolvers = {
       if (!existing) throw new Error("Employee not found");
       
       const updateData = { ...input };
-      if (input.dateOfBirth) updateData.dateOfBirth = new Date(input.dateOfBirth);
-      if (input.hireDate) updateData.hireDate = new Date(input.hireDate);
+      if (input.dateOfBirth) {
+        const dNum = Number(input.dateOfBirth);
+        updateData.dateOfBirth = isNaN(dNum) ? new Date(input.dateOfBirth) : new Date(dNum);
+      }
+      if (input.hireDate) {
+        const hNum = Number(input.hireDate);
+        updateData.hireDate = isNaN(hNum) ? new Date(input.hireDate) : new Date(hNum);
+      }
       if (input.employmentType) updateData.employmentType = input.employmentType.toUpperCase();
       if (input.employmentStatus) {
         let status = input.employmentStatus.toUpperCase();
@@ -431,7 +437,14 @@ export const resolvers = {
       const updateData = {};
       if (input.phone !== undefined) updateData.phone = input.phone;
       if (input.privateEmail !== undefined) updateData.privateEmail = input.privateEmail;
-      if (input.dateOfBirth !== undefined) updateData.dateOfBirth = input.dateOfBirth ? new Date(input.dateOfBirth) : null;
+      if (input.dateOfBirth !== undefined) {
+        if (input.dateOfBirth) {
+          const dNum = Number(input.dateOfBirth);
+          updateData.dateOfBirth = isNaN(dNum) ? new Date(input.dateOfBirth) : new Date(dNum);
+        } else {
+          updateData.dateOfBirth = null;
+        }
+      }
       if (input.gender !== undefined) updateData.gender = input.gender;
       if (input.maritalStatus !== undefined) updateData.maritalStatus = input.maritalStatus;
       if (input.nationality !== undefined) updateData.nationality = input.nationality;
