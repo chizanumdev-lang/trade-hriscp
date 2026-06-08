@@ -272,8 +272,10 @@ export default function PendingApprovals() {
                             <div className="w-full flex-1 flex items-center justify-center bg-slate-100 rounded-lg overflow-hidden relative min-h-[60vh]">
                               {!doc.fileUrl ? (
                                 <p className="text-slate-500">Document URL not available</p>
-                              ) : ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(doc.fileType?.toLowerCase()) || doc.fileType?.startsWith('image/') ? (
+                              ) : ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(doc.fileType?.toLowerCase()) || doc.fileType?.startsWith('image/') || doc.fileUrl.match(/\.(jpeg|jpg|gif|png)$/i) ? (
                                 <img src={doc.fileUrl} alt={doc.name} className="max-w-full max-h-full object-contain" />
+                              ) : doc.fileType?.toLowerCase() === 'pdf' || doc.fileUrl.toLowerCase().endsWith('.pdf') ? (
+                                <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(doc.fileUrl)}&embedded=true`} className="w-full h-full border-0" title={doc.name} />
                               ) : (
                                 <iframe src={doc.fileUrl} className="w-full h-full border-0" title={doc.name} />
                               )}
