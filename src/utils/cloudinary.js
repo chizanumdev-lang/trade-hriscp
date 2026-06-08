@@ -1,14 +1,31 @@
+import { gqlClient } from "@/api/graphqlClient";
+import { gql } from "graphql-request";
+
 export const uploadToCloudinary = async (file) => {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'demo';
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'docs_preset';
-
-  const url = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
-
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('upload_preset', uploadPreset);
-
   try {
+    // 1. Fetch the secure signature from our backend
+    const SIGNATURE_QUERY = gql`
+      query GetCloudinarySignature {
+        getCloudinarySignature {
+          signature
+          timestamp
+          cloudName
+          apiKey
+        }
+      }
+    `;
+    const { getCloudinarySignature } = await gqlClient.request(SIGNATURE_QUERY);
+    const { signature, timestamp, cloudName, apiKey } = getCloudinarySignature;
+
+    // 2. Upload to Cloudinary using the signature
+    const url = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('api_key', apiKey);
+    formData.append('timestamp', timestamp);
+    formData.append('signature', signature);
+
     const response = await fetch(url, {
       method: 'POST',
       body: formData,
