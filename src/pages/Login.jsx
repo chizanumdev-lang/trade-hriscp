@@ -175,9 +175,6 @@ export default function Login() {
         {/* Content overlay */}
         <div className="absolute inset-0 z-20 flex flex-col justify-end p-16 pb-24 text-white bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent">
           <div className="max-w-xl">
-            <div className="mb-6 inline-flex px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-sm font-medium text-white/90 shadow-sm">
-              ✨ TradeVu Enterprise 2.0
-            </div>
             <h2 className="text-4xl lg:text-5xl font-bold mb-6 leading-tight tracking-tight text-white drop-shadow-sm">
               Empower your workforce.
             </h2>
