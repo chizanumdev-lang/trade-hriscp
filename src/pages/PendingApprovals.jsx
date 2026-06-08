@@ -275,7 +275,9 @@ export default function PendingApprovals() {
                               ) : ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(doc.fileType?.toLowerCase()) || doc.fileType?.startsWith('image/') || doc.fileUrl.match(/\.(jpeg|jpg|gif|png)$/i) ? (
                                 <img src={doc.fileUrl} alt={doc.name} className="max-w-full max-h-full object-contain" />
                               ) : doc.fileType?.toLowerCase() === 'pdf' || doc.fileUrl.toLowerCase().endsWith('.pdf') ? (
-                                <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(doc.fileUrl)}&embedded=true`} className="w-full h-full border-0" title={doc.name} />
+                                <object data={doc.fileUrl} type="application/pdf" className="w-full h-full">
+                                  <p className="text-center p-4">Your browser does not support PDFs. <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Download the PDF</a>.</p>
+                                </object>
                               ) : (
                                 <iframe src={doc.fileUrl} className="w-full h-full border-0" title={doc.name} />
                               )}
