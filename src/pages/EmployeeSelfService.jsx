@@ -17,6 +17,7 @@ import {
 import { format } from "date-fns";
 import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
+import { uploadToCloudinary } from "@/utils/cloudinary";
 
 export default function EmployeeSelfService() {
   const queryClient = useQueryClient();
@@ -25,7 +26,8 @@ export default function EmployeeSelfService() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
   const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [uploadData, setUploadData] = useState({ name: '', category: 'General' });
+  const [uploadData, setUploadData] = useState({ name: '', category: 'General', file: null });
+  const [isUploadingToCloudinary, setIsUploadingToCloudinary] = useState(false);
 
   const { data: employee, isLoading: isLoadingEmployee } = useQuery({
     queryKey: ['employee', employeeId],
@@ -726,26 +728,43 @@ NET SALARY: ${payroll.net_salary} SAR
                           onChange={(e) => setUploadData(prev => ({ ...prev, category: e.target.value }))}
                         />
                       </div>
-                      <p className="text-xs text-slate-500 italic mt-2">
-                        Note: Actual file upload to cloud storage is bypassed in this MVP environment. This will simply register the document record.
-                      </p>
+                      <div className="space-y-2">
+                        <Label>File</Label>
+                        <Input 
+                          type="file"
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) {
+                              setUploadData(prev => ({ ...prev, file: e.target.files[0] }));
+                            }
+                          }}
+                        />
+                      </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
                       <Button 
-                        disabled={!uploadData.name || !uploadData.category || uploadDocumentMutation.isPending}
-                        onClick={() => {
-                          uploadDocumentMutation.mutate({
-                            employeeId,
-                            name: uploadData.name,
-                            category: uploadData.category,
-                            fileUrl: 'https://example.com/mock-document.pdf',
-                            fileType: 'pdf',
-                            visibilityLevel: 'EMPLOYEE'
-                          });
+                        disabled={!uploadData.name || !uploadData.category || !uploadData.file || isUploadingToCloudinary || uploadDocumentMutation.isPending}
+                        onClick={async () => {
+                          try {
+                            setIsUploadingToCloudinary(true);
+                            const result = await uploadToCloudinary(uploadData.file);
+                            
+                            uploadDocumentMutation.mutate({
+                              employeeId,
+                              name: uploadData.name,
+                              category: uploadData.category,
+                              fileUrl: result.secure_url,
+                              fileType: result.format || uploadData.file.name.split('.').pop(),
+                              visibilityLevel: 'EMPLOYEE'
+                            });
+                          } catch (error) {
+                            toast.error("Cloudinary upload failed: " + error.message);
+                          } finally {
+                            setIsUploadingToCloudinary(false);
+                          }
                         }}
                       >
-                        {uploadDocumentMutation.isPending ? "Uploading..." : "Upload"}
+                        {(isUploadingToCloudinary || uploadDocumentMutation.isPending) ? "Uploading..." : "Upload"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
