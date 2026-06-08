@@ -265,15 +265,27 @@ export default function PendingApprovals() {
                               View
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
                             <DialogHeader>
                               <DialogTitle>{doc.name}</DialogTitle>
                             </DialogHeader>
-                            <div className="w-full h-[70vh] flex items-center justify-center bg-slate-100 rounded-lg overflow-hidden">
-                              {doc.fileType?.startsWith('image/') ? (
+                            <div className="w-full flex-1 flex items-center justify-center bg-slate-100 rounded-lg overflow-hidden relative min-h-[60vh]">
+                              {!doc.fileUrl ? (
+                                <p className="text-slate-500">Document URL not available</p>
+                              ) : ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(doc.fileType?.toLowerCase()) || doc.fileType?.startsWith('image/') ? (
                                 <img src={doc.fileUrl} alt={doc.name} className="max-w-full max-h-full object-contain" />
                               ) : (
                                 <iframe src={doc.fileUrl} className="w-full h-full border-0" title={doc.name} />
+                              )}
+                              {doc.fileUrl && (
+                                <a 
+                                  href={doc.fileUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="absolute top-4 right-4 bg-white/90 text-blue-600 text-sm px-3 py-1.5 rounded-md shadow border border-slate-200 hover:bg-white hover:text-blue-700 z-10 font-medium flex items-center gap-2"
+                                >
+                                  <Eye className="w-4 h-4" /> Open in New Tab
+                                </a>
                               )}
                             </div>
                           </DialogContent>
