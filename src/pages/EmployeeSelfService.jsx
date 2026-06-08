@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { 
   User, Calendar, DollarSign, FileText, Laptop, 
   TrendingUp, Download, Edit, Save, Clock, CheckCircle,
@@ -749,6 +749,7 @@ NET SALARY: ${payroll.net_salary} SAR
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Upload Document</DialogTitle>
+                      <DialogDescription className="sr-only">Upload a document to your profile</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
