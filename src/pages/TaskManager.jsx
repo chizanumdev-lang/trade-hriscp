@@ -90,7 +90,7 @@ export default function TaskManager() {
   }, []);
 
   const { data: employeesData = {} } = useQuery({
-    queryKey: ['employees'],
+    queryKey: ['task-manager-employees'],
     queryFn: async () => await gqlClient.request(EMPLOYEES_QUERY),
   });
   const employees = employeesData.employees || [];
