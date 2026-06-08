@@ -30,6 +30,7 @@ export const typeDefs = `#graphql
     email: String!
     jobTitle: String!
     departmentId: String
+    department: Department
     employmentStatus: String!
     hireDate: String!
   }
@@ -39,6 +40,7 @@ export const typeDefs = `#graphql
     name: String!
     code: String
     headEmployeeId: String
+    employees: [Employee]
   }
 
   type LeaveType {
@@ -307,6 +309,7 @@ export const typeDefs = `#graphql
     login(email: String!, password: String!): AuthPayload!
     
     createEmployee(input: EmployeeInput!): Employee!
+    updateEmployee(id: ID!, input: EmployeeInput!): Employee!
     deleteEmployee(id: ID!): Boolean
     
     createDepartment(name: String!, code: String, headEmployeeId: String): Department!
