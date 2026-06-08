@@ -323,6 +323,25 @@ export const resolvers = {
         updateData.employmentStatus = status;
       }
       
+      // Auto-promotion from DRAFT
+      if (existing.employmentStatus === 'DRAFT' && !updateData.employmentStatus) {
+        const mergedData = { ...existing, ...updateData };
+        const isComplete = 
+          mergedData.phone && 
+          mergedData.dateOfBirth && 
+          mergedData.residentialAddress && 
+          mergedData.emergencyContact && 
+          mergedData.emergencyPhone && 
+          mergedData.nationalId && 
+          mergedData.bankName && 
+          mergedData.bankAccountNumber;
+
+        if (isComplete) {
+          updateData.employmentStatus = 'PENDING_ONBOARDING';
+          updateData.onboardingStatus = 'in_progress';
+        }
+      }
+      
       const updated = await prisma.employee.update({
         where: { id },
         data: updateData
