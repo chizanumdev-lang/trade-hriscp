@@ -50,6 +50,7 @@
 import AdvancedAnalytics from './pages/AdvancedAnalytics';
 import AllLeaveRequests from './pages/AllLeaveRequests';
 import Analytics from './pages/Analytics';
+import AuditLogs from './pages/AuditLogs';
 import Assets from './pages/Assets';
 import Attendance from './pages/Attendance';
 import Chat from './pages/Chat';
@@ -75,6 +76,9 @@ import PayrollAI from './pages/PayrollAI';
 import Profile from './pages/Profile';
 import Recruitment from './pages/Recruitment';
 import Settings from './pages/Settings';
+import SettingsApprovalWorkflows from './pages/Settings/SettingsApprovalWorkflows';
+import SettingsShifts from './pages/Settings/SettingsShifts';
+import SettingsDepartments from './pages/Settings/SettingsDepartments';
 import Surveys from './pages/Surveys';
 import TaskManager from './pages/TaskManager';
 import Templates from './pages/Templates';
@@ -85,11 +89,11 @@ import Login from './pages/Login';
 import PendingApprovals from './pages/PendingApprovals';
 import __Layout from './Layout.jsx';
 
-
 export const PAGES = {
     "AdvancedAnalytics": AdvancedAnalytics,
     "AllLeaveRequests": AllLeaveRequests,
     "Analytics": Analytics,
+    "AuditLogs": AuditLogs,
     "Assets": Assets,
     "Attendance": Attendance,
     "Chat": Chat,
@@ -115,6 +119,9 @@ export const PAGES = {
     "Profile": Profile,
     "Recruitment": Recruitment,
     "Settings": Settings,
+    "SettingsApprovalWorkflows": SettingsApprovalWorkflows,
+    "SettingsShifts": SettingsShifts,
+    "SettingsDepartments": SettingsDepartments,
     "Surveys": Surveys,
     "TaskManager": TaskManager,
     "Templates": Templates,

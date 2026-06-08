@@ -55,8 +55,31 @@ export const typeDefs = `#graphql
     id: ID!
     name: String!
     code: String
+    status: String!
     headEmployeeId: String
     employees: [Employee]
+  }
+
+  type Shift {
+    id: ID!
+    name: String!
+    startTime: String!
+    endTime: String!
+    breakMinutes: Int!
+    isActive: Boolean!
+  }
+
+  type ApprovalWorkflowStep {
+    order: Int!
+    role: String!
+  }
+
+  type ApprovalWorkflow {
+    id: ID!
+    name: String!
+    entityType: String!
+    steps: String! # Will return JSON string
+    isActive: Boolean!
   }
 
   type LeaveType {
@@ -122,6 +145,19 @@ export const typeDefs = `#graphql
     message: String!
     category: String!
     isRead: Boolean!
+    createdAt: String!
+  }
+
+  type AuditLog {
+    id: ID!
+    actorId: String!
+    actor: User
+    entityType: String!
+    entityId: String!
+    action: String!
+    previousValue: String
+    newValue: String
+    ipAddress: String
     createdAt: String!
   }
 
@@ -244,6 +280,9 @@ export const typeDefs = `#graphql
     employees: [Employee]
     employee(id: ID!): Employee
     departments: [Department]
+    department(id: ID!): Department
+    shifts: [Shift]
+    approvalWorkflows: [ApprovalWorkflow]
     
     # Phase 2 Queries
     leaveTypes: [LeaveType]
@@ -272,6 +311,7 @@ export const typeDefs = `#graphql
     allOffboardings: [Offboarding]
     upcomingCelebrations(month: Int!): [Celebration]
     profileUpdateRequests: [ProfileUpdateRequest]
+    auditLogs(entityType: String, action: String, limit: Int): [AuditLog]
   }
 
   type ApprovalRecord {
@@ -356,6 +396,14 @@ export const typeDefs = `#graphql
     updateDepartment(id: ID!, name: String, code: String, headEmployeeId: String): Department!
     approveDepartment(id: ID!): Department!
     deleteDepartment(id: ID!): Boolean
+
+    createShift(name: String!, startTime: String!, endTime: String!, breakMinutes: Int): Shift!
+    updateShift(id: ID!, name: String, startTime: String, endTime: String, breakMinutes: Int, isActive: Boolean): Shift!
+    deleteShift(id: ID!): Boolean
+
+    createApprovalWorkflow(name: String!, entityType: String!, steps: String!): ApprovalWorkflow!
+    updateApprovalWorkflow(id: ID!, name: String, entityType: String, steps: String, isActive: Boolean): ApprovalWorkflow!
+    deleteApprovalWorkflow(id: ID!): Boolean
 
     processApproval(entityType: String!, entityId: ID!, action: String!, comments: String): ApprovalRecord!
 

@@ -146,6 +146,7 @@ model Organization {
   announcements     Announcement[]
   policies          Policy[]
   payrollRuns       PayrollRun[]
+  approvalWorkflows ApprovalWorkflow[]
 }
 
 // ─── DEPARTMENT ───────────────────────────────────────────
@@ -681,6 +682,20 @@ model Shift {
   breakMinutes    Int          @default(60)
   isActive        Boolean      @default(true)
   createdAt       DateTime     @default(now())
+}
+
+model ApprovalWorkflow {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  name            String
+  entityType      String       // 'LeaveRequest', 'PayrollRun', 'ExpenseClaim', etc.
+  steps           Json         // Array of roles or userIds required in order: [{ order: 1, role: 'MANAGER' }, { order: 2, role: 'HR_ADMIN' }]
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([organizationId, name])
 }
 
 model Asset {

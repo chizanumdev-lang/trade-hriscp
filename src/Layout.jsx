@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BarChart3, UserCircle, LogOut, Menu,
   Briefcase, Video, ClipboardCheck, Calendar, DollarSign, UserPlus, Receipt,
   MessageSquare, Settings, CheckSquare, Plane, MessageCircle, Home,
-  Target, ShieldCheck, Laptop, CheckCircle, TrendingUp, BookOpen, Moon, Sun, Search
+  Target, ShieldCheck, Laptop, CheckCircle, TrendingUp, BookOpen, Moon, Sun, Search, Clock
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { gqlClient } from "@/api/graphqlClient";
@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import NotificationBell from "@/components/ui/NotificationBell";
 
 const navigationStructure = [
   {
@@ -194,7 +195,11 @@ export default function Layout({ children }) {
       icon: Settings,
       isParent: true,
       children: [
-        { title: "General Settings", url: createPageUrl("Settings"), icon: Settings }
+        { title: "General Settings", url: createPageUrl("Settings"), icon: Settings },
+        { title: "Approval Workflows", url: createPageUrl("SettingsApprovalWorkflows"), icon: CheckCircle },
+        { title: "Work Shifts", url: createPageUrl("SettingsShifts"), icon: Clock },
+        { title: "Departments", url: createPageUrl("SettingsDepartments"), icon: Users },
+        { title: "Audit Logs", url: createPageUrl("AuditLogs"), icon: ShieldCheck }
       ]
     });
   }
@@ -232,6 +237,9 @@ export default function Layout({ children }) {
         <div className="flex items-center gap-2">
           <img src="/logo-icon.png" alt="Logo" className="w-6 h-6" />
           <h1 className="text-lg font-bold text-slate-900 tracking-tight">TradeVu</h1>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <NotificationBell />
         </div>
       </header>
 
@@ -278,7 +286,9 @@ export default function Layout({ children }) {
         </nav>
 
         {/* Theme Toggle & Avatar */}
-        <div className="mt-auto flex flex-col gap-3 items-center w-full px-2 pt-4">
+        <div className="mt-auto flex flex-col gap-3 items-center w-full px-2 pt-4 pb-2">
+          <NotificationBell />
+
           <button onClick={toggleTheme} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${isDark ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-200 hover:text-slate-900'}`}>
             {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>

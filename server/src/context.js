@@ -10,15 +10,16 @@ export const createContext = async ({ req }) => {
   if (token) {
     const decoded = verifyToken(token);
     if (decoded) {
-      // We could optionally fetch the full user from DB if we need fresh data,
-      // but decoded token has { id, email, role, organizationId }
       user = decoded;
     }
   }
 
+  const ipAddress = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
+
   return {
     prisma,
     user,
+    ipAddress,
     // A helper to assert authentication
     requireAuth: () => {
       if (!user) throw new Error('Unauthenticated');

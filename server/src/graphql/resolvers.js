@@ -1,6 +1,7 @@
 import { hashPassword, comparePassword, generateToken } from '../utils/auth.js';
 import { v2 as cloudinary } from 'cloudinary';
 import { createAuditLog, recordApprovalEvent } from '../utils/audit.js';
+import { NotificationService } from '../services/NotificationService.js';
 
 const checkAndPromoteEmployee = async (employeeId, prisma) => {
   const emp = await prisma.employee.findUnique({ 
@@ -55,7 +56,21 @@ const checkAndPromoteEmployee = async (employeeId, prisma) => {
 
 export const resolvers = {
   Query: {
-    me: async (_, __, { prisma, user, requireAuth }) => {
+        auditLogs: async (_, { entityType, action, limit }, { prisma, user, requireRole, ipAddress }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
+      const where = {};
+      if (entityType) where.entityType = entityType;
+      if (action) where.action = action;
+      const logs = await prisma.auditLog.findMany({
+        where, orderBy: { createdAt: 'desc' }, take: limit || 100, include: { actor: true }
+      });
+      return logs.map(log => ({
+        ...log,
+        previousValue: log.previousValue ? JSON.stringify(log.previousValue) : null,
+        newValue: log.newValue ? JSON.stringify(log.newValue) : null,
+      }));
+    },
+me: async (_, __, { prisma, user, requireAuth }) => {
       requireAuth();
       return prisma.user.findUnique({ where: { id: user.id } });
     },
@@ -71,7 +86,7 @@ export const resolvers = {
         hireDate: emp.hireDate ? emp.hireDate.toISOString() : null
       }));
     },
-    employee: async (_, { id }, { prisma, user, requireAuth }) => {
+    employee: async (_, { id }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       return prisma.employee.findFirst({
         where: { id, organizationId: user.organizationId }
@@ -79,7 +94,17 @@ export const resolvers = {
     },
     departments: async (_, __, { prisma, user, requireAuth }) => {
       requireAuth();
-      return prisma.department.findMany({ where: { organizationId: user.organizationId } });
+      return prisma.department.findMany({ 
+        where: { organizationId: user.organizationId },
+        include: { employees: true }
+      });
+    },
+    department: async (_, { id }, { prisma, user, requireAuth }) => {
+      requireAuth();
+      return prisma.department.findFirst({
+        where: { id, organizationId: user.organizationId },
+        include: { employees: true }
+      });
     },
     onboardingTasks: async (_, __, { prisma, user, requireAuth }) => {
       requireAuth();
@@ -89,25 +114,37 @@ export const resolvers = {
         orderBy: { createdAt: 'desc' }
       });
     },
+    shifts: async (_, __, { prisma, user, requireAuth }) => {
+      requireAuth();
+      return prisma.shift.findMany({ where: { organizationId: user.organizationId } });
+    },
+    approvalWorkflows: async (_, __, { prisma, user, requireAuth }) => {
+      requireAuth();
+      const workflows = await prisma.approvalWorkflow.findMany({ where: { organizationId: user.organizationId } });
+      return workflows.map(wf => ({
+        ...wf,
+        steps: wf.steps ? JSON.stringify(wf.steps) : '[]'
+      }));
+    },
     // Phase 2 Queries
     leaveTypes: async (_, __, { prisma, user, requireAuth }) => {
       requireAuth();
       return prisma.leaveType.findMany({ where: { organizationId: user.organizationId } });
     },
-    leaveRequests: async (_, { employeeId }, { prisma, user, requireAuth }) => {
+    leaveRequests: async (_, { employeeId }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       const where = employeeId ? { employeeId } : {};
       // Should also restrict to organization but skipped for brevity
       return prisma.leaveRequest.findMany({ where, orderBy: { createdAt: 'desc' } });
     },
-    attendanceRecords: async (_, { employeeId, date }, { prisma, user, requireAuth }) => {
+    attendanceRecords: async (_, { employeeId, date }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       const where = {};
       if (employeeId) where.employeeId = employeeId;
       if (date) where.date = new Date(date);
       return prisma.attendance.findMany({ where, orderBy: { date: 'desc' } });
     },
-    documents: async (_, { employeeId, category }, { prisma, user, requireAuth }) => {
+    documents: async (_, { employeeId, category }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       const where = {};
       
@@ -151,7 +188,7 @@ export const resolvers = {
       
       return [];
     },
-    documentHistory: async (_, { documentId }, { prisma, user, requireRole }) => {
+    documentHistory: async (_, { documentId }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       return prisma.documentVersion.findMany({
         where: { documentId },
@@ -193,7 +230,7 @@ export const resolvers = {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'FINANCE_ADMIN']);
       return prisma.payrollRun.findMany({ where: { organizationId: user.organizationId }, orderBy: { month: 'desc' } });
     },
-    payrollRecords: async (_, { payrollRunId }, { prisma, user, requireRole }) => {
+    payrollRecords: async (_, { payrollRunId }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'FINANCE_ADMIN']);
       return prisma.payrollRecord.findMany({ where: { payrollRunId } });
     },
@@ -212,7 +249,7 @@ export const resolvers = {
       requireAuth();
       return prisma.announcement.findMany({ where: { organizationId: user.organizationId }, orderBy: { createdAt: 'desc' } });
     },
-    goals: async (_, { employeeId }, { prisma, user, requireAuth }) => {
+    goals: async (_, { employeeId }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       return prisma.goal.findMany({ where: { employeeId } });
     },
@@ -247,7 +284,7 @@ export const resolvers = {
         include: { employee: true }
       });
     },
-    upcomingCelebrations: async (_, { month }, { prisma, user, requireAuth }) => {
+    upcomingCelebrations: async (_, { month }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       const employees = await prisma.employee.findMany({
         where: { organizationId: user.organizationId, employmentStatus: 'ACTIVE' },
@@ -305,7 +342,7 @@ export const resolvers = {
       const token = generateToken(user);
       return { token, user };
     },
-    createEmployee: async (_, { input }, { prisma, user, requireRole }) => {
+    createEmployee: async (_, { input }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       const { templateId, employmentType, ...employeeData } = input;
       const count = await prisma.employee.count({ where: { organizationId: user.organizationId } });
@@ -321,7 +358,7 @@ export const resolvers = {
           onboardingStatus: 'not_started',
         }
       });
-      await createAuditLog({ actorId: user.id, entityType: 'Employee', entityId: emp.id, action: 'CREATE' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: emp.id, action: 'CREATE', newValue: emp, ipAddress });
       
       // Auto-generate User account for the new employee
       const passwordHash = await hashPassword('Welcome123!');
@@ -338,7 +375,7 @@ export const resolvers = {
       
       return emp;
     },
-    approveEmployeeData: async (_, { employeeId }, { prisma, user, requireRole }) => {
+    approveEmployeeData: async (_, { employeeId }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       
       const emp = await prisma.employee.findFirst({
@@ -371,7 +408,7 @@ export const resolvers = {
       return updatedEmp;
     },
 
-    startOnboarding: async (_, { employeeId }, { prisma, user, requireRole }) => {
+    startOnboarding: async (_, { employeeId }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       
       const emp = await prisma.employee.findFirst({
@@ -411,11 +448,23 @@ export const resolvers = {
         });
       }
       
-      await createAuditLog({ actorId: user.id, entityType: 'Employee', entityId: emp.id, action: 'START_ONBOARDING' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: emp.id, action: 'START_ONBOARDING', ipAddress });
+      
+      // Notify the employee
+      if (emp.user?.id) {
+        await NotificationService.notify({
+          userId: emp.user.id,
+          category: 'onboarding',
+          title: 'Onboarding Started',
+          message: 'Welcome! Your onboarding process has started. Please check your pending tasks.',
+          deepLink: '/EmployeeSelfService',
+          sendEmail: true
+        });
+      }
       
       return updatedEmp;
     },
-    updateEmployee: async (_, { id, input }, { prisma, user, requireRole }) => {
+    updateEmployee: async (_, { id, input }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       
       const existing = await prisma.employee.findFirst({
@@ -446,7 +495,7 @@ export const resolvers = {
         data: updateData
       });
       
-      await createAuditLog({ actorId: user.id, entityType: 'Employee', entityId: id, action: 'UPDATE' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: id, action: 'UPDATE', previousValue: existing, newValue: updatedEmp, ipAddress });
       await checkAndPromoteEmployee(id, prisma);
       return updated;
     },
@@ -482,18 +531,18 @@ export const resolvers = {
         data: updateData
       });
       
-      await createAuditLog({ actorId: user.id, entityType: 'Employee', entityId: existing.id, action: 'UPDATE_SELF' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: existing.id, action: 'UPDATE_SELF', previousValue: existing, newValue: updatedEmp, ipAddress });
       await checkAndPromoteEmployee(existing.id, prisma);
       return updated;
     },
-    deleteEmployee: async (_, { id }, { prisma, user, requireRole }) => {
+    deleteEmployee: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       await prisma.employee.delete({ where: { id, organizationId: user.organizationId } });
-      await createAuditLog({ actorId: user.id, entityType: 'Employee', entityId: id, action: 'DELETE' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: id, action: 'DELETE', previousValue: empToDelete, ipAddress });
       return true;
     },
 
-    createDepartment: async (_, { name, code, headEmployeeId }, { prisma, user, requireRole }) => {
+    createDepartment: async (_, { name, code, headEmployeeId }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       const isSuper = user.role === 'SUPER_ADMIN';
       const department = await prisma.department.create({
@@ -520,7 +569,7 @@ export const resolvers = {
       return department;
     },
     
-    updateDepartment: async (_, { id, name, code, headEmployeeId }, { prisma, user, requireRole }) => {
+    updateDepartment: async (_, { id, name, code, headEmployeeId }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       const department = await prisma.department.findUnique({ where: { id, organizationId: user.organizationId } });
       if (!department) throw new Error("Department not found");
@@ -543,7 +592,7 @@ export const resolvers = {
       return updated;
     },
 
-    approveDepartment: async (_, { id }, { prisma, user, requireRole }) => {
+    approveDepartment: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN']);
       const department = await prisma.department.update({
         where: { id, organizationId: user.organizationId },
@@ -563,15 +612,86 @@ export const resolvers = {
       return department;
     },
 
-    deleteDepartment: async (_, { id }, { prisma, user, requireRole }) => {
+    deleteDepartment: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       await prisma.department.delete({
         where: { id, organizationId: user.organizationId }
       });
       return true;
     },
+
+    createShift: async (_, { name, startTime, endTime, breakMinutes }, { prisma, user, requireRole, ipAddress }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
+      return prisma.shift.create({
+        data: {
+          name, startTime, endTime, breakMinutes: breakMinutes || 60,
+          organizationId: user.organizationId
+        }
+      });
+    },
+    updateShift: async (_, { id, name, startTime, endTime, breakMinutes, isActive }, { prisma, user, requireRole, ipAddress }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
+      const data = {};
+      if (name !== undefined) data.name = name;
+      if (startTime !== undefined) data.startTime = startTime;
+      if (endTime !== undefined) data.endTime = endTime;
+      if (breakMinutes !== undefined) data.breakMinutes = breakMinutes;
+      if (isActive !== undefined) data.isActive = isActive;
+      return prisma.shift.update({
+        where: { id, organizationId: user.organizationId },
+        data
+      });
+    },
+    deleteShift: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
+      await prisma.shift.delete({
+        where: { id, organizationId: user.organizationId }
+      });
+      return true;
+    },
+
+    createApprovalWorkflow: async (_, { name, entityType, steps }, { prisma, user, requireRole, ipAddress }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
+      let parsedSteps;
+      try {
+        parsedSteps = JSON.parse(steps);
+      } catch(e) {
+        throw new Error("Invalid JSON in steps");
+      }
+      return prisma.approvalWorkflow.create({
+        data: {
+          name, entityType, steps: parsedSteps,
+          organizationId: user.organizationId
+        }
+      });
+    },
+    updateApprovalWorkflow: async (_, { id, name, entityType, steps, isActive }, { prisma, user, requireRole, ipAddress }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
+      const data = {};
+      if (name !== undefined) data.name = name;
+      if (entityType !== undefined) data.entityType = entityType;
+      if (isActive !== undefined) data.isActive = isActive;
+      if (steps !== undefined) {
+        try {
+          data.steps = JSON.parse(steps);
+        } catch(e) {
+          throw new Error("Invalid JSON in steps");
+        }
+      }
+      return prisma.approvalWorkflow.update({
+        where: { id, organizationId: user.organizationId },
+        data
+      });
+    },
+    deleteApprovalWorkflow: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
+      await prisma.approvalWorkflow.delete({
+        where: { id, organizationId: user.organizationId }
+      });
+      return true;
+    },
     
-    processApproval: async (_, { entityType, entityId, action, comments }, { prisma, user, requireAuth }) => {
+    processApproval: async (_, { entityType, entityId, action, comments }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       // Only MANAGER, HR_ADMIN, or SUPER_ADMIN can process approvals
       if (['EMPLOYEE'].includes(user.role)) {
@@ -636,6 +756,18 @@ export const resolvers = {
             });
           }
         }
+        
+        // Notify the employee about the leave action
+        if (request.employee?.user?.id) {
+          await NotificationService.notify({
+            userId: request.employee.user.id,
+            category: 'leave',
+            title: `Leave Request ${newStatus}`,
+            message: `Your leave request has been ${newStatus.toLowerCase().replace('_', ' ')}.`,
+            deepLink: '/LeaveManagement',
+            sendEmail: true
+          });
+        }
       } else if (entityType === 'PayrollRun') {
         if (!['FINANCE_ADMIN', 'HR_ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
           throw new Error("Not authorized to approve Payroll");
@@ -647,6 +779,16 @@ export const resolvers = {
         await prisma.payrollRun.update({
           where: { id: entityId },
           data: { status: action, approvedBy: user.id }
+        });
+
+        // Notify HR / Admin about payroll approval
+        await NotificationService.notify({
+          userId: request.processedBy || request.approvedBy || user.id, // Notify the original processor
+          category: 'payroll',
+          title: `Payroll Run ${action}`,
+          message: `The payroll run for ${request.month} has been ${action.toLowerCase()}.`,
+          deepLink: '/Payroll',
+          sendEmail: true
         });
       } else if (entityType === 'Policy') {
         if (!['HR_ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
@@ -728,7 +870,7 @@ export const resolvers = {
         }
       });
       
-      await createAuditLog({ 
+      await createAuditLog({ prisma, ipAddress, 
         actorId: user.id, 
         entityType: 'ApprovalRecord', 
         entityId: approvalRecord.id, 
@@ -737,7 +879,7 @@ export const resolvers = {
       
       return approvalRecord;
     },
-    updateOnboardingTask: async (_, { id, isCompleted, status }, { prisma, user, requireAuth }) => {
+    updateOnboardingTask: async (_, { id, isCompleted, status }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       const updateData = {};
       if (isCompleted !== undefined) {
@@ -762,16 +904,17 @@ export const resolvers = {
     },
 
     // Phase 2 Mutations
-    createLeaveType: async (_, { name, daysPerYear, isPaid = true, requiresApproval = true }, { prisma, user, requireRole }) => {
+    createLeaveType: async (_, { name, daysPerYear, isPaid = true, requiresApproval = true }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       return prisma.leaveType.create({
         data: { name, daysPerYear, isPaid, requiresApproval, organizationId: user.organizationId }
       });
     },
-    submitLeaveRequest: async (_, { input }, { prisma, user, requireAuth }) => {
+    submitLeaveRequest: async (_, { input }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       if (!user.employeeId) throw new Error("User is not an employee");
-      return prisma.leaveRequest.create({
+      
+      const leaveRequest = await prisma.leaveRequest.create({
         data: {
           employeeId: user.employeeId,
           leaveTypeId: input.leaveTypeId,
@@ -781,10 +924,29 @@ export const resolvers = {
           reason: input.reason
         }
       });
+
+      // Find the employee's manager to notify them
+      const employee = await prisma.employee.findUnique({ 
+        where: { id: user.employeeId },
+        include: { manager: { include: { user: true } } }
+      });
+
+      if (employee?.manager?.user?.id) {
+        await NotificationService.notify({
+          userId: employee.manager.user.id,
+          category: 'leave',
+          title: 'New Leave Request',
+          message: `${employee.fullName} has submitted a new leave request pending your approval.`,
+          deepLink: '/PendingApprovals',
+          sendEmail: true
+        });
+      }
+
+      return leaveRequest;
     },
-    approveLeaveRequest: async (_, { id }, { prisma, user, requireRole }) => {
+    approveLeaveRequest: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
-      const leave = await prisma.leaveRequest.findUnique({ where: { id } });
+      const leave = await prisma.leaveRequest.findUnique({ where: { id }, include: { employee: { include: { user: true } } } });
       
       let nextStatus = 'APPROVED';
       if (user.role === 'MANAGER' && leave.status === 'PENDING') {
@@ -796,9 +958,21 @@ export const resolvers = {
         data: { status: nextStatus }
       });
       await recordApprovalEvent({ entityType: 'LeaveRequest', entityId: id, approverUserId: user.id, action: nextStatus, previousStatus: leave.status });
+      
+      if (leave.employee?.user?.id) {
+        await NotificationService.notify({
+          userId: leave.employee.user.id,
+          category: 'leave',
+          title: `Leave Request Update`,
+          message: `Your leave request status is now ${nextStatus.replace('_', ' ')}.`,
+          deepLink: '/LeaveManagement',
+          sendEmail: true
+        });
+      }
+
       return updated;
     },
-    rejectLeaveRequest: async (_, { id, reason }, { prisma, user, requireRole }) => {
+    rejectLeaveRequest: async (_, { id, reason }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       const leave = await prisma.leaveRequest.findUnique({ where: { id } });
       const updated = await prisma.leaveRequest.update({
@@ -867,7 +1041,7 @@ export const resolvers = {
       
       return document;
     },
-    replaceDocumentVersion: async (_, { id, fileUrl, fileType, fileSize }, { prisma, user, requireAuth }) => {
+    replaceDocumentVersion: async (_, { id, fileUrl, fileType, fileSize }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       const document = await prisma.document.findUnique({ where: { id } });
       if (!document) throw new Error("Document not found");
@@ -905,46 +1079,46 @@ export const resolvers = {
         }
       });
       
-      await createAuditLog({ actorId: user.id, entityType: 'Document', entityId: id, action: 'UPDATE' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Document', entityId: id, action: 'UPDATE', previousValue: existing, newValue: updatedEmp, ipAddress });
       return updatedDocument;
     },
-    archiveDocument: async (_, { id }, { prisma, user, requireRole }) => {
+    archiveDocument: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       const document = await prisma.document.update({
         where: { id },
         data: { status: 'ARCHIVED' }
       });
-      await createAuditLog({ actorId: user.id, entityType: 'Document', entityId: id, action: 'UPDATE' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Document', entityId: id, action: 'UPDATE', previousValue: existing, newValue: updatedEmp, ipAddress });
       return document;
     },
-    deleteDocument: async (_, { id }, { prisma, user, requireRole }) => {
+    deleteDocument: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       const document = await prisma.document.update({
         where: { id },
         data: { status: 'DELETED' }
       });
-      await createAuditLog({ actorId: user.id, entityType: 'Document', entityId: id, action: 'DELETE' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Document', entityId: id, action: 'DELETE', previousValue: empToDelete, ipAddress });
       return document;
     },
-    approveDocument: async (_, { id }, { prisma, user, requireRole }) => {
+    approveDocument: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       const document = await prisma.document.findUnique({ where: { id } });
       const updatedDocument = await prisma.document.update({
         where: { id },
         data: { status: 'ACTIVE' }
       });
-      await createAuditLog({ actorId: user.id, entityType: 'Document', entityId: id, action: 'APPROVE' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Document', entityId: id, action: 'APPROVE' });
       await recordApprovalEvent({ entityType: 'Document', entityId: id, approverUserId: user.id, action: 'APPROVED', previousStatus: document.status });
       return updatedDocument;
     },
-    rejectDocument: async (_, { id, reason }, { prisma, user, requireRole }) => {
+    rejectDocument: async (_, { id, reason }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       const document = await prisma.document.findUnique({ where: { id } });
       const updatedDocument = await prisma.document.update({
         where: { id },
         data: { status: 'REJECTED' }
       });
-      await createAuditLog({ actorId: user.id, entityType: 'Document', entityId: id, action: 'REJECT' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Document', entityId: id, action: 'REJECT' });
       await recordApprovalEvent({ entityType: 'Document', entityId: id, approverUserId: user.id, action: 'REJECTED', comments: reason, previousStatus: document.status });
       
       if (reason) {
@@ -959,7 +1133,7 @@ export const resolvers = {
       }
       return document;
     },
-    approveProfileUpdateRequest: async (_, { id }, { prisma, user, requireRole }) => {
+    approveProfileUpdateRequest: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       const request = await prisma.profileUpdateRequest.findUnique({ where: { id } });
       const updatedRequest = await prisma.profileUpdateRequest.update({
@@ -972,23 +1146,23 @@ export const resolvers = {
         where: { id: request.employeeId },
         data: updateData
       });
-      await createAuditLog({ actorId: user.id, entityType: 'ProfileUpdateRequest', entityId: id, action: 'APPROVE' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'ProfileUpdateRequest', entityId: id, action: 'APPROVE' });
       await recordApprovalEvent({ entityType: 'ProfileUpdateRequest', entityId: id, approverUserId: user.id, action: 'APPROVED', previousStatus: request.status });
       return updatedRequest;
     },
-    rejectProfileUpdateRequest: async (_, { id, reason }, { prisma, user, requireRole }) => {
+    rejectProfileUpdateRequest: async (_, { id, reason }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       const request = await prisma.profileUpdateRequest.findUnique({ where: { id } });
       const updatedRequest = await prisma.profileUpdateRequest.update({
         where: { id },
         data: { status: 'REJECTED', reviewedBy: user.id }
       });
-      await createAuditLog({ actorId: user.id, entityType: 'ProfileUpdateRequest', entityId: id, action: 'REJECT' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'ProfileUpdateRequest', entityId: id, action: 'REJECT' });
       await recordApprovalEvent({ entityType: 'ProfileUpdateRequest', entityId: id, approverUserId: user.id, action: 'REJECTED', comments: reason, previousStatus: request.status });
       return updatedRequest;
     },
 
-    markNotificationRead: async (_, { id }, { prisma, user, requireAuth }) => {
+    markNotificationRead: async (_, { id }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       return prisma.notification.update({
         where: { id, userId: user.id },
@@ -997,7 +1171,7 @@ export const resolvers = {
     },
 
     // Phase 3 Mutations
-    requestCompensationUpdate: async (_, { employeeId, basicSalary, allowances, reason }, { prisma, user, requireRole }) => {
+    requestCompensationUpdate: async (_, { employeeId, basicSalary, allowances, reason }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['HR_ADMIN', 'SUPER_ADMIN']);
       
       const record = await prisma.salaryHistory.create({
@@ -1011,11 +1185,11 @@ export const resolvers = {
         }
       });
       
-      await createAuditLog({ actorId: user.id, entityType: 'SalaryHistory', entityId: record.id, action: 'CREATED' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'SalaryHistory', entityId: record.id, action: 'CREATED', previousValue: { basicSalary: employee.basicSalary, allowances: employee.allowances }, newValue: record, ipAddress });
       return record;
     },
 
-    createPayrollRun: async (_, { month, periodStart, periodEnd }, { prisma, user, requireRole }) => {
+    createPayrollRun: async (_, { month, periodStart, periodEnd }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'FINANCE_ADMIN']);
       
       const employees = await prisma.employee.findMany({
@@ -1124,7 +1298,7 @@ export const resolvers = {
       });
     },
 
-    submitPayrollRun: async (_, { id }, { prisma, user, requireRole }) => {
+    submitPayrollRun: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       const pr = await prisma.payrollRun.findUnique({ where: { id, organizationId: user.organizationId } });
       const updated = await prisma.payrollRun.update({
@@ -1134,18 +1308,18 @@ export const resolvers = {
       await recordApprovalEvent({ entityType: 'PayrollRun', entityId: id, approverUserId: user.id, action: 'PENDING_APPROVAL', previousStatus: pr.status });
       return updated;
     },
-    approvePayrollRun: async (_, { id }, { prisma, user, requireRole }) => {
+    approvePayrollRun: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'FINANCE_ADMIN']);
       const pr = await prisma.payrollRun.findUnique({ where: { id, organizationId: user.organizationId } });
       const updated = await prisma.payrollRun.update({
         where: { id, organizationId: user.organizationId },
         data: { status: 'APPROVED', approvedBy: user.id }
       });
-      await createAuditLog({ actorId: user.id, entityType: 'PayrollRun', entityId: id, action: 'APPROVED' });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'PayrollRun', entityId: id, action: 'APPROVED', previousValue: policy, newValue: updated, ipAddress });
       await recordApprovalEvent({ entityType: 'PayrollRun', entityId: id, approverUserId: user.id, action: 'APPROVED', previousStatus: pr.status });
       return updated;
     },
-    rejectPayrollRun: async (_, { id, reason }, { prisma, user, requireRole }) => {
+    rejectPayrollRun: async (_, { id, reason }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'FINANCE_ADMIN']);
       const pr = await prisma.payrollRun.findUnique({ where: { id, organizationId: user.organizationId } });
       const updated = await prisma.payrollRun.update({
@@ -1156,7 +1330,7 @@ export const resolvers = {
       return updated;
     },
 
-    generatePayslip: async (_, { recordId }, { prisma, user, requireAuth }) => {
+    generatePayslip: async (_, { recordId }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       // To implement a real PDF generation async worker:
       // 1. Push a job to BullMQ queue: `pdfQueue.add('generatePayslip', { recordId })`.
@@ -1174,13 +1348,13 @@ export const resolvers = {
     },
 
     // Phase 4 Mutations
-    createPolicy: async (_, { title, category, content, requiresAck }, { prisma, user, requireRole }) => {
+    createPolicy: async (_, { title, category, content, requiresAck }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       return prisma.policy.create({
         data: { title, category, content, requiresAck, organizationId: user.organizationId, createdBy: user.id, status: 'DRAFT' }
       });
     },
-    submitPolicy: async (_, { id }, { prisma, user, requireRole }) => {
+    submitPolicy: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       const pol = await prisma.policy.findUnique({ where: { id, organizationId: user.organizationId } });
       const updated = await prisma.policy.update({
@@ -1190,7 +1364,7 @@ export const resolvers = {
       await recordApprovalEvent({ entityType: 'Policy', entityId: id, approverUserId: user.id, action: 'PENDING', previousStatus: pol.status });
       return updated;
     },
-    approvePolicy: async (_, { id }, { prisma, user, requireRole }) => {
+    approvePolicy: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN']);
       const pol = await prisma.policy.findUnique({ where: { id, organizationId: user.organizationId } });
       const updated = await prisma.policy.update({
@@ -1200,7 +1374,7 @@ export const resolvers = {
       await recordApprovalEvent({ entityType: 'Policy', entityId: id, approverUserId: user.id, action: 'APPROVED', previousStatus: pol.status });
       return updated;
     },
-    rejectPolicy: async (_, { id, reason }, { prisma, user, requireRole }) => {
+    rejectPolicy: async (_, { id, reason }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN']);
       const pol = await prisma.policy.findUnique({ where: { id, organizationId: user.organizationId } });
       const updated = await prisma.policy.update({
@@ -1210,7 +1384,7 @@ export const resolvers = {
       await recordApprovalEvent({ entityType: 'Policy', entityId: id, approverUserId: user.id, action: 'REJECTED', comments: reason, previousStatus: pol.status });
       return updated;
     },
-    acknowledgePolicy: async (_, { policyId }, { prisma, user, requireAuth }) => {
+    acknowledgePolicy: async (_, { policyId }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       await prisma.policyAcknowledgment.upsert({
         where: { policyId_userId: { policyId, userId: user.id } },
@@ -1219,13 +1393,13 @@ export const resolvers = {
       });
       return true;
     },
-    createAnnouncement: async (_, { title, content, priority }, { prisma, user, requireRole }) => {
+    createAnnouncement: async (_, { title, content, priority }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
       return prisma.announcement.create({
         data: { title, content, priority, organizationId: user.organizationId, createdBy: user.id }
       });
     },
-    createGoal: async (_, { employeeId, title, weight, period }, { prisma, user, requireRole }) => {
+    createGoal: async (_, { employeeId, title, weight, period }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       return prisma.goal.create({
         data: { employeeId, title, weight, period }
@@ -1233,7 +1407,7 @@ export const resolvers = {
     },
 
     // Phase 5 & 6 Mutations
-    createCheckIn: async (_, { employeeId, period, scheduledDate }, { prisma, user, requireRole }) => {
+    createCheckIn: async (_, { employeeId, period, scheduledDate }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       return prisma.checkIn.create({
         data: { employeeId, managerId: user.employeeId, period, scheduledDate: scheduledDate ? new Date(scheduledDate) : null }
@@ -1292,9 +1466,19 @@ export const resolvers = {
       const data = {};
       if (assetReturned !== undefined) data.assetReturned = assetReturned;
       if (accessRevoked !== undefined) data.accessRevoked = accessRevoked;
-      if (handoverComplete !== undefined) data.handoverComplete = handoverComplete;
+        if (handoverComplete !== undefined) data.handoverComplete = handoverComplete;
       return prisma.offboarding.update({ where: { id }, data });
     }
+  },
+  Notification: {
+    isRead: (parent) => parent.isRead || false
+  },
+  AuditLog: {
+    previousValue: (parent) => parent.previousValue ? JSON.stringify(parent.previousValue) : null,
+    newValue: (parent) => parent.newValue ? JSON.stringify(parent.newValue) : null,
+  },
+  ApprovalWorkflow: {
+    steps: (parent) => parent.steps ? JSON.stringify(parent.steps) : '[]',
   },
   Employee: {
     department: async (parent, _, { prisma }) => {
