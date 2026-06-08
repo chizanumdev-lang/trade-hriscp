@@ -227,7 +227,7 @@ export default function PendingApprovals() {
                         </Button>
                         <Button 
                           className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-                          onClick={() => approveEmployee({ variables: { employeeId: emp.id } })}
+                          onClick={() => approveEmployee({ employeeId: emp.id })}
                         >
                           <CheckCircle2 className="w-4 h-4" />
                           Approve
@@ -268,6 +268,7 @@ export default function PendingApprovals() {
                           <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
                             <DialogHeader>
                               <DialogTitle>{doc.name}</DialogTitle>
+                              <DialogDescription className="sr-only">Preview of {doc.name}</DialogDescription>
                             </DialogHeader>
                             <div className="w-full flex-1 flex items-center justify-center bg-slate-100 rounded-lg overflow-hidden relative min-h-[60vh]">
                               {!doc.fileUrl ? (
@@ -304,14 +305,14 @@ export default function PendingApprovals() {
                         <Button 
                           variant="outline" 
                           className="text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
-                          onClick={() => rejectDocument({ variables: { id: doc.id } })}
+                          onClick={() => rejectDocument({ id: doc.id })}
                         >
                           <XCircle className="w-4 h-4" />
                           Reject
                         </Button>
                         <Button 
                           className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-                          onClick={() => approveDocument({ variables: { id: doc.id } })}
+                          onClick={() => approveDocument({ id: doc.id })}
                         >
                           <CheckCircle2 className="w-4 h-4" />
                           Approve
@@ -348,14 +349,14 @@ export default function PendingApprovals() {
                         <Button 
                           variant="outline" 
                           className="text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
-                          onClick={() => rejectLeave({ variables: { id: leave.id } })}
+                          onClick={() => rejectLeave({ id: leave.id })}
                         >
                           <XCircle className="w-4 h-4" />
                           Reject
                         </Button>
                         <Button 
                           className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-                          onClick={() => approveLeave({ variables: { id: leave.id } })}
+                          onClick={() => approveLeave({ id: leave.id })}
                         >
                           <CheckCircle2 className="w-4 h-4" />
                           Approve
@@ -396,14 +397,14 @@ export default function PendingApprovals() {
                         <Button 
                           variant="outline" 
                           className="text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
-                          onClick={() => rejectProfile({ variables: { id: update.id } })}
+                          onClick={() => rejectProfile({ id: update.id })}
                         >
                           <XCircle className="w-4 h-4" />
                           Reject
                         </Button>
                         <Button 
                           className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-                          onClick={() => approveProfile({ variables: { id: update.id } })}
+                          onClick={() => approveProfile({ id: update.id })}
                         >
                           <CheckCircle2 className="w-4 h-4" />
                           Approve
