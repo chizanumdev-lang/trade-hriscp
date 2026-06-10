@@ -236,7 +236,7 @@ export default function Chat() {
                     </div>
                     <Button 
                       onClick={handleCreateConversation}
-                      disabled={selectedParticipants.length === 0 || createConversationMutation.isPending}
+                      isLoading={selectedParticipants.length === 0 || createConversationMutation.isPending}
                       className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700"
                     >
                       {createConversationMutation.isPending ? 'Creating...' : 'Create Conversation'}
@@ -394,7 +394,7 @@ export default function Chat() {
                   <Button 
                     type="submit" 
                     size="icon"
-                    disabled={!messageText.trim() || sendMessageMutation.isPending}
+                    isLoading={!messageText.trim() || sendMessageMutation.isPending}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-sm shrink-0"
                   >
                     <Send className="w-4 h-4" />

@@ -175,7 +175,7 @@ export default function TrainingPlatformForm({ platform, onCancel, onSuccess }) 
             </Button>
             <Button
               type="submit"
-              disabled={saveMutation.isPending}
+              isLoading={saveMutation.isPending}
               className="bg-purple-600 hover:bg-purple-700"
             >
               {saveMutation.isPending ? "Saving..." : platform ? "Update Platform" : "Create Platform"}

@@ -113,10 +113,10 @@ export default function AddTaskDialog({ open, onClose, onSubmit, isSubmitting })
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+            <Button type="button" variant="outline" onClick={onClose} isLoading={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" isLoading={isSubmitting}>
               {isSubmitting ? "Adding..." : "Add Task"}
             </Button>
           </div>

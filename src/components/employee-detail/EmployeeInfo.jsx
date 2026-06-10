@@ -131,7 +131,7 @@ export default function EmployeeInfo({ employee, isEditing, onUpdate, isUpdating
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
               <Button
                 type="submit"
-                disabled={isUpdating}
+                isLoading={isUpdating}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 <Save className="w-4 h-4 mr-2" />

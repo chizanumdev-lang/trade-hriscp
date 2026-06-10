@@ -2,6 +2,7 @@ import { hashPassword, comparePassword, generateToken } from '../utils/auth.js';
 import { v2 as cloudinary } from 'cloudinary';
 import { createAuditLog, recordApprovalEvent } from '../utils/audit.js';
 import { NotificationService } from '../services/NotificationService.js';
+import { client as triggerClient } from '../jobs/trigger.js';
 
 const checkAndPromoteEmployee = async (employeeId, prisma) => {
   const emp = await prisma.employee.findUnique({ 
@@ -50,6 +51,24 @@ const checkAndPromoteEmployee = async (employeeId, prisma) => {
         where: { id: employeeId },
         data: { employmentStatus: 'PENDING_APPROVAL' }
       });
+
+      // Notify the manager or HR about the pending approval
+      if (currentManagerId) {
+        const managerUser = await prisma.user.findFirst({
+          where: { employeeId: currentManagerId }
+        });
+        if (managerUser) {
+          await NotificationService.notify({
+            prisma,
+            userId: managerUser.id,
+            organizationId: emp.organizationId,
+            title: 'Employee Approval Required',
+            message: `${emp.firstName} ${emp.lastName} has completed their profile and is waiting for approval.`,
+            type: 'APPROVAL',
+            link: `/employees/${emp.id}`
+          });
+        }
+      }
     }
   }
 };
@@ -387,6 +406,14 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         throw new Error("Employee is not in PENDING_APPROVAL state");
       }
       
+      const pendingDocs = await prisma.document.count({
+        where: { employeeId: emp.id, status: 'PENDING' }
+      });
+      
+      if (pendingDocs > 0) {
+        throw new Error(`Cannot approve employee profile: ${pendingDocs} document(s) are pending approval. Please review and approve all documents first.`);
+      }
+      
       // Update employee status to PENDING_ONBOARDING
       const updatedEmp = await prisma.employee.update({
         where: { id: employeeId },
@@ -503,11 +530,11 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         data: updateData
       });
       
-      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: id, action: 'UPDATE', previousValue: existing, newValue: updatedEmp, ipAddress });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: id, action: 'UPDATE', previousValue: existing, newValue: updated });
       await checkAndPromoteEmployee(id, prisma);
       return updated;
     },
-    updateEmployeeSelf: async (_, { input }, { prisma, user }) => {
+    updateEmployeeSelf: async (_, { input }, { prisma, user, ipAddress }) => {
       if (!user) throw new Error("Not authenticated");
       const existing = await prisma.employee.findFirst({
         where: { 
@@ -539,14 +566,15 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         data: updateData
       });
       
-      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: existing.id, action: 'UPDATE_SELF', previousValue: existing, newValue: updatedEmp, ipAddress });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: existing.id, action: 'UPDATE_SELF', previousValue: existing, newValue: updated });
       await checkAndPromoteEmployee(existing.id, prisma);
       return updated;
     },
     deleteEmployee: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
+      const empToDelete = await prisma.employee.findUnique({ where: { id } });
       await prisma.employee.delete({ where: { id, organizationId: user.organizationId } });
-      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: id, action: 'DELETE', previousValue: empToDelete, ipAddress });
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: id, action: 'DELETE', previousValue: empToDelete });
       return true;
     },
 
@@ -1066,6 +1094,16 @@ me: async (_, __, { prisma, user, requireAuth }) => {
       });
       
       await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Document', entityId: id, action: 'UPDATE', previousValue: existing, newValue: updatedEmp, ipAddress });
+      
+      triggerClient.sendEvent({
+        name: 'document.uploaded',
+        payload: {
+          documentId: id,
+          documentName: document.documentName,
+          employeeId: document.employeeId
+        }
+      });
+
       return updatedDocument;
     },
     archiveDocument: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {

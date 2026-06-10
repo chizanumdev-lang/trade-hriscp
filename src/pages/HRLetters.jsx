@@ -220,7 +220,7 @@ export default function HRLetters() {
                     <Button type="button" variant="outline" onClick={() => setShowRequestForm(false)}>
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={createRequestMutation.isPending || updateRequestMutation.isPending}>
+                    <Button type="submit" isLoading={createRequestMutation.isPending || updateRequestMutation.isPending}>
                       {(createRequestMutation.isPending || updateRequestMutation.isPending) ? "Saving..." : editingRequest ? "Update" : "Submit Request"}
                     </Button>
                   </div>

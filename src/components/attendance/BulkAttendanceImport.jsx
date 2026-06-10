@@ -284,13 +284,13 @@ emp_003,Bob Johnson,2024-01-15,,,absent,0,0,Sick leave`;
           )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-            <Button variant="outline" onClick={handleClose} disabled={importMutation.isPending}>
+            <Button variant="outline" onClick={handleClose} isLoading={importMutation.isPending}>
               Cancel
             </Button>
             {parsedData && parsedData.length > 0 && (
               <Button 
                 onClick={handleImport}
-                disabled={importMutation.isPending}
+                isLoading={importMutation.isPending}
                 className="bg-green-600 hover:bg-green-700"
               >
                 {importMutation.isPending ? (

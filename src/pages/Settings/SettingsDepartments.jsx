@@ -170,7 +170,7 @@ export default function SettingsDepartments() {
                 </div>
                 <div className="flex justify-end gap-3">
                   <Button type="button" variant="outline" onClick={() => setShowDeptDialog(false)}>Cancel</Button>
-                  <Button type="submit" disabled={createDeptMutation.isPending}>
+                  <Button type="submit" isLoading={createDeptMutation.isPending}>
                     {createDeptMutation.isPending ? 'Creating...' : 'Create'}
                   </Button>
                 </div>

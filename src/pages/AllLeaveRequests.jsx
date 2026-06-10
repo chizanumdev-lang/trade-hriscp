@@ -348,7 +348,7 @@ export default function AllLeaveRequests() {
 
                 <div className="flex justify-end gap-3 pt-2">
                   <Button type="button" variant="outline" className="rounded-lg" onClick={() => setShowForm(false)}>Cancel</Button>
-                  <Button type="submit" className="rounded-lg bg-indigo-600 hover:bg-indigo-700" disabled={createLeaveMutation.isPending || updateLeaveMutation.isPending}>
+                  <Button type="submit" className="rounded-lg bg-indigo-600 hover:bg-indigo-700" isLoading={createLeaveMutation.isPending || updateLeaveMutation.isPending}>
                     {(createLeaveMutation.isPending || updateLeaveMutation.isPending) ? 'Saving...' : editingLeave ? 'Update Request' : 'Submit Request'}
                   </Button>
                 </div>

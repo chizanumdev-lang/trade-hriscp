@@ -264,7 +264,7 @@ export default function SettingsApprovalWorkflows() {
 
                 <div className="flex justify-end gap-3">
                   <Button type="button" variant="outline" onClick={() => setShowWorkflowDialog(false)}>Cancel</Button>
-                  <Button type="submit" disabled={createWorkflowMutation.isPending || updateWorkflowMutation.isPending}>
+                  <Button type="submit" isLoading={createWorkflowMutation.isPending || updateWorkflowMutation.isPending}>
                     {(createWorkflowMutation.isPending || updateWorkflowMutation.isPending) ? 'Saving...' : editingWorkflow ? 'Update' : 'Create'}
                   </Button>
                 </div>

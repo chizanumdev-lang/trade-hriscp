@@ -258,12 +258,12 @@ export default function ZKTecoSettings({ open, onClose, currentSettings }) {
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-            <Button variant="outline" onClick={onClose} disabled={saveMutation.isPending}>
+            <Button variant="outline" onClick={onClose} isLoading={saveMutation.isPending}>
               Cancel
             </Button>
             <Button 
               onClick={handleSave}
-              disabled={saveMutation.isPending}
+              isLoading={saveMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700"
             >
               {saveMutation.isPending ? "Saving..." : "Save Settings"}

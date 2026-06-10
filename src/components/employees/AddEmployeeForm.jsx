@@ -178,12 +178,12 @@ export default function AddEmployeeForm({ templates, departments, onSubmit, onCa
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-6 border-t border-slate-200">
-            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+            <Button type="button" variant="outline" onClick={onCancel} isLoading={isSubmitting}>
               Cancel
             </Button>
             <Button 
               type="submit" 
-              disabled={isSubmitting}
+              isLoading={isSubmitting}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
             >
               {isSubmitting ? "Creating..." : "Create Employee"}

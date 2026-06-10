@@ -384,7 +384,7 @@ export default function LeaveManagement() {
                   <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createLeaveMutation.isPending || !formData.attachment_url}>
+                  <Button type="submit" isLoading={createLeaveMutation.isPending} disabled={!formData.attachment_url}>
                     {createLeaveMutation.isPending ? 'Submitting...' : 'Submit Request'}
                   </Button>
                 </div>

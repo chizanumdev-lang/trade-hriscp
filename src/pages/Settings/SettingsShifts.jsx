@@ -187,7 +187,7 @@ export default function SettingsShifts() {
                 </div>
                 <div className="flex justify-end gap-3">
                   <Button type="button" variant="outline" onClick={() => setShowShiftDialog(false)}>Cancel</Button>
-                  <Button type="submit" disabled={createShiftMutation.isPending || updateShiftMutation.isPending}>
+                  <Button type="submit" isLoading={createShiftMutation.isPending || updateShiftMutation.isPending}>
                     {(createShiftMutation.isPending || updateShiftMutation.isPending) ? 'Saving...' : editingShift ? 'Update' : 'Create'}
                   </Button>
                 </div>

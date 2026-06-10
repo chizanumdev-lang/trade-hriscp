@@ -309,7 +309,7 @@ export default function CompanyWall() {
                     </div>
                     <Button 
                       onClick={handleCreatePost}
-                      disabled={(!postText.trim() && mediaFiles.length === 0) || createPostMutation.isPending}
+                      isLoading={(!postText.trim() && mediaFiles.length === 0) || createPostMutation.isPending}
                     >
                       <Send className="w-4 h-4 mr-2" />
                       Post

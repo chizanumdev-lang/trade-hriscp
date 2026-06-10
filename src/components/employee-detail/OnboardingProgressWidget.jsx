@@ -16,7 +16,7 @@ const GET_TASKS = gql`
   }
 `;
 
-export default function OnboardingProgressWidget({ employeeId, onCompleteAction }) {
+export default function OnboardingProgressWidget({ employeeId, employee, onCompleteAction, onSetToActive, onBeginOffboarding }) {
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['onboarding-tasks', employeeId],
     queryFn: async () => {
@@ -26,35 +26,102 @@ export default function OnboardingProgressWidget({ employeeId, onCompleteAction 
     enabled: !!employeeId
   });
 
-  if (isLoading || tasks.length === 0) return null;
+  const isProbation = employee?.employment_status === 'PROBATION';
+  const isActiveOrOffboarded = employee?.employment_status === 'ACTIVE' || employee?.employment_status === 'OFFBOARDED';
+
+  if (isLoading || (!isProbation && tasks.length === 0) || isActiveOrOffboarded) return null;
 
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter(t => t.isCompleted).length;
-  const progress = Math.round((completedTasks / totalTasks) * 100);
+  const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  let probationDaysLeft = null;
+  let isProbationEnd = false;
+  let endDateDisplay = null;
+
+  if (isProbation) {
+    let end;
+    if (employee?.probation_end_date) {
+      end = new Date(employee.probation_end_date);
+    } else if (employee?.start_date) {
+      end = new Date(employee.start_date);
+      end.setMonth(end.getMonth() + 3); // 3 months default
+    }
+
+    if (end) {
+      endDateDisplay = end.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      const today = new Date();
+      end.setHours(0,0,0,0);
+      today.setHours(0,0,0,0);
+      const diff = end.getTime() - today.getTime();
+      probationDaysLeft = Math.ceil(diff / (1000 * 3600 * 24));
+      isProbationEnd = probationDaysLeft <= 0;
+    }
+  }
 
   return (
-    <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100 mb-6">
+    <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100 mb-6 shadow-sm">
       <CardContent className="p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 border border-blue-100">
             <ClipboardCheck className="w-6 h-6 text-blue-600" />
           </div>
           <div className="flex-1 w-full">
-            <div className="flex justify-between items-center mb-2">
+            {isProbation ? (
               <div>
-                <h4 className="font-semibold text-slate-900">Onboarding Progress</h4>
-                <p className="text-sm text-slate-500">{completedTasks} of {totalTasks} tasks completed</p>
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h4 className="font-semibold text-slate-900">Probation Status</h4>
+                    <p className="text-sm text-slate-500">
+                      {endDateDisplay ? `Ends on ${endDateDisplay}` : "End date pending"}
+                    </p>
+                  </div>
+                  {probationDaysLeft !== null && (
+                    <div className="text-right">
+                      <span className="text-xs font-medium uppercase tracking-wider text-slate-500 block mb-1">Time Remaining</span>
+                      <span className={`text-sm font-bold px-3 py-1 rounded-full ${isProbationEnd ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {isProbationEnd ? 'Probation Ended' : `${probationDaysLeft} days left`}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {(isProbationEnd || probationDaysLeft === null) && (
+                  <div className="flex gap-3 mt-4">
+                    <Button 
+                      onClick={onSetToActive}
+                      className="flex-1 text-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                    >
+                      Set to Active
+                    </Button>
+                    <Button 
+                      onClick={onBeginOffboarding}
+                      variant="outline"
+                      className="flex-1 text-sm border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                    >
+                      Begin Offboarding
+                    </Button>
+                  </div>
+                )}
               </div>
-              <span className="text-lg font-bold text-blue-700">{progress}%</span>
-            </div>
-            <Progress value={progress} className="h-2 bg-blue-100 mb-3" />
-            {progress === 100 && onCompleteAction && (
-              <Button 
-                onClick={onCompleteAction}
-                className="mt-2 text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md font-medium transition-colors"
-              >
-                Set Employee to Probation
-              </Button>
+            ) : (
+              <>
+                <div className="flex justify-between items-center mb-2">
+                  <div>
+                    <h4 className="font-semibold text-slate-900">Onboarding Progress</h4>
+                    <p className="text-sm text-slate-500">{completedTasks} of {totalTasks} tasks completed</p>
+                  </div>
+                  <span className="text-lg font-bold text-blue-700">{progress}%</span>
+                </div>
+                <Progress value={progress} className="h-2 bg-blue-100 mb-3" />
+                {progress === 100 && onCompleteAction && employee?.employment_status !== 'ACTIVE' && employee?.employment_status !== 'OFFBOARDED' && (
+                  <Button 
+                    onClick={onCompleteAction}
+                    className="mt-2 text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md font-medium transition-colors"
+                  >
+                    Set Employee to Probation
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>

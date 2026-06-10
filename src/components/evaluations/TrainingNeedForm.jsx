@@ -175,7 +175,7 @@ export default function TrainingNeedForm({ employees, onCancel, onSuccess }) {
             </Button>
             <Button 
               type="submit" 
-              disabled={createNeedMutation.isPending}
+              isLoading={createNeedMutation.isPending}
               className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
             >
               {createNeedMutation.isPending ? "Saving..." : "Add Training Need"}

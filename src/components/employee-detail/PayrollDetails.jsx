@@ -318,7 +318,7 @@ export default function PayrollDetails({ employee, onUpdate, isUpdating }) {
             <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isUpdating}>
+            <Button type="submit" isLoading={isUpdating}>
               <Save className="w-4 h-4 mr-2" />
               {isUpdating ? 'Saving...' : 'Save Payroll Details'}
             </Button>

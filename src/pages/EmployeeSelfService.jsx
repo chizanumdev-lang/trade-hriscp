@@ -12,12 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { 
   User, Calendar, DollarSign, FileText, Laptop, 
   TrendingUp, Download, Edit, Save, Clock, CheckCircle,
-  Plane, Receipt, Shield, Upload
+  Plane, Receipt, Shield, Upload, Eye
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
 import { uploadToCloudinary } from "@/utils/cloudinary";
+import { motion } from "framer-motion";
 
 export default function EmployeeSelfService() {
   const queryClient = useQueryClient();
@@ -226,25 +227,52 @@ NET SALARY: ${payroll.net_salary} SAR
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 100
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-4 md:p-8">
+      <motion.div 
+        className="max-w-7xl mx-auto space-y-8"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {/* Header */}
-        <div>
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm mb-4">
-            <User className="w-4 h-4 text-blue-600" />
+        <motion.div variants={itemVariants}>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-sm mb-4 border border-slate-200/60">
+            <User className="w-4 h-4 text-indigo-600" />
             <span className="text-sm font-medium text-slate-700">Employee Self-Service</span>
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-3">
-            Welcome, {employee.full_name}!
+          <h1 className="text-4xl font-bold text-slate-900 mb-3 tracking-tight">
+            Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-600">{employee.full_name}</span>!
           </h1>
           <p className="text-lg text-slate-600">
             Manage your profile, view documents, and track your information
           </p>
-        </div>
+        </motion.div>
 
         {employee.employment_status === 'DRAFT' && (
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 mb-6">
+          <motion.div variants={itemVariants} className="bg-yellow-50/80 backdrop-blur-md border border-yellow-200/60 text-yellow-800 rounded-2xl p-4 mb-6 shadow-sm">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <span className="w-2 h-2 bg-yellow-500 rounded-full inline-block"></span>
               Draft Status
@@ -252,11 +280,11 @@ NET SALARY: ${payroll.net_salary} SAR
             <p className="mt-1 text-sm">
               Your profile is currently in <strong>DRAFT</strong> status. To proceed to Pending Onboarding, please ensure you have provided your personal details (Phone, Private Email, Date of Birth, Gender, Marital Status, Nationality, National ID, Passport Number) below, and uploaded at least one required document in the Documents tab.
             </p>
-          </div>
+          </motion.div>
         )}
 
         {employee.employment_status === 'PENDING_APPROVAL' && (
-          <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-6">
+          <motion.div variants={itemVariants} className="bg-blue-50/80 backdrop-blur-md border border-blue-200/60 text-blue-800 rounded-2xl p-4 mb-6 shadow-sm">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <span className="w-2 h-2 bg-blue-500 rounded-full inline-block"></span>
               Awaiting HR Approval
@@ -264,69 +292,78 @@ NET SALARY: ${payroll.net_salary} SAR
             <p className="mt-1 text-sm">
               Your profile is complete and is currently awaiting review by an HR administrator. You will be notified once your profile data is approved and your onboarding officially begins.
             </p>
-          </div>
+          </motion.div>
         )}
 
         {/* Quick Stats */}
-        <div className="grid md:grid-cols-4 gap-6">
-          <Card className="border-slate-200">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-blue-600" />
+        <motion.div variants={itemVariants} className="grid md:grid-cols-4 gap-6">
+          <motion.div whileHover={{ scale: 1.02 }} transition={{ type: "spring", stiffness: 300 }}>
+            <Card className="border-slate-200/60 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="w-12 h-12 bg-indigo-100/50 rounded-xl flex items-center justify-center border border-indigo-200/50">
+                    <Calendar className="w-6 h-6 text-indigo-600" />
+                  </div>
                 </div>
-              </div>
-              <p className="text-3xl font-bold text-slate-900 mt-4">
-                {(employee.leave_balances?.annual_leave_total || 21) - (employee.leave_balances?.annual_leave_used || 0)}
-              </p>
-              <p className="text-sm text-slate-600">Leave Days Remaining</p>
-            </CardContent>
-          </Card>
+                <p className="text-3xl font-bold text-slate-900 mt-4">
+                  {(employee.leave_balances?.annual_leave_total || 21) - (employee.leave_balances?.annual_leave_used || 0)}
+                </p>
+                <p className="text-sm text-slate-600 font-medium mt-1">Leave Days Remaining</p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="border-slate-200">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
+          <motion.div whileHover={{ scale: 1.02 }} transition={{ type: "spring", stiffness: 300 }}>
+            <Card className="border-slate-200/60 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="w-12 h-12 bg-emerald-100/50 rounded-xl flex items-center justify-center border border-emerald-200/50">
+                    <CheckCircle className="w-6 h-6 text-emerald-600" />
+                  </div>
                 </div>
-              </div>
-              <p className="text-3xl font-bold text-slate-900 mt-4">
-                {thisMonthAttendance.filter(a => a.status === 'present').length}
-              </p>
-              <p className="text-sm text-slate-600">Days Present This Month</p>
-            </CardContent>
-          </Card>
+                <p className="text-3xl font-bold text-slate-900 mt-4">
+                  {thisMonthAttendance.filter(a => a.status === 'present').length}
+                </p>
+                <p className="text-sm text-slate-600 font-medium mt-1">Days Present This Month</p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="border-slate-200">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                  <Laptop className="w-6 h-6 text-purple-600" />
+          <motion.div whileHover={{ scale: 1.02 }} transition={{ type: "spring", stiffness: 300 }}>
+            <Card className="border-slate-200/60 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="w-12 h-12 bg-blue-100/50 rounded-xl flex items-center justify-center border border-blue-200/50">
+                    <Laptop className="w-6 h-6 text-blue-600" />
+                  </div>
                 </div>
-              </div>
-              <p className="text-3xl font-bold text-slate-900 mt-4">{assets.length}</p>
-              <p className="text-sm text-slate-600">Assigned Assets</p>
-            </CardContent>
-          </Card>
+                <p className="text-3xl font-bold text-slate-900 mt-4">{assets.length}</p>
+                <p className="text-sm text-slate-600 font-medium mt-1">Assigned Assets</p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="border-slate-200">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                  <Receipt className="w-6 h-6 text-orange-600" />
+          <motion.div whileHover={{ scale: 1.02 }} transition={{ type: "spring", stiffness: 300 }}>
+            <Card className="border-slate-200/60 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="w-12 h-12 bg-amber-100/50 rounded-xl flex items-center justify-center border border-amber-200/50">
+                    <Receipt className="w-6 h-6 text-amber-600" />
+                  </div>
                 </div>
-              </div>
-              <p className="text-3xl font-bold text-slate-900 mt-4">
-                {expenses.filter(e => e.status === 'pending').length}
-              </p>
-              <p className="text-sm text-slate-600">Pending Expenses</p>
-            </CardContent>
-          </Card>
-        </div>
+                <p className="text-3xl font-bold text-slate-900 mt-4">
+                  {expenses.filter(e => e.status === 'pending').length}
+                </p>
+                <p className="text-sm text-slate-600 font-medium mt-1">Pending Expenses</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="bg-white border border-slate-200">
+        <motion.div variants={itemVariants}>
+          <Tabs defaultValue="profile" className="space-y-6">
+            <TabsList className="bg-white/70 backdrop-blur-md border border-slate-200/60 p-1 rounded-2xl">
             <TabsTrigger value="profile">
               <User className="w-4 h-4 mr-2" />
               My Profile
@@ -359,13 +396,13 @@ NET SALARY: ${payroll.net_salary} SAR
 
           {/* Profile Tab */}
           <TabsContent value="profile">
-            <Card className="border-slate-200">
+            <Card className="border-slate-200/60 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
               <CardHeader className="border-b border-slate-200">
                 <div className="flex justify-between items-center">
                   <CardTitle>Personal Information</CardTitle>
                   <Button
                     variant="outline"
-                    disabled={updateEmployeeMutation.isPending}
+                    isLoading={updateEmployeeMutation.isPending}
                     onClick={() => {
                       if (isEditing) {
                         handleSave();
@@ -399,9 +436,9 @@ NET SALARY: ${payroll.net_salary} SAR
                     <Input value={employee.email} disabled />
                   </div>
                   <div className="space-y-2">
-                    <Label>Phone</Label>
+                    <Label>Phone {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                     <Input
-                      value={isEditing ? editData.phone : employee.phone}
+                      value={isEditing ? (editData.phone || '') : (employee.phone || '')}
                       onChange={(e) => setEditData(prev => ({ ...prev, phone: e.target.value }))}
                       disabled={!isEditing}
                     />
@@ -421,31 +458,31 @@ NET SALARY: ${payroll.net_salary} SAR
                   {!isEditing && (
                     <>
                       <div className="space-y-2">
-                        <Label>Private Email</Label>
+                        <Label>Private Email {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input value={employee.privateEmail || 'Not provided'} disabled />
                       </div>
                       <div className="space-y-2">
-                        <Label>Date of Birth</Label>
+                        <Label>Date of Birth {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input value={employee.dateOfBirth ? format(isNaN(Number(employee.dateOfBirth)) ? new Date(employee.dateOfBirth) : new Date(Number(employee.dateOfBirth)), 'MMM dd, yyyy') : 'Not provided'} disabled />
                       </div>
                       <div className="space-y-2">
-                        <Label>Gender</Label>
+                        <Label>Gender {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input value={employee.gender || 'Not provided'} disabled />
                       </div>
                       <div className="space-y-2">
-                        <Label>Marital Status</Label>
+                        <Label>Marital Status {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input value={employee.maritalStatus || 'Not provided'} disabled />
                       </div>
                       <div className="space-y-2">
-                        <Label>Nationality</Label>
+                        <Label>Nationality {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input value={employee.nationality || 'Not provided'} disabled />
                       </div>
                       <div className="space-y-2">
-                        <Label>National ID</Label>
+                        <Label>National ID {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input value={employee.nationalId || 'Not provided'} disabled />
                       </div>
                       <div className="space-y-2">
-                        <Label>Passport Number</Label>
+                        <Label>Passport Number {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input value={employee.passportNumber || 'Not provided'} disabled />
                       </div>
                     </>
@@ -453,7 +490,7 @@ NET SALARY: ${payroll.net_salary} SAR
                   {isEditing && (
                     <>
                       <div className="space-y-2">
-                        <Label>Private Email</Label>
+                        <Label>Private Email {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input
                           type="email"
                           value={editData.privateEmail || ''}
@@ -461,7 +498,7 @@ NET SALARY: ${payroll.net_salary} SAR
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Date of Birth</Label>
+                        <Label>Date of Birth {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input
                           type="date"
                           value={editData.dateOfBirth ? (isNaN(Number(editData.dateOfBirth)) ? new Date(editData.dateOfBirth) : new Date(Number(editData.dateOfBirth))).toISOString().split('T')[0] : ''}
@@ -469,7 +506,7 @@ NET SALARY: ${payroll.net_salary} SAR
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Gender</Label>
+                        <Label>Gender {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input
                           value={editData.gender || ''}
                           onChange={(e) => setEditData(prev => ({ ...prev, gender: e.target.value }))}
@@ -477,7 +514,7 @@ NET SALARY: ${payroll.net_salary} SAR
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Marital Status</Label>
+                        <Label>Marital Status {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input
                           value={editData.maritalStatus || ''}
                           onChange={(e) => setEditData(prev => ({ ...prev, maritalStatus: e.target.value }))}
@@ -485,21 +522,21 @@ NET SALARY: ${payroll.net_salary} SAR
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Nationality</Label>
+                        <Label>Nationality {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input
                           value={editData.nationality || ''}
                           onChange={(e) => setEditData(prev => ({ ...prev, nationality: e.target.value }))}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>National ID</Label>
+                        <Label>National ID {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input
                           value={editData.nationalId || ''}
                           onChange={(e) => setEditData(prev => ({ ...prev, nationalId: e.target.value }))}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Passport Number</Label>
+                        <Label>Passport Number {employee.employment_status === 'DRAFT' && <span className="text-red-500">*</span>}</Label>
                         <Input
                           value={editData.passportNumber || ''}
                           onChange={(e) => setEditData(prev => ({ ...prev, passportNumber: e.target.value }))}
@@ -514,7 +551,7 @@ NET SALARY: ${payroll.net_salary} SAR
 
           {/* Payslips Tab */}
           <TabsContent value="payslips">
-            <Card className="border-slate-200">
+            <Card className="border-slate-200/60 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
               <CardHeader className="border-b border-slate-200">
                 <CardTitle>My Payslips</CardTitle>
               </CardHeader>
@@ -559,7 +596,7 @@ NET SALARY: ${payroll.net_salary} SAR
           {/* Leave Tab */}
           <TabsContent value="leave">
             <div className="grid md:grid-cols-2 gap-6">
-              <Card className="border-slate-200">
+              <Card className="border-slate-200/60 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
                 <CardHeader className="border-b border-slate-200">
                   <CardTitle>Leave Balance</CardTitle>
                 </CardHeader>
@@ -587,7 +624,7 @@ NET SALARY: ${payroll.net_salary} SAR
                 </CardContent>
               </Card>
 
-              <Card className="border-slate-200">
+              <Card className="border-slate-200/60 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
                 <CardHeader className="border-b border-slate-200">
                   <CardTitle>Leave History</CardTitle>
                 </CardHeader>
@@ -627,7 +664,7 @@ NET SALARY: ${payroll.net_salary} SAR
 
           {/* Attendance Tab */}
           <TabsContent value="attendance">
-            <Card className="border-slate-200">
+            <Card className="border-slate-200/60 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
               <CardHeader className="border-b border-slate-200">
                 <CardTitle>My Attendance - {format(new Date(), 'MMMM yyyy')}</CardTitle>
               </CardHeader>
@@ -664,7 +701,7 @@ NET SALARY: ${payroll.net_salary} SAR
 
           {/* Assets Tab */}
           <TabsContent value="assets">
-            <Card className="border-slate-200">
+            <Card className="border-slate-200/60 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
               <CardHeader className="border-b border-slate-200">
                 <CardTitle>Assigned Assets</CardTitle>
               </CardHeader>
@@ -701,7 +738,7 @@ NET SALARY: ${payroll.net_salary} SAR
 
           {/* Expenses Tab */}
           <TabsContent value="expenses">
-            <Card className="border-slate-200">
+            <Card className="border-slate-200/60 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
               <CardHeader className="border-b border-slate-200">
                 <CardTitle>My Expense Claims</CardTitle>
               </CardHeader>
@@ -740,7 +777,7 @@ NET SALARY: ${payroll.net_salary} SAR
 
           {/* Documents Tab */}
           <TabsContent value="documents">
-            <Card className="border-slate-200">
+            <Card className="border-slate-200/60 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
               <CardHeader className="border-b border-slate-200 flex flex-row items-center justify-between">
                 <CardTitle>My Documents</CardTitle>
                 <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
@@ -787,7 +824,7 @@ NET SALARY: ${payroll.net_salary} SAR
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
                       <Button 
-                        disabled={!uploadData.name || !uploadData.category || !uploadData.file || isUploadingToCloudinary || uploadDocumentMutation.isPending}
+                        isLoading={!uploadData.name || !uploadData.category || !uploadData.file || isUploadingToCloudinary || uploadDocumentMutation.isPending}
                         onClick={async () => {
                           try {
                             setIsUploadingToCloudinary(true);
@@ -836,11 +873,18 @@ NET SALARY: ${payroll.net_salary} SAR
                         <div className="flex items-center gap-2">
                           <Badge>{doc.status}</Badge>
                           {doc.file_url && (
-                            <Button size="sm" variant="outline" asChild>
-                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                                <Download className="w-4 h-4" />
-                              </a>
-                            </Button>
+                            <>
+                              <Button size="sm" variant="outline" asChild>
+                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer" title="Preview">
+                                  <Eye className="w-4 h-4" />
+                                </a>
+                              </Button>
+                              <Button size="sm" variant="outline" asChild>
+                                <a href={doc.file_url} download title="Download">
+                                  <Download className="w-4 h-4" />
+                                </a>
+                              </Button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -851,7 +895,8 @@ NET SALARY: ${payroll.net_salary} SAR
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }

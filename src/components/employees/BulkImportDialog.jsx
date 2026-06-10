@@ -286,13 +286,13 @@ Jane Smith,jane@example.com,HR Manager,dept_002,template_002,2024-02-01,+9665012
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-            <Button variant="outline" onClick={handleClose} disabled={isImporting}>
+            <Button variant="outline" onClick={handleClose} isLoading={isImporting}>
               Cancel
             </Button>
             {parsedData && parsedData.length > 0 && (
               <Button 
                 onClick={handleImport}
-                disabled={isImporting}
+                isLoading={isImporting}
                 className="bg-green-600 hover:bg-green-700"
               >
                 {isImporting ? (

@@ -7,10 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, Upload, Loader2, CheckCircle, ExternalLink } from "lucide-react";
 import { gql } from "graphql-request";
 import { uploadToCloudinary } from "@/utils/cloudinary";
+import { DocumentViewerModal } from "@/components/ui/DocumentViewerModal";
 
 export default function EmployeeDocumentUpload({ documents, employeeId }) {
   const queryClient = useQueryClient();
   const [uploadingDoc, setUploadingDoc] = useState(null);
+  const [viewerDoc, setViewerDoc] = useState(null);
 
   const updateDocumentMutation = useMutation({
     mutationFn: async ({ docId, fileUrl, fileType, fileSize }) => {
@@ -144,15 +146,13 @@ export default function EmployeeDocumentUpload({ documents, employeeId }) {
                           {doc.status}
                         </Badge>
                         {doc.file_url && (
-                          <a
-                            href={doc.file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                          <button
+                            onClick={() => setViewerDoc(doc)}
+                            className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 cursor-pointer"
                           >
                             <ExternalLink className="w-3 h-3" />
                             View
-                          </a>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -170,6 +170,13 @@ export default function EmployeeDocumentUpload({ documents, employeeId }) {
           </div>
         )}
       </CardContent>
+
+      <DocumentViewerModal
+        isOpen={!!viewerDoc}
+        onClose={() => setViewerDoc(null)}
+        fileUrl={viewerDoc?.file_url}
+        title={viewerDoc?.document_name || "Document Viewer"}
+      />
     </Card>
   );
 }

@@ -289,7 +289,7 @@ export default function Profile() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={updateProfileMutation.isPending}>
+                    <Button type="submit" isLoading={updateProfileMutation.isPending}>
                       <Save className="w-4 h-4 mr-2" />
                       {updateProfileMutation.isPending ? 'Saving...' : 'Save Changes'}
                     </Button>
@@ -436,7 +436,7 @@ export default function Profile() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={updateProfileMutation.isPending}>
+                    <Button type="submit" isLoading={updateProfileMutation.isPending}>
                       <Save className="w-4 h-4 mr-2" />
                       Save Accounts
                     </Button>
@@ -485,7 +485,7 @@ export default function Profile() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={updateProfileMutation.isPending}>
+                    <Button type="submit" isLoading={updateProfileMutation.isPending}>
                       <Save className="w-4 h-4 mr-2" />
                       Save Preferences
                     </Button>

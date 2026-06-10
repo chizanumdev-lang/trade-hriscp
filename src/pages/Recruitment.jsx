@@ -298,7 +298,7 @@ export default function Recruitment() {
                   <Button type="button" variant="outline" onClick={() => setShowJobForm(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createJobMutation.isPending}>
+                  <Button type="submit" isLoading={createJobMutation.isPending}>
                     {createJobMutation.isPending ? "Creating..." : "Create Job"}
                   </Button>
                 </div>

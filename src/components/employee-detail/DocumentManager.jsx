@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Upload, File, CheckCircle, Clock, ExternalLink, Plus } from "lucide-react";
 import UploadDocumentDialog from "./UploadDocumentDialog";
+import { DocumentViewerModal } from "@/components/ui/DocumentViewerModal";
 
 const statusColors = {
   pending: "bg-orange-100 text-orange-800 border-orange-200",
@@ -18,6 +19,7 @@ export default function DocumentManager({ documents, employeeId }) {
   const queryClient = useQueryClient();
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
+  const [viewerDoc, setViewerDoc] = useState(null);
 
   const updateDocumentMutation = useMutation({
     mutationFn: async ({ docId, data }) => {
@@ -141,15 +143,13 @@ export default function DocumentManager({ documents, employeeId }) {
                             {doc.status}
                           </Badge>
                           {doc.file_url && (
-                            <a
-                              href={doc.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                            <button
+                              onClick={() => setViewerDoc(doc)}
+                              className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 cursor-pointer"
                             >
                               <ExternalLink className="w-3 h-3" />
                               View
-                            </a>
+                            </button>
                           )}
                         </div>
                         {doc.status === 'uploaded' && (
@@ -188,6 +188,13 @@ export default function DocumentManager({ documents, employeeId }) {
         }}
         document={selectedDocument}
         isSubmitting={updateDocumentMutation.isPending || createDocumentMutation.isPending}
+      />
+
+      <DocumentViewerModal
+        isOpen={!!viewerDoc}
+        onClose={() => setViewerDoc(null)}
+        fileUrl={viewerDoc?.file_url}
+        title={viewerDoc?.document_name || "Document Viewer"}
       />
     </div>
   );

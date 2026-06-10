@@ -235,7 +235,7 @@ export default function ZKTecoDeviceManager({ open, onClose }) {
                     >
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={createDeviceMutation.isPending || updateDeviceMutation.isPending}>
+                    <Button type="submit" isLoading={createDeviceMutation.isPending || updateDeviceMutation.isPending}>
                       {(createDeviceMutation.isPending || updateDeviceMutation.isPending) ? "Saving..." : editingDevice ? "Update Device" : "Add Device"}
                     </Button>
                   </div>

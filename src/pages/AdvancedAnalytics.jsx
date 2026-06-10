@@ -252,7 +252,7 @@ export default function AdvancedAnalytics() {
                 </div>
                 <div className="flex justify-end gap-3">
                   <Button type="button" variant="outline" onClick={() => setShowScheduleDialog(false)}>Cancel</Button>
-                  <Button type="submit" disabled={createScheduleMutation.isPending}>
+                  <Button type="submit" isLoading={createScheduleMutation.isPending}>
                     {createScheduleMutation.isPending ? 'Creating...' : 'Schedule Report'}
                   </Button>
                 </div>

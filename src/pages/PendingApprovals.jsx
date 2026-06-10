@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { gql } from 'graphql-request';
 import { gqlClient } from '@/api/graphqlClient';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
@@ -7,8 +8,9 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '../components/ui/dialog';
-import { CheckCircle2, XCircle, FileText, UserCircle, CalendarRange, Eye, Inbox } from 'lucide-react';
+import { CheckCircle2, XCircle, FileText, UserCircle, CalendarRange, Eye, Inbox, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import EmployeeDetail from './EmployeeDetail';
 
 const GET_PENDING_APPROVALS = gql`
   query GetPendingApprovals {
@@ -199,6 +201,7 @@ const EmptyState = ({ message, icon: Icon }) => (
 
 export default function PendingApprovals() {
   const queryClient = useQueryClient();
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
   const { data, isLoading: loading, error } = useQuery({
     queryKey: ['pendingApprovals'],
     queryFn: () => gqlClient.request(GET_PENDING_APPROVALS)
@@ -206,39 +209,72 @@ export default function PendingApprovals() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
 
-  const { mutate: approveEmployee } = useMutation({
+  const handleError = (err) => {
+    const errMsg = err.response?.errors?.[0]?.message || err.message || "Operation failed.";
+    toast.error(errMsg);
+  };
+
+  const { mutate: approveEmployee, isPending: isApprovingEmployee, variables: empAppVars } = useMutation({
     mutationFn: (variables) => gqlClient.request(APPROVE_EMPLOYEE, variables),
-    onSuccess: invalidate
+    onSuccess: () => {
+      toast.success("Employee approved successfully!");
+      invalidate();
+    },
+    onError: handleError
   });
   
-  const { mutate: approveDocument } = useMutation({
+  const { mutate: approveDocument, isPending: isApprovingDoc, variables: docAppVars } = useMutation({
     mutationFn: (variables) => gqlClient.request(APPROVE_DOCUMENT, variables),
-    onSuccess: invalidate
+    onSuccess: () => {
+      toast.success("Document approved!");
+      invalidate();
+    },
+    onError: handleError
   });
   
-  const { mutate: rejectDocument } = useMutation({
+  const { mutate: rejectDocument, isPending: isRejectingDoc, variables: docRejVars } = useMutation({
     mutationFn: (variables) => gqlClient.request(REJECT_DOCUMENT, variables),
-    onSuccess: invalidate
+    onSuccess: () => {
+      toast.success("Document rejected!");
+      invalidate();
+    },
+    onError: handleError
   });
   
-  const { mutate: approveLeave } = useMutation({
+  const { mutate: approveLeave, isPending: isApprovingLeave, variables: leaveAppVars } = useMutation({
     mutationFn: (variables) => gqlClient.request(APPROVE_LEAVE, variables),
-    onSuccess: invalidate
+    onSuccess: () => {
+      toast.success("Leave approved!");
+      invalidate();
+    },
+    onError: handleError
   });
   
-  const { mutate: rejectLeave } = useMutation({
+  const { mutate: rejectLeave, isPending: isRejectingLeave, variables: leaveRejVars } = useMutation({
     mutationFn: (variables) => gqlClient.request(REJECT_LEAVE, variables),
-    onSuccess: invalidate
+    onSuccess: () => {
+      toast.success("Leave rejected!");
+      invalidate();
+    },
+    onError: handleError
   });
   
-  const { mutate: approveProfile } = useMutation({
+  const { mutate: approveProfile, isPending: isApprovingProfile, variables: profAppVars } = useMutation({
     mutationFn: (variables) => gqlClient.request(APPROVE_PROFILE, variables),
-    onSuccess: invalidate
+    onSuccess: () => {
+      toast.success("Profile update approved!");
+      invalidate();
+    },
+    onError: handleError
   });
   
-  const { mutate: rejectProfile } = useMutation({
+  const { mutate: rejectProfile, isPending: isRejectingProfile, variables: profRejVars } = useMutation({
     mutationFn: (variables) => gqlClient.request(REJECT_PROFILE, variables),
-    onSuccess: invalidate
+    onSuccess: () => {
+      toast.success("Profile update rejected!");
+      invalidate();
+    },
+    onError: handleError
   });
 
   const containerVariants = {
@@ -280,6 +316,17 @@ export default function PendingApprovals() {
       animate="show"
       className="space-y-8 p-4 md:p-8 max-w-5xl mx-auto"
     >
+      <Dialog open={!!selectedEmployeeId} onOpenChange={(open) => !open && setSelectedEmployeeId(null)}>
+        <DialogContent className="max-w-6xl max-h-[90vh] p-0 border-0 bg-transparent shadow-2xl">
+          <DialogTitle className="sr-only">Employee Profile</DialogTitle>
+          {selectedEmployeeId && (
+            <EmployeeDetail 
+              employeeIdProp={selectedEmployeeId} 
+              onClose={() => setSelectedEmployeeId(null)} 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
       <motion.div variants={itemVariants}>
         <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-full mb-4">
           <Inbox className="w-4 h-4 text-indigo-600" />
@@ -333,14 +380,19 @@ export default function PendingApprovals() {
                         <p className="text-sm text-slate-500 mt-1">{emp.jobTitle} • <span className="font-medium text-slate-600">{emp.department?.name || 'No Dept'}</span></p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Button variant="outline" className="rounded-lg border-slate-200 hover:bg-slate-50" onClick={() => window.open(`/employee/${emp.id}`, '_blank')}>
+                        <Button variant="outline" className="rounded-lg border-slate-200 hover:bg-slate-50" onClick={() => setSelectedEmployeeId(emp.id)}>
                           View Profile
                         </Button>
                         <Button 
                           className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
                           onClick={() => approveEmployee({ employeeId: emp.id })}
+                          disabled={isApprovingEmployee && empAppVars?.employeeId === emp.id}
                         >
-                          <CheckCircle2 className="w-4 h-4" />
+                          {isApprovingEmployee && empAppVars?.employeeId === emp.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4" />
+                          )}
                           Approve
                         </Button>
                       </div>
@@ -416,8 +468,13 @@ export default function PendingApprovals() {
                         <Button 
                           className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
                           onClick={() => approveDocument({ id: doc.id })}
+                          disabled={isApprovingDoc && docAppVars?.id === doc.id}
                         >
-                          <CheckCircle2 className="w-4 h-4" />
+                          {isApprovingDoc && docAppVars?.id === doc.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4" />
+                          )}
                           Approve
                         </Button>
                       </div>
@@ -457,8 +514,13 @@ export default function PendingApprovals() {
                         <Button 
                           className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
                           onClick={() => approveLeave({ id: leave.id })}
+                          disabled={isApprovingLeave && leaveAppVars?.id === leave.id}
                         >
-                          <CheckCircle2 className="w-4 h-4" />
+                          {isApprovingLeave && leaveAppVars?.id === leave.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4" />
+                          )}
                           Approve
                         </Button>
                       </div>
@@ -497,8 +559,13 @@ export default function PendingApprovals() {
                         <Button 
                           className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
                           onClick={() => approveProfile({ id: update.id })}
+                          disabled={isApprovingProfile && profAppVars?.id === update.id}
                         >
-                          <CheckCircle2 className="w-4 h-4" />
+                          {isApprovingProfile && profAppVars?.id === update.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4" />
+                          )}
                           Approve
                         </Button>
                       </div>

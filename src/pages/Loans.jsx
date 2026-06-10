@@ -207,7 +207,7 @@ export default function Loans() {
                 </div>
                 <div className="flex justify-end gap-3">
                   <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-                  <Button type="submit" disabled={createLoanMutation.isPending}>
+                  <Button type="submit" isLoading={createLoanMutation.isPending}>
                     {createLoanMutation.isPending ? 'Submitting...' : 'Submit Request'}
                   </Button>
                 </div>

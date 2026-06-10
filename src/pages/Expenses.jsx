@@ -374,7 +374,7 @@ export default function Expenses() {
                   <Button type="button" variant="outline" onClick={() => setShowClaimForm(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createClaimMutation.isPending}>
+                  <Button type="submit" isLoading={createClaimMutation.isPending}>
                     {createClaimMutation.isPending ? "Submitting..." : "Submit Claim"}
                   </Button>
                 </div>

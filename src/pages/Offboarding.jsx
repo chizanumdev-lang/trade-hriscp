@@ -183,7 +183,7 @@ export default function Offboarding() {
                 </div>
                 <div className="flex justify-end gap-3">
                   <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-                  <Button type="submit" disabled={createOffboardingMutation.isPending}>
+                  <Button type="submit" isLoading={createOffboardingMutation.isPending}>
                     {createOffboardingMutation.isPending ? 'Creating...' : 'Start Offboarding'}
                   </Button>
                 </div>

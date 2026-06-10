@@ -262,7 +262,7 @@ export default function OrganizationSetup() {
                   <Button
                     type="submit"
                     className="ml-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                    disabled={createOrganizationMutation.isPending}
+                    isLoading={createOrganizationMutation.isPending}
                   >
                     {step === 1 ? 'Continue' : createOrganizationMutation.isPending ? 'Creating...' : 'Complete Setup'}
                   </Button>

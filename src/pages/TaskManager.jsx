@@ -364,7 +364,7 @@ export default function TaskManager() {
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
                   <Button type="button" variant="outline" onClick={() => setShowProjectDialog(false)} className="rounded-lg">Cancel</Button>
-                  <Button type="submit" className="rounded-lg bg-indigo-600 hover:bg-indigo-700" disabled={createProjectMutation.isPending}>
+                  <Button type="submit" className="rounded-lg bg-indigo-600 hover:bg-indigo-700" isLoading={createProjectMutation.isPending}>
                     {createProjectMutation.isPending ? 'Creating...' : 'Create Project'}
                   </Button>
                 </div>
@@ -425,7 +425,7 @@ export default function TaskManager() {
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
                   <Button type="button" variant="outline" onClick={() => setShowTaskDialog(false)} className="rounded-lg">Cancel</Button>
-                  <Button type="submit" className="rounded-lg bg-indigo-600 hover:bg-indigo-700" disabled={createTaskMutation.isPending}>
+                  <Button type="submit" className="rounded-lg bg-indigo-600 hover:bg-indigo-700" isLoading={createTaskMutation.isPending}>
                     {createTaskMutation.isPending ? 'Creating...' : 'Create Task'}
                   </Button>
                 </div>

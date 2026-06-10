@@ -3,12 +3,12 @@ import { gqlClient } from "@/api/graphqlClient";
 import { gql } from "graphql-request";
 import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { 
   ArrowLeft, Mail, Phone, Calendar, Briefcase, FileText, Building,
   User, DollarSign, Clock, Laptop, TrendingUp, StickyNote,
   Shield, Gift, MoreVertical, Edit, Save, MessageCircle, MessageSquare, 
-  CheckCircle, Plus, Trash2, Download, Printer, FileSpreadsheet, Upload, Star, X
+  CheckCircle, Plus, Trash2, Download, Printer, FileSpreadsheet, Upload, Star, X, Eye
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,8 +34,16 @@ const format = (dateInput, formatStr) => {
   }
 };
 
+const parseSafeDate = (d) => {
+  if (!d) return '';
+  const asNum = Number(d);
+  const parsed = new Date(isNaN(asNum) ? d : asNum);
+  return isNaN(parsed.getTime()) ? '' : parsed.toISOString().split('T')[0];
+};
+
 import { uploadToCloudinary } from "@/utils/cloudinary";
 import OnboardingProgressWidget from "@/components/employee-detail/OnboardingProgressWidget";
+import { motion } from "framer-motion";
 
 const menuItems = [
   { id: 'personal', label: 'Personal', icon: User },
@@ -51,10 +59,11 @@ const menuItems = [
 ];
 
 export default function EmployeeDetail({ employeeIdProp, onClose }) {
+  const { employeeId: paramId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const urlParams = new URLSearchParams(window.location.search);
-  const employeeId = employeeIdProp || urlParams.get('id');
+  const employeeId = employeeIdProp || paramId || urlParams.get('id');
   const isModal = !!employeeIdProp;
   const [activeSection, setActiveSection] = useState('personal');
   const [isEditing, setIsEditing] = useState(false);
@@ -94,11 +103,11 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
         department_name: e.department?.name || 'N/A',
         employment_status: e.employmentStatus,
         employment_type: e.employmentType,
-        start_date: e.hireDate ? new Date(Number(e.hireDate)).toISOString().split('T')[0] : '',
-        probation_start_date: e.probationStartDate ? new Date(Number(e.probationStartDate)).toISOString().split('T')[0] : '',
-        probation_end_date: e.probationEndDate ? new Date(Number(e.probationEndDate)).toISOString().split('T')[0] : '',
+        start_date: parseSafeDate(e.hireDate),
+        probation_start_date: parseSafeDate(e.probationStartDate),
+        probation_end_date: parseSafeDate(e.probationEndDate),
         personal_info: {
-          date_of_birth: e.dateOfBirth ? new Date(Number(e.dateOfBirth)).toISOString().split('T')[0] : '',
+          date_of_birth: parseSafeDate(e.dateOfBirth),
           gender: e.gender,
           marital_status: e.maritalStatus,
           nationality: e.nationality,
@@ -534,12 +543,23 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
         return (
           <div className="space-y-6">
             <OnboardingProgressWidget 
-              employeeId={employeeId} 
+              employeeId={employeeId}
+              employee={employee}
               onCompleteAction={() => {
                 setActiveSection('job');
                 setIsEditing(true);
                 setEditData(prev => ({ ...prev, employment_status: 'PROBATION' }));
-              }} 
+              }}
+              onSetToActive={() => {
+                setActiveSection('job');
+                setIsEditing(true);
+                setEditData(prev => ({ ...prev, employment_status: 'ACTIVE' }));
+              }}
+              onBeginOffboarding={() => {
+                setActiveSection('job');
+                setIsEditing(true);
+                setEditData(prev => ({ ...prev, employment_status: 'OFFBOARDED' }));
+              }}
             />
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-5">About</h3>
@@ -1310,7 +1330,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                     </div>
                     <div className="flex justify-end gap-3">
                       <Button type="button" variant="outline" onClick={() => setShowDocDialog(false)}>Cancel</Button>
-                      <Button type="submit" disabled={createDocumentMutation.isPending || !docForm.file_url || !docForm.document_name}>
+                      <Button type="submit" isLoading={createDocumentMutation.isPending} disabled={!docForm.file_url || !docForm.document_name}>
                         {createDocumentMutation.isPending ? 'Adding...' : 'Add Document'}
                       </Button>
                     </div>
@@ -1376,13 +1396,20 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                         Replace
                       </Button>
                       {doc.file_url && (
-                        <Button size="sm" variant="ghost" asChild>
-                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                            <Download className="w-4 h-4" />
-                          </a>
-                        </Button>
+                        <>
+                          <Button size="sm" variant="ghost" asChild>
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer" title="Preview">
+                              <Eye className="w-4 h-4" />
+                            </a>
+                          </Button>
+                          <Button size="sm" variant="ghost" asChild>
+                            <a href={doc.file_url} download title="Download">
+                              <Download className="w-4 h-4" />
+                            </a>
+                          </Button>
+                        </>
                       )}
-                      <Button size="sm" variant="ghost" onClick={() => deleteDocumentMutation.mutate(doc.id)} disabled={deleteDocumentMutation.isPending}>
+                      <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => deleteDocumentMutation.mutate(doc.id)} disabled={deleteDocumentMutation.isPending}>
                         <Trash2 className="w-4 h-4 text-red-600" />
                       </Button>
                     </div>
@@ -1420,7 +1447,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                   </div>
                   <div className="flex justify-end gap-3">
                     <Button type="button" variant="outline" onClick={() => { setShowReplaceDialog(false); setReplaceForm({ file_url: '', file_name: '', file_type: 'PDF', file_size: 0 }); }}>Cancel</Button>
-                    <Button type="submit" disabled={replaceDocumentVersionMutation.isPending || !replaceForm.file_url}>
+                    <Button type="submit" isLoading={replaceDocumentVersionMutation.isPending} disabled={!replaceForm.file_url}>
                       {replaceDocumentVersionMutation.isPending ? 'Replacing...' : 'Upload New Version'}
                     </Button>
                   </div>
@@ -1755,8 +1782,26 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
     );
   }
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: { type: "spring", stiffness: 100 }
+    }
+  };
+
   const content = (
-    <Card className={`border-slate-200/60 overflow-hidden ${isModal ? 'shadow-none border-0 h-full rounded-none flex flex-col bg-white' : 'shadow-sm rounded-2xl bg-white'}`}>
+    <motion.div variants={itemVariants} className={`w-full ${isModal ? 'h-full flex flex-col flex-1 min-h-0' : ''}`}>
+      <Card className={`border-slate-200/60 overflow-hidden ${isModal ? 'shadow-none border-0 h-full rounded-none flex flex-col bg-white flex-1 min-h-0' : 'shadow-xl shadow-slate-200/40 rounded-2xl bg-white/70 backdrop-blur-md'}`}>
           <div className="bg-slate-900 text-white relative border-b border-slate-800">
             {/* Subtle background pattern/gradient */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -1874,7 +1919,8 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                             toast.success("Employee data approved!");
                             queryClient.invalidateQueries(['employee', employeeId]);
                           } catch (err) {
-                            toast.error("Failed to approve employee data.");
+                            const errMsg = err.response?.errors?.[0]?.message || err.message || "Failed to approve employee data.";
+                            toast.error(errMsg);
                             console.error(err);
                           }
                         }}
@@ -1911,7 +1957,8 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                             toast.success("Onboarding started! Tasks have been generated.");
                             queryClient.invalidateQueries(['employee', employeeId]);
                           } catch (err) {
-                            toast.error("Failed to start onboarding.");
+                            const errMsg = err.response?.errors?.[0]?.message || err.message || "Failed to start onboarding.";
+                            toast.error(errMsg);
                             console.error(err);
                           }
                         }}
@@ -1927,30 +1974,43 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
             </div>
           </div>
         </Card>
+    </motion.div>
   );
 
   if (isModal) {
     return (
-      <div className="h-[85vh] flex flex-col relative bg-white w-full rounded-2xl overflow-hidden">
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="h-[85vh] flex flex-col relative bg-white w-full rounded-2xl overflow-hidden"
+      >
         {onClose && (
            <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-slate-400 hover:text-white hover:bg-slate-800 z-50 rounded-full bg-slate-900/50 backdrop-blur-sm border border-slate-700 transition-all shadow-sm" onClick={onClose}>
              <X className="w-4 h-4" />
            </Button>
         )}
         {content}
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <Button variant="ghost" onClick={() => navigate('/Employees')}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Employees
-        </Button>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-4 md:p-8">
+      <motion.div 
+        className="max-w-7xl mx-auto space-y-6"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={itemVariants}>
+          <Button variant="ghost" onClick={() => navigate('/Employees')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Employees
+          </Button>
+        </motion.div>
         {content}
-      </div>
+      </motion.div>
     </div>
   );
 }

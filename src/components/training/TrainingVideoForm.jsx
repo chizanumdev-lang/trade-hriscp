@@ -229,7 +229,7 @@ export default function TrainingVideoForm({ video, platforms, platformId, onCanc
             </Button>
             <Button
               type="submit"
-              disabled={saveMutation.isPending}
+              isLoading={saveMutation.isPending}
               className="bg-purple-600 hover:bg-purple-700"
             >
               {saveMutation.isPending ? "Saving..." : video ? "Update Video" : "Add Video"}

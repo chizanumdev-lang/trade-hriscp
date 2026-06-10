@@ -383,7 +383,7 @@ export default function Surveys() {
                   <Button type="button" variant="outline" onClick={() => setShowSurveyForm(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createSurveyMutation.isPending}>
+                  <Button type="submit" isLoading={createSurveyMutation.isPending}>
                     {createSurveyMutation.isPending ? "Creating..." : "Create Survey"}
                   </Button>
                 </div>

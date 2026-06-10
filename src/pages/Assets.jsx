@@ -250,7 +250,7 @@ export default function Assets() {
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <Button className="rounded-lg" type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-                <Button className="rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white" type="submit" disabled={createAssetMutation.isPending || updateAssetMutation.isPending}>
+                <Button className="rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white" type="submit" isLoading={createAssetMutation.isPending || updateAssetMutation.isPending}>
                   {(createAssetMutation.isPending || updateAssetMutation.isPending) ? 'Saving...' : editingAsset ? 'Update' : 'Add Asset'}
                 </Button>
               </div>
