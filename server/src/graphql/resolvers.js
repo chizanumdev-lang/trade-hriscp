@@ -97,9 +97,37 @@ me: async (_, __, { prisma, user, requireAuth }) => {
       requireAuth();
       return prisma.organization.findUnique({ where: { id } });
     },
+    
+    loans: async (_, __, { prisma, user, requireAuth }) => {
+      requireAuth();
+      const where = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role) 
+        ? {} 
+        : { employeeId: user.employeeId };
+        
+      const loans = await prisma.loan.findMany({
+        where,
+        include: { employee: true }
+      });
+      
+      return loans.map(l => ({
+        ...l,
+        employee_id: l.employeeId,
+        employee_name: l.employee?.fullName,
+        loan_type: 'standard', // For backward compat with UI
+        loan_amount: l.amount,
+        duration_months: Math.ceil(l.amount / l.monthlyRepayment),
+        monthly_installment: l.monthlyRepayment,
+        start_month: l.startDate.toISOString().slice(0, 7)
+      }));
+    },
     employees: async (_, __, { prisma, user, requireAuth }) => {
       requireAuth();
-      const emps = await prisma.employee.findMany({ where: { organizationId: user.organizationId } });
+      const emps = await prisma.employee.findMany({ 
+        where: { 
+          organizationId: user.organizationId,
+          employmentStatus: { notIn: ['RESIGNED', 'TERMINATED', 'OFFBOARDED'] }
+        } 
+      });
       return emps.map(emp => ({
         ...emp,
         hireDate: emp.hireDate ? emp.hireDate.toISOString() : null
@@ -491,7 +519,159 @@ me: async (_, __, { prisma, user, requireAuth }) => {
       
       return updatedEmp;
     },
-    updateEmployee: async (_, { id, input }, { prisma, user, requireRole, ipAddress }) => {
+    
+    suspendEmployee: async (_, { id, input }, context) => {
+      if (!context.user) throw new Error('Not authenticated');
+      if (!['HR_ADMIN', 'SUPER_ADMIN'].includes(context.user.role)) {
+        throw new Error('Not authorized');
+      }
+
+      return await prisma.$transaction(async (tx) => {
+        const employee = await tx.employee.update({
+          where: { id },
+          data: { employmentStatus: 'SUSPENDED' },
+          include: { department: true, organization: true }
+        });
+
+        await tx.suspension.create({
+          data: {
+            employeeId: id,
+            startDate: new Date(input.startDate),
+            endDate: new Date(input.endDate),
+            reason: input.reason,
+            approvedBy: input.superAdminApproved ? "SuperAdmin" : null
+          }
+        });
+
+        await tx.auditLog.create({
+          data: {
+            organizationId: employee.organizationId,
+            userId: context.user.id,
+            action: 'SUSPEND',
+            entityType: 'EMPLOYEE',
+            entityId: id,
+            details: { 
+              reason: input.reason,
+              startDate: input.startDate,
+              endDate: input.endDate,
+              superAdminApproved: input.superAdminApproved
+            }
+          }
+        });
+
+        return employee;
+      });
+    },
+
+    offboardEmployee: async (_, { id, input }, context) => {
+      if (!context.user) throw new Error('Not authenticated');
+      if (!['HR_ADMIN', 'SUPER_ADMIN'].includes(context.user.role)) {
+        throw new Error('Not authorized');
+      }
+
+      return await prisma.$transaction(async (tx) => {
+        // Find existing to avoid unique constraint if re-offboarding (optional), but let's just create or update
+        // We will use upsert for Offboarding to prevent unique constraint errors if the record somehow exists
+        const offboarding = await tx.offboarding.upsert({
+          where: { employeeId: id },
+          create: {
+            employeeId: id,
+            exitType: input.exitType,
+            exitDate: new Date(input.exitDate),
+            reason: input.reason
+          },
+          update: {
+            exitType: input.exitType,
+            exitDate: new Date(input.exitDate),
+            reason: input.reason
+          }
+        });
+
+        const statusMap = {
+          'RESIGNATION': 'RESIGNED',
+          'TERMINATION': 'TERMINATED',
+          'RETIREMENT': 'OFFBOARDED',
+          'CONTRACT_EXPIRATION': 'OFFBOARDED'
+        };
+
+        const employee = await tx.employee.update({
+          where: { id },
+          data: { employmentStatus: statusMap[input.exitType] || 'OFFBOARDED' },
+          include: { department: true, organization: true }
+        });
+
+        await tx.auditLog.create({
+          data: {
+            organizationId: employee.organizationId,
+            userId: context.user.id,
+            action: 'OFFBOARD',
+            entityType: 'EMPLOYEE',
+            entityId: id,
+            details: { 
+              type: input.exitType,
+              exitDate: input.exitDate,
+              reason: input.reason
+            }
+          }
+        });
+
+        return employee;
+      });
+    },
+
+    
+    updateOrganizationFeatures: async (_, { strictLeaveNotice }, { prisma, user, requireAuth }) => {
+      requireAuth();
+      if (!user.organizationId) throw new Error("Not in an organization");
+      if (!['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role)) throw new Error("Not authorized");
+      
+      const org = await prisma.organization.findUnique({ where: { id: user.organizationId }});
+      const features = org.featuresEnabled || {};
+      features.strictLeaveNotice = strictLeaveNotice;
+
+      return await prisma.organization.update({
+        where: { id: user.organizationId },
+        data: { featuresEnabled: features }
+      });
+    },
+
+    
+    createLoan: async (_, { input }, { prisma, user, requireAuth }) => {
+      requireAuth();
+      
+      const employeeId = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role) 
+        ? input.employee_id 
+        : user.employeeId;
+        
+      if (!employeeId) throw new Error("Employee not found");
+      
+      const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
+      if (!employee) throw new Error("Employee not found");
+
+      // Validate Salary Advance
+      if (input.loan_type === 'advance') {
+        const basicSalary = employee.basicSalary || 0;
+        if (input.loan_amount > basicSalary) {
+          throw new Error("Salary advance cannot exceed one month's basic salary.");
+        }
+        if (input.duration_months > 1) {
+          throw new Error("Salary advance must be paid back within 1 month.");
+        }
+      }
+
+      const monthlyRepayment = input.loan_amount / input.duration_months;
+      
+      return await prisma.loan.create({
+        data: {
+          employeeId: employeeId,
+          amount: input.loan_amount,
+          monthlyRepayment: monthlyRepayment,
+          remainingBalance: input.loan_amount,
+          startDate: new Date()
+        }
+      });
+    },
+    updateEmployee: async (_, { id, input, auditAction, auditContext }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       
       const existing = await prisma.employee.findFirst({
@@ -522,6 +702,16 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         if (status === 'ON_LEAVE') status = 'ACTIVE'; // Fallback since ON_LEAVE is not in enum
         updateData.employmentStatus = status;
       }
+
+      // Auto-calculate probationEndDate if missing
+      if (updateData.employmentStatus === 'PROBATION' && !updateData.probationEndDate) {
+        const startDate = updateData.probationStartDate || existing.probationStartDate || updateData.hireDate || existing.hireDate;
+        if (startDate) {
+          const endDate = new Date(startDate);
+          endDate.setMonth(endDate.getMonth() + 3);
+          updateData.probationEndDate = endDate;
+        }
+      }
       
       // Auto-promotion is now handled after the update by checkAndPromoteEmployee
       
@@ -530,7 +720,10 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         data: updateData
       });
       
-      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: id, action: 'UPDATE', previousValue: existing, newValue: updated });
+      const actionString = auditAction || 'UPDATE';
+      const actionWithContext = auditContext ? `${actionString} - ${auditContext}` : actionString;
+      
+      await createAuditLog({ prisma, ipAddress, actorId: user.id, entityType: 'Employee', entityId: id, action: actionWithContext, previousValue: existing, newValue: updated });
       await checkAndPromoteEmployee(id, prisma);
       return updated;
     },
@@ -928,6 +1121,36 @@ me: async (_, __, { prisma, user, requireAuth }) => {
       requireAuth();
       if (!user.employeeId) throw new Error("User is not an employee");
       
+      const employee = await prisma.employee.findUnique({ 
+        where: { id: user.employeeId },
+        include: { manager: { include: { user: true } }, organization: true }
+      });
+
+      const leaveType = await prisma.leaveType.findUnique({
+        where: { id: input.leaveTypeId }
+      });
+
+      if (!leaveType) throw new Error("Invalid leave type");
+
+      // Validate attachment rules
+      if (leaveType.name === 'Study Leave' && !input.attachmentUrl) {
+        throw new Error("Study Leave requires an examination timetable or proof attachment.");
+      }
+      if (leaveType.name === 'Sick Leave' && input.totalDays > 2 && !input.attachmentUrl) {
+        throw new Error("Sick Leave exceeding 2 days requires a medical certificate attachment.");
+      }
+
+      // Validate notice periods if strict toggle is on
+      const strictNotice = employee.organization?.featuresEnabled?.strictLeaveNotice ?? true;
+      if (strictNotice && leaveType.noticeDaysRequired > 0) {
+        const noticeMs = leaveType.noticeDaysRequired * 24 * 60 * 60 * 1000;
+        const requestedDate = new Date(input.startDate).getTime();
+        const currentDate = new Date().getTime();
+        if (requestedDate - currentDate < noticeMs) {
+          throw new Error(`This leave type requires at least ${leaveType.noticeDaysRequired} days advance notice.`);
+        }
+      }
+
       const leaveRequest = await prisma.leaveRequest.create({
         data: {
           employeeId: user.employeeId,
@@ -935,14 +1158,9 @@ me: async (_, __, { prisma, user, requireAuth }) => {
           startDate: new Date(input.startDate),
           endDate: new Date(input.endDate),
           totalDays: input.totalDays,
-          reason: input.reason
+          reason: input.reason,
+          attachmentUrl: input.attachmentUrl
         }
-      });
-
-      // Find the employee's manager to notify them
-      const employee = await prisma.employee.findUnique({ 
-        where: { id: user.employeeId },
-        include: { manager: { include: { user: true } } }
       });
 
       if (employee?.manager?.user?.id) {
@@ -1541,6 +1759,29 @@ me: async (_, __, { prisma, user, requireAuth }) => {
     }
   },
   Department: {
+    
+    loans: async (_, __, { prisma, user, requireAuth }) => {
+      requireAuth();
+      const where = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role) 
+        ? {} 
+        : { employeeId: user.employeeId };
+        
+      const loans = await prisma.loan.findMany({
+        where,
+        include: { employee: true }
+      });
+      
+      return loans.map(l => ({
+        ...l,
+        employee_id: l.employeeId,
+        employee_name: l.employee?.fullName,
+        loan_type: 'standard', // For backward compat with UI
+        loan_amount: l.amount,
+        duration_months: Math.ceil(l.amount / l.monthlyRepayment),
+        monthly_installment: l.monthlyRepayment,
+        start_month: l.startDate.toISOString().slice(0, 7)
+      }));
+    },
     employees: async (parent, _, { prisma }) => {
       const emps = await prisma.employee.findMany({ where: { departmentId: parent.id } });
       // Sort head employee first

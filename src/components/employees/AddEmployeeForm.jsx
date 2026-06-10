@@ -18,6 +18,8 @@ export default function AddEmployeeForm({ templates, departments, onSubmit, onCa
     status: "not_started",
     progress_percentage: 0,
     employment_type: "full_time",
+    employeeClass: "Permanent",
+    employeeGrade: "Entry Level 1",
   });
 
   const handleSubmit = (e) => {
@@ -133,17 +135,48 @@ export default function AddEmployeeForm({ templates, departments, onSubmit, onCa
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="employment_type">Employment Type</Label>
-                <Select value={formData.employment_type} onValueChange={(value) => handleChange("employment_type", value)}>
+                <Label htmlFor="employeeClass">Employment Class</Label>
+                <Select value={formData.employeeClass} onValueChange={(value) => handleChange("employeeClass", value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue placeholder="Select class" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="full_time">Full-time</SelectItem>
-                    <SelectItem value="contract">Contract</SelectItem>
-                    <SelectItem value="intern">Intern</SelectItem>
-                    <SelectItem value="consultant">Consultant</SelectItem>
-                    <SelectItem value="temporary">Temporary Staff</SelectItem>
+                    <SelectItem value="Permanent">Permanent</SelectItem>
+                    <SelectItem value="Probationary">Probationary</SelectItem>
+                    <SelectItem value="Contract">Contract</SelectItem>
+                    <SelectItem value="Consultant">Consultant</SelectItem>
+                    <SelectItem value="Intern">Intern</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="employeeGrade">Employee Grade</Label>
+                <Select value={formData.employeeGrade} onValueChange={(value) => handleChange("employeeGrade", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select grade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Entry Level 1">Entry Level 1</SelectItem>
+                    <SelectItem value="Entry Level 2">Entry Level 2</SelectItem>
+                    <SelectItem value="Entry Level 3">Entry Level 3</SelectItem>
+                    <SelectItem value="Entry Level 4">Entry Level 4</SelectItem>
+                    <SelectItem value="Entry Level 5">Entry Level 5</SelectItem>
+                    <SelectItem value="Mid-Level 1">Mid-Level 1</SelectItem>
+                    <SelectItem value="Mid-Level 2">Mid-Level 2</SelectItem>
+                    <SelectItem value="Mid-Level 3">Mid-Level 3</SelectItem>
+                    <SelectItem value="Mid-Level 4">Mid-Level 4</SelectItem>
+                    <SelectItem value="Mid-Level 5">Mid-Level 5</SelectItem>
+                    <SelectItem value="Senior Level 1">Senior Level 1</SelectItem>
+                    <SelectItem value="Senior Level 2">Senior Level 2</SelectItem>
+                    <SelectItem value="Senior Level 3">Senior Level 3</SelectItem>
+                    <SelectItem value="Senior Level 4">Senior Level 4</SelectItem>
+                    <SelectItem value="Senior Level 5">Senior Level 5</SelectItem>
+                    <SelectItem value="Management 1">Management 1</SelectItem>
+                    <SelectItem value="Management 2">Management 2</SelectItem>
+                    <SelectItem value="Management 3">Management 3</SelectItem>
+                    <SelectItem value="Management 4">Management 4</SelectItem>
+                    <SelectItem value="Management 5">Management 5</SelectItem>
+                    <SelectItem value="CEO">CEO</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

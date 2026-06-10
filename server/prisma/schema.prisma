@@ -91,52 +91,52 @@ enum ExitType {
 // ─── AUTHENTICATION & IDENTITY ───────────────────────────
 
 model User {
-  id                String       @id @default(uuid())
-  email             String       @unique
-  passwordHash      String
-  role              Role         @default(EMPLOYEE)
-  organizationId    String
-  organization      Organization @relation(fields: [organizationId], references: [id])
-  employeeId        String?      @unique
-  employee          Employee?    @relation(fields: [employeeId], references: [id])
-  isOrgOwner        Boolean      @default(false)
-  invitationStatus  String?      // pending, accepted, expired
-  invitedBy         String?
-  lastLogin         DateTime?
-  avatarUrl         String?
-  preferences       Json?        // language, timezone, notification prefs
-  isActive          Boolean      @default(true)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id               String       @id @default(uuid())
+  email            String       @unique
+  passwordHash     String
+  role             Role         @default(EMPLOYEE)
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  employeeId       String?      @unique
+  employee         Employee?    @relation(fields: [employeeId], references: [id])
+  isOrgOwner       Boolean      @default(false)
+  invitationStatus String? // pending, accepted, expired
+  invitedBy        String?
+  lastLogin        DateTime?
+  avatarUrl        String?
+  preferences      Json? // language, timezone, notification prefs
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  notifications     Notification[]
-  auditLogs         AuditLog[]   @relation("AuditActor")
+  notifications Notification[]
+  auditLogs     AuditLog[]     @relation("AuditActor")
 }
 
 // ─── ORGANIZATION ─────────────────────────────────────────
 
 model Organization {
-  id                String       @id @default(uuid())
-  name              String
-  industry          String?
-  size              String?
-  country           String       @default("Nigeria")
-  city              String?
-  address           String?
-  phone             String?
-  email             String?
-  logoUrl           String?
-  ownerEmail        String
-  currency          String       @default("NGN")
-  timezone          String       @default("Africa/Lagos")
-  workWeek          Json?        // ["monday","tuesday",...]
-  branding          Json?        // primaryColor, secondaryColor
-  subscriptionPlan  String       @default("trial")
-  subscriptionStatus String      @default("trial")
-  featuresEnabled   Json?        // { payroll: true, attendance: true, ... }
-  isActive          Boolean      @default(true)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id                 String   @id @default(uuid())
+  name               String
+  industry           String?
+  size               String?
+  country            String   @default("Nigeria")
+  city               String?
+  address            String?
+  phone              String?
+  email              String?
+  logoUrl            String?
+  ownerEmail         String
+  currency           String   @default("NGN")
+  timezone           String   @default("Africa/Lagos")
+  workWeek           Json? // ["monday","tuesday",...]
+  branding           Json? // primaryColor, secondaryColor
+  subscriptionPlan   String   @default("trial")
+  subscriptionStatus String   @default("trial")
+  featuresEnabled    Json? // { payroll: true, attendance: true, ... }
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   users             User[]
   employees         Employee[]
@@ -152,377 +152,383 @@ model Organization {
 // ─── DEPARTMENT ───────────────────────────────────────────
 
 model Department {
-  id                String       @id @default(uuid())
-  organizationId    String
-  organization      Organization @relation(fields: [organizationId], references: [id])
-  name              String
-  code              String?
-  headEmployeeId    String?
-  isActive          Boolean      @default(true)
-  status            ApprovalStatus @default(APPROVED)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  name           String
+  code           String?
+  headEmployeeId String?
+  isActive       Boolean        @default(true)
+  status         ApprovalStatus @default(APPROVED)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  employees         Employee[]
+  employees Employee[]
 }
 
 // ─── EMPLOYEE (Central Source of Truth) ───────────────────
 
 model Employee {
-  id                  String          @id @default(uuid())
-  employeeCode        String          @unique   // EMP-000001
-  organizationId      String
-  organization        Organization    @relation(fields: [organizationId], references: [id])
-  user                User?
+  id             String       @id @default(uuid())
+  employeeCode   String       @unique // EMP-000001
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  user           User?
 
   // Section A: Personal Information
-  fullName            String
-  preferredName       String?
-  email               String          @unique
-  privateEmail        String?
-  phone               String?
-  dateOfBirth         DateTime?
-  gender              String?
-  maritalStatus       String?
-  residentialAddress   String?
-  emergencyContact    String?
-  emergencyPhone      String?
-  nextOfKin           String?
-  nextOfKinPhone      String?
-  guarantorName       String?
-  guarantorPhone      String?
-  guarantorAddress    String?
-  avatarUrl           String?
-  nationality         String?
-  nationalId          String?
-  passportNumber      String?
+  fullName           String
+  preferredName      String?
+  email              String    @unique
+  privateEmail       String?
+  phone              String?
+  dateOfBirth        DateTime?
+  gender             String?
+  maritalStatus      String?
+  residentialAddress String?
+  emergencyContact   String?
+  emergencyPhone     String?
+  nextOfKin          String?
+  nextOfKinPhone     String?
+  guarantorName      String?
+  guarantorPhone     String?
+  guarantorAddress   String?
+  avatarUrl          String?
+  nationality        String?
+  nationalId         String?
+  passportNumber     String?
 
   // Section B: Employment Information
-  hireDate            DateTime
-  jobTitle            String
-  departmentId        String?
-  department          Department?     @relation(fields: [departmentId], references: [id])
-  managerId           String?
-  manager             Employee?       @relation("ManagerReports", fields: [managerId], references: [id])
-  directReports       Employee[]      @relation("ManagerReports")
-  gradeLevel          String?
-  compensationLevel   String?
-  workLocation        String?         // office, remote, hybrid
-  employmentType      EmploymentType  @default(FULL_TIME)
-  employmentStatus    EmployeeStatus  @default(DRAFT)
-  probationStartDate  DateTime?
-  probationEndDate    DateTime?
-  contractType        String?         // indefinite, fixed_term, probation, internship
-  contractEndDate     DateTime?
+  hireDate           DateTime
+  jobTitle           String
+  departmentId       String?
+  department         Department?    @relation(fields: [departmentId], references: [id])
+  managerId          String?
+  manager            Employee?      @relation("ManagerReports", fields: [managerId], references: [id])
+  directReports      Employee[]     @relation("ManagerReports")
+  gradeLevel         String?
+  compensationLevel  String?
+  workLocation       String? // office, remote, hybrid
+  employeeClass      String?
+  employeeGrade      String?
+  employmentType     EmploymentType @default(FULL_TIME)
+  employmentStatus   EmployeeStatus @default(DRAFT)
+  probationStartDate DateTime?
+  probationEndDate   DateTime?
+  contractType       String? // indefinite, fixed_term, probation, internship
+  contractEndDate    DateTime?
 
   // Section C: Payroll & Financial (Sensitive)
-  bankName            String?
-  bankAccountNumber   String?
-  pensionId           String?
-  taxId               String?
-  basicSalary         Float?
-  allowances          Json?           // { housing, transport, meal, utility, entertainment, thirteenthMonth }
+  bankName          String?
+  bankAccountNumber String?
+  pensionId         String?
+  taxId             String?
+  basicSalary       Float?
+  allowances        Json? // { housing, transport, meal, utility, entertainment, thirteenthMonth }
+  hmoPlan           String? // Bronze, Silver, Gold, Platinum
+  hmoProvider       String?
+  pensionAdministrator String?
 
   // Work Schedule
-  workSchedule        Json?           // { type, hoursPerDay, days, shiftStart, shiftEnd }
+  workSchedule Json? // { type, hoursPerDay, days, shiftStart, shiftEnd }
 
   // Onboarding
-  onboardingStatus    String?         @default("not_started")
-  onboardingProgress  Int             @default(0)
-  welcomeEmailSent    Boolean         @default(false)
+  onboardingStatus        String?   @default("not_started")
+  onboardingProgress      Int       @default(0)
+  welcomeEmailSent        Boolean   @default(false)
   onboardingCompletedDate DateTime?
 
   // Metadata
-  notes               String?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  leaveRequests       LeaveRequest[]
-  leaveBalances       LeaveBalance[]
-  attendanceRecords   Attendance[]
-  payrollRecords      PayrollRecord[]
-  documents           Document[]
-  goals               Goal[]
-  checkIns            CheckIn[]       @relation("EmployeeCheckIns")
-  managerCheckIns     CheckIn[]       @relation("ManagerCheckIns")
-  onboardingTasks     OnboardingTask[]
-  offboarding         Offboarding?
-  statusHistory       EmployeeStatusHistory[]
-  promotionHistory    PromotionHistory[]
+  leaveRequests         LeaveRequest[]
+  leaveBalances         LeaveBalance[]
+  attendanceRecords     Attendance[]
+  payrollRecords        PayrollRecord[]
+  documents             Document[]
+  goals                 Goal[]
+  checkIns              CheckIn[]               @relation("EmployeeCheckIns")
+  managerCheckIns       CheckIn[]               @relation("ManagerCheckIns")
+  onboardingTasks       OnboardingTask[]
+  offboarding           Offboarding?
+  suspensions           Suspension[]
+  statusHistory         EmployeeStatusHistory[]
+  promotionHistory      PromotionHistory[]
   profileUpdateRequests ProfileUpdateRequest[]
-  salaryHistory       SalaryHistory[]
-  assets              Asset[]
-  expenseClaims       ExpenseClaim[]
-  loans               Loan[]
+  salaryHistory         SalaryHistory[]
+  assets                Asset[]
+  expenseClaims         ExpenseClaim[]
+  loans                 Loan[]
 }
 
 // ─── EMPLOYEE STATUS HISTORY ──────────────────────────────
 
 model EmployeeStatusHistory {
-  id              String          @id @default(uuid())
-  employeeId      String
-  employee        Employee        @relation(fields: [employeeId], references: [id])
-  previousStatus  EmployeeStatus
-  newStatus       EmployeeStatus
-  changedBy       String          // User ID
-  reason          String?
-  createdAt       DateTime        @default(now())
+  id             String         @id @default(uuid())
+  employeeId     String
+  employee       Employee       @relation(fields: [employeeId], references: [id])
+  previousStatus EmployeeStatus
+  newStatus      EmployeeStatus
+  changedBy      String // User ID
+  reason         String?
+  createdAt      DateTime       @default(now())
 }
 
 // ─── PROMOTION HISTORY ────────────────────────────────────
 
 model PromotionHistory {
-  id                  String     @id @default(uuid())
-  employeeId          String
-  employee            Employee   @relation(fields: [employeeId], references: [id])
-  previousTitle       String
-  newTitle             String
-  previousGrade       String?
-  newGrade            String?
-  previousSalary      Float?
-  newSalary           Float?
-  effectiveDate       DateTime
-  promotionLetterUrl  String?
-  approvedBy          String
-  createdAt           DateTime   @default(now())
+  id                 String   @id @default(uuid())
+  employeeId         String
+  employee           Employee @relation(fields: [employeeId], references: [id])
+  previousTitle      String
+  newTitle           String
+  previousGrade      String?
+  newGrade           String?
+  previousSalary     Float?
+  newSalary          Float?
+  effectiveDate      DateTime
+  promotionLetterUrl String?
+  approvedBy         String
+  createdAt          DateTime @default(now())
 }
 
 model SalaryHistory {
-  id             String   @id @default(uuid())
-  employeeId     String
-  employee       Employee @relation(fields: [employeeId], references: [id])
-  basicSalary    Float
-  allowances     Json?
-  effectiveDate  DateTime
-  reason         String
-  status         String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  approvedBy     String?
-  createdAt      DateTime @default(now())
+  id            String   @id @default(uuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  basicSalary   Float
+  allowances    Json?
+  effectiveDate DateTime
+  reason        String
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedBy    String?
+  createdAt     DateTime @default(now())
 }
 
 // ─── LEAVE MANAGEMENT ─────────────────────────────────────
 
 model LeaveType {
-  id                  String          @id @default(uuid())
-  organizationId      String
-  organization        Organization    @relation(fields: [organizationId], references: [id])
-  name                String          // Annual Leave, Sick Leave, etc.
-  daysPerYear         Int
-  isPaid              Boolean         @default(true)
-  requiresApproval    Boolean         @default(true)
-  canCarryForward     Boolean         @default(false)
-  maxCarryForward     Int             @default(0)
-  noticeDaysRequired  Int             @default(0)
-  requiresHandover    Boolean         @default(false)
-  requiresReliefOfficer Boolean      @default(false)
-  requiresProof       Boolean         @default(false)
-  accrualType         LeaveAccrualType @default(ALL_AT_ONCE)
-  isActive            Boolean         @default(true)
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  id                    String           @id @default(uuid())
+  organizationId        String
+  organization          Organization     @relation(fields: [organizationId], references: [id])
+  name                  String // Annual Leave, Sick Leave, etc.
+  daysPerYear           Int
+  isPaid                Boolean          @default(true)
+  requiresApproval      Boolean          @default(true)
+  canCarryForward       Boolean          @default(false)
+  maxCarryForward       Int              @default(0)
+  noticeDaysRequired    Int              @default(0)
+  requiresHandover      Boolean          @default(false)
+  requiresReliefOfficer Boolean          @default(false)
+  requiresProof         Boolean          @default(false)
+  accrualType           LeaveAccrualType @default(ALL_AT_ONCE)
+  isActive              Boolean          @default(true)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
 
-  leaveRequests       LeaveRequest[]
-  leaveBalances       LeaveBalance[]
+  leaveRequests LeaveRequest[]
+  leaveBalances LeaveBalance[]
 }
 
 model LeaveBalance {
-  id                String     @id @default(uuid())
-  employeeId        String
-  employee          Employee   @relation(fields: [employeeId], references: [id])
-  leaveTypeId       String
-  leaveType         LeaveType  @relation(fields: [leaveTypeId], references: [id])
-  year              Int
-  totalEntitled     Float
-  used              Float      @default(0)
-  pending           Float      @default(0)
-  available         Float
-  carriedForward    Float      @default(0)
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  id             String    @id @default(uuid())
+  employeeId     String
+  employee       Employee  @relation(fields: [employeeId], references: [id])
+  leaveTypeId    String
+  leaveType      LeaveType @relation(fields: [leaveTypeId], references: [id])
+  year           Int
+  totalEntitled  Float
+  used           Float     @default(0)
+  pending        Float     @default(0)
+  available      Float
+  carriedForward Float     @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@unique([employeeId, leaveTypeId, year])
 }
 
 model LeaveRequest {
-  id                String         @id @default(uuid())
-  employeeId        String
-  employee          Employee       @relation(fields: [employeeId], references: [id])
-  leaveTypeId       String
-  leaveType         LeaveType      @relation(fields: [leaveTypeId], references: [id])
-  startDate         DateTime
-  endDate           DateTime
-  totalDays         Float
-  isHalfDay         Boolean        @default(false)
-  reason            String?
-  reliefOfficerId   String?
-  handoverNote      String?
-  attachmentUrl     String?
-  status            ApprovalStatus @default(PENDING)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id              String         @id @default(uuid())
+  employeeId      String
+  employee        Employee       @relation(fields: [employeeId], references: [id])
+  leaveTypeId     String
+  leaveType       LeaveType      @relation(fields: [leaveTypeId], references: [id])
+  startDate       DateTime
+  endDate         DateTime
+  totalDays       Float
+  isHalfDay       Boolean        @default(false)
+  reason          String?
+  reliefOfficerId String?
+  handoverNote    String?
+  attachmentUrl   String?
+  status          ApprovalStatus @default(PENDING)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  approvals         ApprovalRecord[]
+  approvals ApprovalRecord[]
 }
 
 // ─── ATTENDANCE ───────────────────────────────────────────
 
 model Attendance {
-  id                String           @id @default(uuid())
-  employeeId        String
-  employee          Employee         @relation(fields: [employeeId], references: [id])
-  date              DateTime
-  clockIn           DateTime?
-  clockOut          DateTime?
-  status            AttendanceStatus @default(PRESENT)
-  isLate            Boolean          @default(false)
-  isEarlyDeparture  Boolean          @default(false)
-  location          String?
-  adjustedBy        String?          // User ID if manually adjusted
-  adjustmentNote    String?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  id               String           @id @default(uuid())
+  employeeId       String
+  employee         Employee         @relation(fields: [employeeId], references: [id])
+  date             DateTime
+  clockIn          DateTime?
+  clockOut         DateTime?
+  status           AttendanceStatus @default(PRESENT)
+  isLate           Boolean          @default(false)
+  isEarlyDeparture Boolean          @default(false)
+  location         String?
+  adjustedBy       String? // User ID if manually adjusted
+  adjustmentNote   String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   @@unique([employeeId, date])
 }
 
 model AttendanceSettings {
-  id                  String       @id @default(uuid())
-  organizationId      String       @unique
-  standardStartTime   String       @default("09:00")
-  standardEndTime     String       @default("17:00")
-  gracePeriodMinutes  Int          @default(15)
-  workingDays         Json         // ["monday","tuesday",...]
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  id                 String   @id @default(uuid())
+  organizationId     String   @unique
+  standardStartTime  String   @default("09:00")
+  standardEndTime    String   @default("17:00")
+  gracePeriodMinutes Int      @default(15)
+  workingDays        Json // ["monday","tuesday",...]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
 // ─── PAYROLL ──────────────────────────────────────────────
 
 model PayrollRun {
-  id                String          @id @default(uuid())
-  organizationId    String
-  organization      Organization    @relation(fields: [organizationId], references: [id])
-  month             String          // "2026-01"
-  periodStart       DateTime
-  periodEnd         DateTime
-  payDate           DateTime?
-  cutoffDate        DateTime?
-  status            PayrollStatus   @default(DRAFT)
-  totalGross        Float           @default(0)
-  totalDeductions   Float           @default(0)
-  totalNet          Float           @default(0)
-  processedBy       String?
-  approvedBy        String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  id              String        @id @default(uuid())
+  organizationId  String
+  organization    Organization  @relation(fields: [organizationId], references: [id])
+  month           String // "2026-01"
+  periodStart     DateTime
+  periodEnd       DateTime
+  payDate         DateTime?
+  cutoffDate      DateTime?
+  status          PayrollStatus @default(DRAFT)
+  totalGross      Float         @default(0)
+  totalDeductions Float         @default(0)
+  totalNet        Float         @default(0)
+  processedBy     String?
+  approvedBy      String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  records           PayrollRecord[]
-  approvals         ApprovalRecord[]
+  records   PayrollRecord[]
+  approvals ApprovalRecord[]
 }
 
 model PayrollRecord {
-  id                String       @id @default(uuid())
-  payrollRunId      String
-  payrollRun        PayrollRun   @relation(fields: [payrollRunId], references: [id])
-  employeeId        String
-  employee          Employee     @relation(fields: [employeeId], references: [id])
-  basicSalary       Float
-  allowances        Json         // { housing, transport, meal, utility, entertainment, thirteenthMonth }
-  grossPay          Float
-  deductions        Json         // { incomeTax, pension, loanRepayment, ... }
-  totalDeductions   Float
-  netPay            Float
-  isProratedEntry   Boolean      @default(false)
-  prorationDays     Int?
-  overtimeHours     Float        @default(0)
-  overtimeAmount    Float        @default(0)
-  payslipUrl        String?      // Generated PDF URL
-  notes             String?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id              String     @id @default(uuid())
+  payrollRunId    String
+  payrollRun      PayrollRun @relation(fields: [payrollRunId], references: [id])
+  employeeId      String
+  employee        Employee   @relation(fields: [employeeId], references: [id])
+  basicSalary     Float
+  allowances      Json // { housing, transport, meal, utility, entertainment, thirteenthMonth }
+  grossPay        Float
+  deductions      Json // { incomeTax, pension, loanRepayment, ... }
+  totalDeductions Float
+  netPay          Float
+  isProratedEntry Boolean    @default(false)
+  prorationDays   Int?
+  overtimeHours   Float      @default(0)
+  overtimeAmount  Float      @default(0)
+  payslipUrl      String? // Generated PDF URL
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 }
 
 // ─── DOCUMENT MANAGEMENT ──────────────────────────────────
 
 model Document {
-  id                String         @id @default(uuid())
-  employeeId        String
-  employee          Employee       @relation(fields: [employeeId], references: [id])
-  name              String
-  category          String         // employment_contract, government_id, certificate, etc.
-  fileUrl           String
-  fileType          String         // pdf, jpg, png, docx
-  fileSize          Int?
-  currentVersion    Int            @default(1)
-  visibilityLevel   String         @default("hr_only") // hr_only, manager, employee
-  status            DocumentStatus @default(ACTIVE)
-  uploadedBy        String
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id              String         @id @default(uuid())
+  employeeId      String
+  employee        Employee       @relation(fields: [employeeId], references: [id])
+  name            String
+  category        String // employment_contract, government_id, certificate, etc.
+  fileUrl         String
+  fileType        String // pdf, jpg, png, docx
+  fileSize        Int?
+  currentVersion  Int            @default(1)
+  visibilityLevel String         @default("hr_only") // hr_only, manager, employee
+  status          DocumentStatus @default(ACTIVE)
+  uploadedBy      String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  versions          DocumentVersion[]
+  versions DocumentVersion[]
 }
 
 model DocumentVersion {
-  id              String     @id @default(uuid())
-  documentId      String
-  document        Document   @relation(fields: [documentId], references: [id])
-  version         Int
-  fileUrl         String
-  fileType        String
-  fileSize        Int?
-  uploadedBy      String
-  createdAt       DateTime   @default(now())
+  id         String   @id @default(uuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id])
+  version    Int
+  fileUrl    String
+  fileType   String
+  fileSize   Int?
+  uploadedBy String
+  createdAt  DateTime @default(now())
 }
 
 // ─── SHARED APPROVAL ENGINE ──────────────────────────────
 
 model ApprovalRecord {
-  id              String         @id @default(uuid())
-  entityType      String         // LeaveRequest, PayrollRun, Policy, etc.
-  entityId        String
-  approverUserId  String
-  action          ApprovalStatus
-  comments        String?
-  previousStatus  ApprovalStatus?
-  createdAt       DateTime       @default(now())
+  id             String          @id @default(uuid())
+  entityType     String // LeaveRequest, PayrollRun, Policy, etc.
+  entityId       String
+  approverUserId String
+  action         ApprovalStatus
+  comments       String?
+  previousStatus ApprovalStatus?
+  createdAt      DateTime        @default(now())
 
   // Optional links to specific entities
-  leaveRequestId  String?
-  leaveRequest    LeaveRequest?  @relation(fields: [leaveRequestId], references: [id])
-  payrollRunId    String?
-  payrollRun      PayrollRun?    @relation(fields: [payrollRunId], references: [id])
+  leaveRequestId String?
+  leaveRequest   LeaveRequest? @relation(fields: [leaveRequestId], references: [id])
+  payrollRunId   String?
+  payrollRun     PayrollRun?   @relation(fields: [payrollRunId], references: [id])
 }
 
 // ─── NOTIFICATION SERVICE ─────────────────────────────────
 
 model Notification {
-  id              String              @id @default(uuid())
-  userId          String
-  user            User                @relation(fields: [userId], references: [id])
-  category        String              // approval, reminder, payroll, leave, etc.
-  title           String
-  message         String
-  channel         NotificationChannel @default(IN_APP)
-  isRead          Boolean             @default(false)
-  deepLink        String?             // URL path to relevant record
-  createdAt       DateTime            @default(now())
+  id        String              @id @default(uuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id])
+  category  String // approval, reminder, payroll, leave, etc.
+  title     String
+  message   String
+  channel   NotificationChannel @default(IN_APP)
+  isRead    Boolean             @default(false)
+  deepLink  String? // URL path to relevant record
+  createdAt DateTime            @default(now())
 }
 
 // ─── AUDIT LOG (Immutable) ────────────────────────────────
 
 model AuditLog {
-  id              String     @id @default(uuid())
-  actorId         String
-  actor           User       @relation("AuditActor", fields: [actorId], references: [id])
-  entityType      String     // Employee, LeaveRequest, Payroll, etc.
-  entityId        String
-  action          String     // CREATE, UPDATE, DELETE, STATUS_CHANGE, etc.
-  previousValue   Json?
-  newValue        Json?
-  ipAddress       String?
-  createdAt       DateTime   @default(now())
+  id            String   @id @default(uuid())
+  actorId       String
+  actor         User     @relation("AuditActor", fields: [actorId], references: [id])
+  entityType    String // Employee, LeaveRequest, Payroll, etc.
+  entityId      String
+  action        String // CREATE, UPDATE, DELETE, STATUS_CHANGE, etc.
+  previousValue Json?
+  newValue      Json?
+  ipAddress     String?
+  createdAt     DateTime @default(now())
 
   @@index([entityType, entityId])
   @@index([actorId])
@@ -532,66 +538,78 @@ model AuditLog {
 // ─── ONBOARDING / OFFBOARDING ─────────────────────────────
 
 model OnboardingTask {
-  id              String     @id @default(uuid())
-  employeeId      String
-  employee        Employee   @relation(fields: [employeeId], references: [id])
-  title           String
-  description     String?
-  category        String     // it_setup, documentation, orientation, etc.
-  assignedTo      String?    // User ID
-  isCompleted     Boolean    @default(false)
-  dueDate         DateTime?
-  completedAt     DateTime?
-  status          String     @default("todo")
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @default(now()) @updatedAt
+  id          String    @id @default(uuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  title       String
+  description String?
+  category    String // it_setup, documentation, orientation, etc.
+  assignedTo  String? // User ID
+  isCompleted Boolean   @default(false)
+  dueDate     DateTime?
+  completedAt DateTime?
+  status      String    @default("todo")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+}
+
+model Suspension {
+  id         String   @id @default(uuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  startDate  DateTime
+  endDate    DateTime
+  reason     String
+  approvedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Offboarding {
-  id              String     @id @default(uuid())
-  employeeId      String     @unique
-  employee        Employee   @relation(fields: [employeeId], references: [id])
-  exitType        ExitType
-  exitDate        DateTime
-  reason          String?
-  interviewNotes  String?
-  assetReturned   Boolean    @default(false)
-  accessRevoked   Boolean    @default(false)
-  handoverComplete Boolean   @default(false)
-  finalPayrollProcessed Boolean @default(false)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id                    String   @id @default(uuid())
+  employeeId            String   @unique
+  employee              Employee @relation(fields: [employeeId], references: [id])
+  exitType              ExitType
+  exitDate              DateTime
+  reason                String?
+  interviewNotes        String?
+  assetReturned         Boolean  @default(false)
+  accessRevoked         Boolean  @default(false)
+  handoverComplete      Boolean  @default(false)
+  finalPayrollProcessed Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 // ─── KNOWLEDGE BANK / POLICIES ────────────────────────────
 
 model Policy {
-  id                String         @id @default(uuid())
-  organizationId    String
-  organization      Organization   @relation(fields: [organizationId], references: [id])
-  title             String
-  content           String?        // Rich text / Markdown
-  category          String         // hr_policy, compliance, sop, handbook, etc.
-  fileUrl           String?
-  currentVersion    Int            @default(1)
-  status            ApprovalStatus @default(DRAFT)
-  requiresAck       Boolean        @default(false)
-  publishedAt       DateTime?
-  expiresAt         DateTime?
-  createdBy         String
-  approvedBy        String?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  title          String
+  content        String? // Rich text / Markdown
+  category       String // hr_policy, compliance, sop, handbook, etc.
+  fileUrl        String?
+  currentVersion Int            @default(1)
+  status         ApprovalStatus @default(DRAFT)
+  requiresAck    Boolean        @default(false)
+  publishedAt    DateTime?
+  expiresAt      DateTime?
+  createdBy      String
+  approvedBy     String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  acknowledgments   PolicyAcknowledgment[]
+  acknowledgments PolicyAcknowledgment[]
 }
 
 model PolicyAcknowledgment {
-  id              String     @id @default(uuid())
-  policyId        String
-  policy          Policy     @relation(fields: [policyId], references: [id])
-  userId          String
-  acknowledgedAt  DateTime   @default(now())
+  id             String   @id @default(uuid())
+  policyId       String
+  policy         Policy   @relation(fields: [policyId], references: [id])
+  userId         String
+  acknowledgedAt DateTime @default(now())
 
   @@unique([policyId, userId])
 }
@@ -599,141 +617,141 @@ model PolicyAcknowledgment {
 // ─── ANNOUNCEMENTS & CELEBRATIONS ─────────────────────────
 
 model Announcement {
-  id                String       @id @default(uuid())
-  organizationId    String
-  organization      Organization @relation(fields: [organizationId], references: [id])
-  title             String
-  content           String
-  priority          String       @default("informational") // urgent, informational, optional
-  isPinned          Boolean      @default(false)
-  requiresReadConfirm Boolean   @default(false)
-  publishAt         DateTime?
-  expiresAt         DateTime?
-  createdBy         String
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id                  String       @id @default(uuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id])
+  title               String
+  content             String
+  priority            String       @default("informational") // urgent, informational, optional
+  isPinned            Boolean      @default(false)
+  requiresReadConfirm Boolean      @default(false)
+  publishAt           DateTime?
+  expiresAt           DateTime?
+  createdBy           String
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 }
 
 // ─── PERFORMANCE MANAGEMENT ───────────────────────────────
 
 model Goal {
-  id                String     @id @default(uuid())
-  employeeId        String
-  employee          Employee   @relation(fields: [employeeId], references: [id])
-  title             String
-  description       String?
-  successCriteria   String?
-  weight            Float      // Goal weight, all goals total 100
-  priority          String     @default("MEDIUM") // HIGH, MEDIUM, LOW
-  targetDate        DateTime?
-  period            String     // "2026-01" (monthly) or "2026" (annual)
-  periodType        String     @default("monthly") // monthly, annual
-  status            String     @default("draft") // draft, approved, in_progress, completed
-  selfRating        Float?     // Employee self-score (out of 100)
-  managerRating     Float?     // Manager score (out of 100)
-  approvedBy        String?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  id              String    @id @default(uuid())
+  employeeId      String
+  employee        Employee  @relation(fields: [employeeId], references: [id])
+  title           String
+  description     String?
+  successCriteria String?
+  weight          Float // Goal weight, all goals total 100
+  priority        String    @default("MEDIUM") // HIGH, MEDIUM, LOW
+  targetDate      DateTime?
+  period          String // "2026-01" (monthly) or "2026" (annual)
+  periodType      String    @default("monthly") // monthly, annual
+  status          String    @default("draft") // draft, approved, in_progress, completed
+  selfRating      Float? // Employee self-score (out of 100)
+  managerRating   Float? // Manager score (out of 100)
+  approvedBy      String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model CheckIn {
-  id                String     @id @default(uuid())
-  employeeId        String
-  employee          Employee   @relation("EmployeeCheckIns", fields: [employeeId], references: [id])
-  managerId         String
-  manager           Employee   @relation("ManagerCheckIns", fields: [managerId], references: [id])
-  period            String     // "2026-01"
-  scheduledDate     DateTime?
-  completedDate     DateTime?
-  selfAppraisal     String?
-  managerNotes      String?
-  actionItems       Json?      // [{ item, owner, completed }]
-  wellbeingNotes    String?
-  overallRating     Float?     // total score out of 100
-  status            String     @default("scheduled") // scheduled, completed, overdue
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  id             String    @id @default(uuid())
+  employeeId     String
+  employee       Employee  @relation("EmployeeCheckIns", fields: [employeeId], references: [id])
+  managerId      String
+  manager        Employee  @relation("ManagerCheckIns", fields: [managerId], references: [id])
+  period         String // "2026-01"
+  scheduledDate  DateTime?
+  completedDate  DateTime?
+  selfAppraisal  String?
+  managerNotes   String?
+  actionItems    Json? // [{ item, owner, completed }]
+  wellbeingNotes String?
+  overallRating  Float? // total score out of 100
+  status         String    @default("scheduled") // scheduled, completed, overdue
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }
 
 // ─── PROFILE UPDATE REQUESTS ──────────────────────────────
 
 model ProfileUpdateRequest {
-  id              String     @id @default(uuid())
-  employeeId      String
-  employee        Employee   @relation(fields: [employeeId], references: [id])
-  fieldName       String     // "phone", "residentialAddress", etc.
-  currentValue    String?
-  requestedValue  String
-  status          ApprovalStatus @default(PENDING)
-  reviewedBy      String?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id             String         @id @default(uuid())
+  employeeId     String
+  employee       Employee       @relation(fields: [employeeId], references: [id])
+  fieldName      String // "phone", "residentialAddress", etc.
+  currentValue   String?
+  requestedValue String
+  status         ApprovalStatus @default(PENDING)
+  reviewedBy     String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
 
 // ─── ADDITIONAL MODULES ───────────────────────────────────
 
 model Shift {
-  id              String       @id @default(uuid())
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
-  name            String
-  startTime       String
-  endTime         String
-  breakMinutes    Int          @default(60)
-  isActive        Boolean      @default(true)
-  createdAt       DateTime     @default(now())
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  startTime      String
+  endTime        String
+  breakMinutes   Int          @default(60)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
 }
 
 model ApprovalWorkflow {
-  id              String       @id @default(uuid())
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
-  name            String
-  entityType      String       // 'LeaveRequest', 'PayrollRun', 'ExpenseClaim', etc.
-  steps           Json         // Array of roles or userIds required in order: [{ order: 1, role: 'MANAGER' }, { order: 2, role: 'HR_ADMIN' }]
-  isActive        Boolean      @default(true)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  entityType     String // 'LeaveRequest', 'PayrollRun', 'ExpenseClaim', etc.
+  steps          Json // Array of roles or userIds required in order: [{ order: 1, role: 'MANAGER' }, { order: 2, role: 'HR_ADMIN' }]
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@unique([organizationId, name])
 }
 
 model Asset {
-  id              String     @id @default(uuid())
-  employeeId      String?
-  employee        Employee?  @relation(fields: [employeeId], references: [id])
-  name            String
-  type            String     // laptop, phone, badge, etc.
-  serialNumber    String?
-  assignedDate    DateTime?
-  returnedDate    DateTime?
-  status          String     @default("assigned") // assigned, returned, lost
-  createdAt       DateTime   @default(now())
+  id           String    @id @default(uuid())
+  employeeId   String?
+  employee     Employee? @relation(fields: [employeeId], references: [id])
+  name         String
+  type         String // laptop, phone, badge, etc.
+  serialNumber String?
+  assignedDate DateTime?
+  returnedDate DateTime?
+  status       String    @default("assigned") // assigned, returned, lost
+  createdAt    DateTime  @default(now())
 }
 
 model ExpenseClaim {
-  id              String         @id @default(uuid())
-  employeeId      String
-  employee        Employee       @relation(fields: [employeeId], references: [id])
-  title           String
-  amount          Float
-  category        String
-  receiptUrl      String?
-  status          ApprovalStatus @default(PENDING)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id         String         @id @default(uuid())
+  employeeId String
+  employee   Employee       @relation(fields: [employeeId], references: [id])
+  title      String
+  amount     Float
+  category   String
+  receiptUrl String?
+  status     ApprovalStatus @default(PENDING)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 }
 
 model Loan {
-  id              String     @id @default(uuid())
-  employeeId      String
-  employee        Employee   @relation(fields: [employeeId], references: [id])
-  amount          Float
+  id               String   @id @default(uuid())
+  employeeId       String
+  employee         Employee @relation(fields: [employeeId], references: [id])
+  amount           Float
   monthlyRepayment Float
-  totalRepaid     Float      @default(0)
+  totalRepaid      Float    @default(0)
   remainingBalance Float
-  status          String     @default("active") // active, fully_paid, defaulted
-  startDate       DateTime
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  status           String   @default("active") // active, fully_paid, defaulted
+  startDate        DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

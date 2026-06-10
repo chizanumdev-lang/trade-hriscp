@@ -91,13 +91,14 @@ export default function LeaveManagement() {
   const createLeaveMutation = useMutation({
     mutationFn: async (data) => {
       const CREATE_LEAVE = gql`
-        mutation CreateLeave($employeeId: ID!, $leaveTypeId: String!, $startDate: String!, $endDate: String!, $totalDays: Float!, $reason: String) {
+        mutation CreateLeave($employeeId: ID!, $leaveTypeId: String!, $startDate: String!, $endDate: String!, $totalDays: Float!, $reason: String, $attachmentUrl: String) {
           submitLeaveRequest(input: {
             leaveTypeId: $leaveTypeId,
             startDate: $startDate,
             endDate: $endDate,
             totalDays: $totalDays,
-            reason: $reason
+            reason: $reason,
+            attachmentUrl: $attachmentUrl
           }) { id }
         }
       `;
@@ -107,7 +108,8 @@ export default function LeaveManagement() {
         startDate: new Date(data.start_date).toISOString(),
         endDate: new Date(data.end_date).toISOString(),
         totalDays: parseFloat(data.total_days),
-        reason: data.reason
+        reason: data.reason,
+        attachmentUrl: data.attachment_url
       });
     },
     onSuccess: () => {
@@ -207,6 +209,12 @@ export default function LeaveManagement() {
     REJECTED: 'bg-red-100 text-red-700 border-red-200',
   };
 
+  const selectedLeaveTypeObj = leaveTypes.find(t => t.id === formData.leave_type);
+  const requiresAttachment = selectedLeaveTypeObj && (
+    selectedLeaveTypeObj.name === 'Study Leave' || 
+    (selectedLeaveTypeObj.name === 'Sick Leave' && formData.total_days > 2)
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -263,7 +271,7 @@ export default function LeaveManagement() {
               <form 
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (!formData.attachment_url) {
+                  if (requiresAttachment && !formData.attachment_url) {
                     alert("Please upload a supporting document for your leave request.");
                     return;
                   }
@@ -309,6 +317,11 @@ export default function LeaveManagement() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {selectedLeaveTypeObj?.noticeDaysRequired > 0 && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Requires at least {selectedLeaveTypeObj.noticeDaysRequired} days notice.
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -348,43 +361,45 @@ export default function LeaveManagement() {
                 </div>
 
                 {/* File Upload Section */}
-                <div className="space-y-2">
-                  <Label>Supporting Document * (Required)</Label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="file"
-                      id="attachment"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => document.getElementById('attachment').click()}
-                      disabled={uploadingFile}
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      {uploadingFile ? 'Uploading...' : 'Upload Document'}
-                    </Button>
-                    {formData.attachment_url && (
-                      <div className="flex items-center gap-2 text-sm text-green-600">
-                        <Paperclip className="w-4 h-4" />
-                        Document attached
-                      </div>
-                    )}
-                    {!formData.attachment_url && (
-                      <span className="text-sm text-red-500">
-                        No document attached.
-                      </span>
-                    )}
+                {(requiresAttachment || formData.attachment_url) && (
+                  <div className="space-y-2">
+                    <Label>Supporting Document {requiresAttachment ? '* (Required)' : '(Optional)'}</Label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="file"
+                        id="attachment"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => document.getElementById('attachment').click()}
+                        disabled={uploadingFile}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {uploadingFile ? 'Uploading...' : 'Upload Document'}
+                      </Button>
+                      {formData.attachment_url && (
+                        <div className="flex items-center gap-2 text-sm text-green-600">
+                          <Paperclip className="w-4 h-4" />
+                          Document attached
+                        </div>
+                      )}
+                      {requiresAttachment && !formData.attachment_url && (
+                        <span className="text-sm text-red-500">
+                          Document is required for this request.
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex justify-end gap-3">
                   <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" isLoading={createLeaveMutation.isPending} disabled={!formData.attachment_url}>
+                  <Button type="submit" isLoading={createLeaveMutation.isPending} disabled={requiresAttachment && !formData.attachment_url}>
                     {createLeaveMutation.isPending ? 'Submitting...' : 'Submit Request'}
                   </Button>
                 </div>

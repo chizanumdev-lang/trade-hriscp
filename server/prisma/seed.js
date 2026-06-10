@@ -173,6 +173,38 @@ async function main() {
     }
   }
 
+  
+  // Seed Leave Types
+  const leaveTypes = [
+    { name: 'Annual Leave', daysPerYear: 15, isPaid: true, requiresApproval: true, canCarryForward: false, noticeDaysRequired: 10 },
+    { name: 'Sick Leave', daysPerYear: 10, isPaid: true, requiresApproval: true, canCarryForward: false, noticeDaysRequired: 0, requiresProof: true },
+    { name: 'Maternity Leave', daysPerYear: 105, isPaid: true, requiresApproval: true, canCarryForward: false, noticeDaysRequired: 70 }, // 15 weeks, 10 weeks notice
+    { name: 'Paternity Leave', daysPerYear: 14, isPaid: true, requiresApproval: true, canCarryForward: false, noticeDaysRequired: 30 }, // 1 month notice
+    { name: 'Casual Leave', daysPerYear: 5, isPaid: true, requiresApproval: true, canCarryForward: false, noticeDaysRequired: 0 },
+    { name: 'Bereavement Leave', daysPerYear: 14, isPaid: true, requiresApproval: true, canCarryForward: false, noticeDaysRequired: 0 },
+    { name: 'Study Leave', daysPerYear: 5, isPaid: true, requiresApproval: true, canCarryForward: false, noticeDaysRequired: 14, requiresProof: true },
+    { name: 'Leave of Absence', daysPerYear: 0, isPaid: false, requiresApproval: true, canCarryForward: false, noticeDaysRequired: 30 }
+  ];
+
+  for (const lt of leaveTypes) {
+    const existingLt = await prisma.leaveType.findFirst({
+      where: { name: lt.name, organizationId: org.id }
+    });
+    if (!existingLt) {
+      await prisma.leaveType.create({
+        data: {
+          ...lt,
+          organizationId: org.id
+        }
+      });
+    } else {
+      await prisma.leaveType.update({
+        where: { id: existingLt.id },
+        data: { ...lt }
+      });
+    }
+  }
+
   console.log('Seeded database with test users, employees, and workflows')
 }
 

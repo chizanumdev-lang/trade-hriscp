@@ -26,8 +26,8 @@ export default function OnboardingProgressWidget({ employeeId, employee, onCompl
     enabled: !!employeeId
   });
 
-  const isProbation = employee?.employment_status === 'PROBATION';
-  const isActiveOrOffboarded = employee?.employment_status === 'ACTIVE' || employee?.employment_status === 'OFFBOARDED';
+  const isProbation = employee?.employmentStatus === 'PROBATION';
+  const isActiveOrOffboarded = employee?.employmentStatus === 'ACTIVE' || employee?.employmentStatus === 'OFFBOARDED';
 
   if (isLoading || (!isProbation && tasks.length === 0) || isActiveOrOffboarded) return null;
 
@@ -35,17 +35,22 @@ export default function OnboardingProgressWidget({ employeeId, employee, onCompl
   const completedTasks = tasks.filter(t => t.isCompleted).length;
   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  const parseSafeDateObj = (d) => {
+    if (!d) return null;
+    const asNum = Number(d);
+    const parsed = new Date(isNaN(asNum) ? d : asNum);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  };
+
   let probationDaysLeft = null;
   let isProbationEnd = false;
   let endDateDisplay = null;
 
   if (isProbation) {
-    let end;
-    if (employee?.probation_end_date) {
-      end = new Date(employee.probation_end_date);
-    } else if (employee?.start_date) {
-      end = new Date(employee.start_date);
-      end.setMonth(end.getMonth() + 3); // 3 months default
+    let end = parseSafeDateObj(employee?.probationEndDate);
+    if (!end) {
+      end = parseSafeDateObj(employee?.hireDate);
+      if (end) end.setMonth(end.getMonth() + 3); // 3 months default
     }
 
     if (end) {

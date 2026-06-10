@@ -19,6 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { format as dateFnsFormat } from "date-fns";
 import { toast } from "sonner";
@@ -82,13 +84,39 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [assetToRemove, setAssetToRemove] = useState(null);
 
+  const { data: departmentsData } = useQuery({
+    queryKey: ['departments'],
+    queryFn: async () => {
+      const DEPT_QUERY = gql`
+        query GetDepartments {
+          departments {
+            id
+            name
+          }
+        }
+      `;
+      const res = await gqlClient.request(DEPT_QUERY);
+      return res.departments;
+    }
+  });
+  const departments = departmentsData || [];
+
+  const [showPromoteDialog, setShowPromoteDialog] = useState(false);
+  const [promoteForm, setPromoteForm] = useState({ jobTitle: '', departmentId: '' });
+
+  const [showSuspendDialog, setShowSuspendDialog] = useState(false);
+  const [suspendForm, setSuspendForm] = useState({ startDate: '', endDate: '', reason: '', superAdminApproved: false });
+
+  const [showOffboardDialog, setShowOffboardDialog] = useState(false);
+  const [offboardForm, setOffboardForm] = useState({ type: 'RESIGNATION', exitDate: '', reason: '' });
+
   const { data: employee, isLoading, isError, error } = useQuery({
     queryKey: ['employee', employeeId],
     queryFn: async () => {
       const EMP_QUERY = gql`
         query GetEmployee($id: ID!) {
           employee(id: $id) {
-            id fullName email privateEmail phone dateOfBirth gender maritalStatus nationality nationalId passportNumber jobTitle departmentId department { name } employmentStatus employmentType hireDate probationStartDate probationEndDate basicSalary allowances bankName bankAccountNumber pensionId
+            id fullName email privateEmail phone dateOfBirth gender maritalStatus nationality nationalId passportNumber jobTitle departmentId department { name } employmentStatus employmentType hireDate probationStartDate probationEndDate basicSalary allowances bankName bankAccountNumber pensionId hmoPlan hmoProvider pensionAdministrator
           }
         }
       `;
@@ -269,7 +297,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
         reason: input.reason
       });
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries(['salary-history']);
       setShowCompDialog(false);
       setCompForm({ basicSalary: '', housing: '', transport: '', food: '', other: '', reason: '' });
@@ -281,12 +309,60 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
     }
   });
 
-  const updateEmployeeMutation = useMutation({
+  
+  const suspendEmployeeMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      const UPDATE_EMP = gql`
-        mutation UpdateEmployee($id: ID!, $input: UpdateEmployeeInput!) {
-          updateEmployee(id: $id, input: $input) {
+      const SUSPEND_EMP = gql`
+        mutation SuspendEmployee($id: ID!, $input: SuspendEmployeeInput!) {
+          suspendEmployee(id: $id, input: $input) {
             id
+            employment_status
+          }
+        }
+      `;
+      return await gqlClient.request(SUSPEND_EMP, { id, input: data });
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries(['employee', variables.id]);
+      toast.success("Employee suspended successfully.");
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error("Failed to suspend employee.");
+    }
+  });
+
+  const offboardEmployeeMutation = useMutation({
+    mutationFn: async ({ id, data }) => {
+      const OFFBOARD_EMP = gql`
+        mutation OffboardEmployee($id: ID!, $input: OffboardEmployeeInput!) {
+          offboardEmployee(id: $id, input: $input) {
+            id
+            employment_status
+          }
+        }
+      `;
+      return await gqlClient.request(OFFBOARD_EMP, { id, input: data });
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries(['employee', variables.id]);
+      toast.success("Employee offboarded successfully.");
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error("Failed to offboard employee.");
+    }
+  });
+
+  const updateEmployeeMutation = useMutation({
+    mutationFn: async ({ id, data, auditAction, auditContext }) => {
+      const UPDATE_EMP = gql`
+        mutation UpdateEmployee($id: ID!, $input: UpdateEmployeeInput!, $auditAction: String, $auditContext: String) {
+          updateEmployee(id: $id, input: $input, auditAction: $auditAction, auditContext: $auditContext) {
+            id
+            employment_status
+            job_title
+            department_id
           }
         }
       `;
@@ -308,7 +384,12 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
         probationEndDate: data.probation_end_date || undefined,
         bankName: data.payroll_details?.bank_name || undefined,
         bankAccountNumber: data.payroll_details?.iban || undefined,
-        pensionId: data.payroll_details?.gosi_number || undefined
+        pensionId: data.payroll_details?.gosi_number || undefined,
+        hmoPlan: data.hmoPlan || undefined,
+        hmoProvider: data.hmoProvider || undefined,
+        pensionAdministrator: data.pensionAdministrator || undefined,
+        employeeClass: data.employeeClass || undefined,
+        employeeGrade: data.employeeGrade || undefined
       };
       
       Object.keys(input).forEach(key => input[key] === undefined && delete input[key]);
@@ -359,7 +440,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
       `;
       return gqlClient.request(REPLACE_DOC, { id, url: fileUrl, type: fileType, size: fileSize });
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['employee-documents', employeeId] });
       setShowReplaceDialog(false);
       setDocToReplace(null);
@@ -735,18 +816,50 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Employment Type</Label>
+                  <Label>Employment Class</Label>
                   <Select
-                    value={editData.employment_type || 'full_time'}
-                    onValueChange={(value) => setEditData(prev => ({ ...prev, employment_type: value }))}
+                    value={editData.employeeClass || 'Permanent'}
+                    onValueChange={(value) => setEditData(prev => ({ ...prev, employeeClass: value }))}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="full_time">Full-time</SelectItem>
-                      <SelectItem value="contract">Contract</SelectItem>
-                      <SelectItem value="intern">Intern</SelectItem>
-                      <SelectItem value="consultant">Consultant</SelectItem>
-                      <SelectItem value="temporary">Temporary Staff</SelectItem>
+                      <SelectItem value="Permanent">Permanent</SelectItem>
+                      <SelectItem value="Probationary">Probationary</SelectItem>
+                      <SelectItem value="Contract">Contract</SelectItem>
+                      <SelectItem value="Consultant">Consultant</SelectItem>
+                      <SelectItem value="Intern">Intern</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Employee Grade</Label>
+                  <Select
+                    value={editData.employeeGrade || ''}
+                    onValueChange={(value) => setEditData(prev => ({ ...prev, employeeGrade: value }))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select grade" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Entry Level 1">Entry Level 1</SelectItem>
+                      <SelectItem value="Entry Level 2">Entry Level 2</SelectItem>
+                      <SelectItem value="Entry Level 3">Entry Level 3</SelectItem>
+                      <SelectItem value="Entry Level 4">Entry Level 4</SelectItem>
+                      <SelectItem value="Entry Level 5">Entry Level 5</SelectItem>
+                      <SelectItem value="Mid-Level 1">Mid-Level 1</SelectItem>
+                      <SelectItem value="Mid-Level 2">Mid-Level 2</SelectItem>
+                      <SelectItem value="Mid-Level 3">Mid-Level 3</SelectItem>
+                      <SelectItem value="Mid-Level 4">Mid-Level 4</SelectItem>
+                      <SelectItem value="Mid-Level 5">Mid-Level 5</SelectItem>
+                      <SelectItem value="Senior Level 1">Senior Level 1</SelectItem>
+                      <SelectItem value="Senior Level 2">Senior Level 2</SelectItem>
+                      <SelectItem value="Senior Level 3">Senior Level 3</SelectItem>
+                      <SelectItem value="Senior Level 4">Senior Level 4</SelectItem>
+                      <SelectItem value="Senior Level 5">Senior Level 5</SelectItem>
+                      <SelectItem value="Management 1">Management 1</SelectItem>
+                      <SelectItem value="Management 2">Management 2</SelectItem>
+                      <SelectItem value="Management 3">Management 3</SelectItem>
+                      <SelectItem value="Management 4">Management 4</SelectItem>
+                      <SelectItem value="Management 5">Management 5</SelectItem>
+                      <SelectItem value="CEO">CEO</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1085,6 +1198,32 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                       }))}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label>Pension Administrator</Label>
+                    <Input
+                      value={editData.pensionAdministrator || ''}
+                      onChange={(e) => setEditData(prev => ({ ...prev, pensionAdministrator: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>HMO Plan</Label>
+                    <Select value={editData.hmoPlan || ''} onValueChange={(val) => setEditData(prev => ({ ...prev, hmoPlan: val }))}>
+                      <SelectTrigger><SelectValue placeholder="Select Plan" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Bronze">Bronze</SelectItem>
+                        <SelectItem value="Silver">Silver</SelectItem>
+                        <SelectItem value="Gold">Gold</SelectItem>
+                        <SelectItem value="Platinum">Platinum</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>HMO Provider</Label>
+                    <Input
+                      value={editData.hmoProvider || ''}
+                      onChange={(e) => setEditData(prev => ({ ...prev, hmoProvider: e.target.value }))}
+                    />
+                  </div>
                 </div>
               </>
             ) : (
@@ -1135,6 +1274,23 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                     <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
                       <span className="text-slate-600">Pension / Tax ID</span>
                       <span className="font-medium">{employee.payroll_details?.gosi_number || 'Not set'}</span>
+                    </div>
+                    <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
+                      <span className="text-slate-600">Pension Administrator</span>
+                      <span className="font-medium">{employee.pensionAdministrator || 'Not set'}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <h4 className="font-semibold text-slate-900 mb-3">Health Insurance (HMO)</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
+                      <span className="text-slate-600">HMO Plan</span>
+                      <span className="font-medium">{employee.hmoPlan || 'Not set'}</span>
+                    </div>
+                    <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
+                      <span className="text-slate-600">HMO Provider</span>
+                      <span className="font-medium">{employee.hmoProvider || 'Not set'}</span>
                     </div>
                   </div>
                 </div>
@@ -1265,7 +1421,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
           </div>
         );
 
-      case 'documents':
+      case 'documents': {
         const filteredDocs = documents.filter(doc => {
           const matchesSearch = doc.document_name.toLowerCase().includes(docSearchQuery.toLowerCase());
           const matchesCategory = docCategoryFilter === 'All' || doc.category === docCategoryFilter;
@@ -1484,6 +1640,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
             </Dialog>
           </div>
         );
+      }
 
       case 'benefits':
         return (
@@ -1833,9 +1990,35 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                  <Button variant="outline" className="border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 bg-transparent hidden sm:flex">
                    <MessageSquare className="w-4 h-4 mr-2" /> Message
                  </Button>
-                 <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-slate-800">
-                   <MoreVertical className="w-5 h-5" />
-                 </Button>
+                {['HR_ADMIN', 'SUPER_ADMIN'].includes(user?.role) && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-slate-800">
+                        <MoreVertical className="w-5 h-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuLabel>Employee Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {employee.employment_status === 'ACTIVE' && (
+                        <DropdownMenuItem onClick={() => {
+                          setPromoteForm({ jobTitle: employee.job_title || '', departmentId: employee.department_id || '' });
+                          setShowPromoteDialog(true);
+                        }}>
+                          Promote Employee
+                        </DropdownMenuItem>
+                      )}
+                      {employee.employment_status !== 'SUSPENDED' && (
+                        <DropdownMenuItem onClick={() => setShowSuspendDialog(true)} className="text-amber-600 focus:text-amber-600 focus:bg-amber-50">
+                          Suspend Employee
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => setShowOffboardDialog(true)} className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                        Offboard Employee
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
           </div>
@@ -1974,6 +2157,149 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
             </div>
           </div>
         </Card>
+
+        <Dialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Promote Employee</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label>New Job Title</Label>
+                <Input 
+                  value={promoteForm.jobTitle} 
+                  onChange={(e) => setPromoteForm({...promoteForm, jobTitle: e.target.value})}
+                  placeholder="e.g. Senior Software Engineer"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>New Department</Label>
+                <Select
+                  value={promoteForm.departmentId}
+                  onValueChange={(value) => setPromoteForm({...promoteForm, departmentId: value})}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                  <SelectContent>
+                    {departments.map(dept => (
+                      <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button 
+                onClick={() => {
+                  updateEmployeeMutation.mutate({ 
+                    id: employee.id, 
+                    data: { job_title: promoteForm.jobTitle, department_id: promoteForm.departmentId },
+                    auditAction: 'PROMOTE',
+                    auditContext: `Promoted to ${promoteForm.jobTitle}`
+                  });
+                  setShowPromoteDialog(false);
+                }} 
+                disabled={updateEmployeeMutation.isPending || !promoteForm.jobTitle}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                {updateEmployeeMutation.isPending ? 'Saving...' : 'Confirm Promotion'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showSuspendDialog} onOpenChange={setShowSuspendDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Suspend Employee</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <Input type="date" value={suspendForm.startDate} onChange={e => setSuspendForm({...suspendForm, startDate: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <Input type="date" value={suspendForm.endDate} onChange={e => setSuspendForm({...suspendForm, endDate: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Reason</Label>
+                <Textarea value={suspendForm.reason} onChange={e => setSuspendForm({...suspendForm, reason: e.target.value})} placeholder="Reason for suspension..." />
+              </div>
+              <div className="flex items-center space-x-2 py-2">
+                <Checkbox id="sa-approve" checked={suspendForm.superAdminApproved} onCheckedChange={c => setSuspendForm({...suspendForm, superAdminApproved: !!c})} />
+                <Label htmlFor="sa-approve">Super Admin Approved</Label>
+              </div>
+              <Button 
+                onClick={() => {
+                  if (!suspendForm.superAdminApproved) return toast.error('Super Admin approval is required.');
+                  if (!suspendForm.startDate || !suspendForm.endDate || !suspendForm.reason) return toast.error('Please fill all fields.');
+                  suspendEmployeeMutation.mutate({
+                    id: employee.id,
+                    data: { 
+                      startDate: suspendForm.startDate,
+                      endDate: suspendForm.endDate,
+                      reason: suspendForm.reason,
+                      superAdminApproved: suspendForm.superAdminApproved
+                    }
+                  });
+                  setShowSuspendDialog(false);
+                }}
+                disabled={suspendEmployeeMutation.isPending || !suspendForm.superAdminApproved}
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                Confirm Suspension
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showOffboardDialog} onOpenChange={setShowOffboardDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Offboard Employee</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label>Exit Type</Label>
+                <Select value={offboardForm.type} onValueChange={v => setOffboardForm({...offboardForm, type: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RESIGNATION">Resigned</SelectItem>
+                    <SelectItem value="TERMINATION">Terminated / Fired</SelectItem>
+                    <SelectItem value="RETIREMENT">Retirement</SelectItem>
+                    <SelectItem value="CONTRACT_EXPIRATION">Contract Expiration</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Exit Date</Label>
+                <Input type="date" value={offboardForm.exitDate} onChange={e => setOffboardForm({...offboardForm, exitDate: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Reason</Label>
+                <Textarea value={offboardForm.reason} onChange={e => setOffboardForm({...offboardForm, reason: e.target.value})} placeholder="Reason for leaving..." />
+              </div>
+              <Button 
+                onClick={() => {
+                  if (!offboardForm.exitDate || !offboardForm.reason) return toast.error('Please fill all fields.');
+                  offboardEmployeeMutation.mutate({
+                    id: employee.id,
+                    data: { 
+                      exitType: offboardForm.type,
+                      exitDate: offboardForm.exitDate,
+                      reason: offboardForm.reason
+                    }
+                  });
+                  setShowOffboardDialog(false);
+                  setTimeout(() => navigate('/Employees'), 1000);
+                }}
+                disabled={offboardEmployeeMutation.isPending}
+                className="w-full bg-red-600 hover:bg-red-700 text-white"
+              >
+                Confirm Offboarding
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+    
     </motion.div>
   );
 

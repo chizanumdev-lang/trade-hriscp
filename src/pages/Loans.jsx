@@ -48,7 +48,25 @@ export default function Loans() {
 
   const { data: loans = [] } = useQuery({
     queryKey: ['loans'],
-    queryFn: async () => [],
+    queryFn: async () => {
+      const LOANS_QUERY = `
+        query {
+          loans {
+            id
+            employee_id
+            employee_name
+            loan_type
+            loan_amount
+            duration_months
+            monthly_installment
+            start_month
+            status
+          }
+        }
+      `;
+      const data = await gqlClient.request(LOANS_QUERY);
+      return data.loans || [];
+    },
     initialData: [],
   });
 
@@ -70,24 +88,18 @@ export default function Loans() {
   const myLoans = isAdmin ? loans : loans.filter(l => l.employee_id === employee?.id);
 
   const createLoanMutation = useMutation({
-    mutationFn: (data) => {
-      const selectedEmployee = isAdmin 
-        ? employees.find(e => e.id === data.employee_id)
-        : employee;
-        
-      const monthlyInstallment = data.loan_amount / data.duration_months;
-      const startMonth = new Date().toISOString().slice(0, 7);
-      
-      return {
-        id: Math.random().toString(),
-        ...data,
-        organization_id: user.organization_id,
-        employee_name: selectedEmployee?.full_name,
-        monthly_installment: monthlyInstallment,
-        start_month: startMonth,
-        remaining_amount: data.loan_amount,
-        status: 'pending'
-      };
+    mutationFn: async (data) => {
+      const CREATE_LOAN = `
+        mutation CreateLoan($input: LoanInput!) {
+          createLoan(input: $input) {
+            id
+          }
+        }
+      `;
+      if (data.loan_type === 'advance' && data.duration_months > 1) {
+        throw new Error("Salary advance must be paid back within 1 month.");
+      }
+      return gqlClient.request(CREATE_LOAN, { input: data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
@@ -134,7 +146,16 @@ export default function Loans() {
               <DialogHeader>
                 <DialogTitle>New Loan Request</DialogTitle>
               </DialogHeader>
-              <form onSubmit={(e) => { e.preventDefault(); createLoanMutation.mutate(formData); }} className="space-y-4">
+              <form onSubmit={(e) => { 
+                e.preventDefault(); 
+                if (formData.loan_type === 'advance' && formData.duration_months > 1) {
+                  alert("Salary advance must be paid back within 1 month.");
+                  return;
+                }
+                createLoanMutation.mutate(formData, {
+                  onError: (err) => alert(err.message)
+                }); 
+              }} className="space-y-4">
                 {isAdmin && (
                   <div className="space-y-2">
                     <Label>Employee</Label>

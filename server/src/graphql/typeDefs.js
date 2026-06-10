@@ -41,6 +41,8 @@ export const typeDefs = `#graphql
     bankName: String
     bankAccountNumber: String
     pensionId: String
+    employeeClass: String
+    employeeGrade: String
     department: Department
     employmentStatus: String!
     employmentType: String
@@ -48,9 +50,16 @@ export const typeDefs = `#graphql
     probationStartDate: String
     probationEndDate: String
     basicSalary: Float
+    employeeClass: String
+    employeeGrade: String
+    hmoPlan: String
+    hmoProvider: String
+    pensionAdministrator: String
     allowances: String
     onboardingStatus: String
     onboardingProgress: Int
+    employeeClass: String
+    employeeGrade: String
   }
 
   type Department {
@@ -101,6 +110,7 @@ export const typeDefs = `#graphql
     totalDays: Float!
     status: String!
     reason: String
+    attachmentUrl: String
     createdAt: String!
   }
 
@@ -179,7 +189,12 @@ export const typeDefs = `#graphql
   type PayrollRecord {
     id: ID!
     employeeId: String!
-    basicSalary: Float!
+    basicSalary: Float
+    employeeClass: String
+    employeeGrade: String
+    hmoPlan: String
+    hmoProvider: String
+    pensionAdministrator: String!
     grossPay: Float!
     totalDeductions: Float!
     netPay: Float!
@@ -189,10 +204,16 @@ export const typeDefs = `#graphql
   type SalaryHistory {
     id: ID!
     employeeId: String!
-    basicSalary: Float!
+    basicSalary: Float
+    employeeClass: String
+    employeeGrade: String
+    hmoPlan: String
+    hmoProvider: String
+    pensionAdministrator: String!
     allowances: String
     effectiveDate: String!
-    reason: String!
+    reason: String
+    attachmentUrl: String!
     status: String!
     approvedBy: String
     createdAt: String!
@@ -258,6 +279,7 @@ export const typeDefs = `#graphql
     exitType: String!
     exitDate: String!
     reason: String
+    attachmentUrl: String
     assetReturned: Boolean!
     accessRevoked: Boolean!
     handoverComplete: Boolean!
@@ -278,7 +300,43 @@ export const typeDefs = `#graphql
     cloudName: String!
   }
 
+  
+  type Loan {
+    id: ID!
+    employeeId: String!
+    amount: Float!
+    monthlyRepayment: Float!
+    totalRepaid: Float!
+    remainingBalance: Float!
+    status: String!
+    startDate: String!
+    createdAt: String!
+    updatedAt: String!
+    employee: Employee
+    
+    # frontend mapped fields
+    employee_id: String
+    employee_name: String
+    loan_type: String
+    loan_amount: Float
+    loan_reason: String
+    duration_months: Int
+    paid_from: String
+    monthly_installment: Float
+    start_month: String
+  }
+
+  input LoanInput {
+    employee_id: String!
+    loan_type: String!
+    loan_amount: Float!
+    loan_reason: String
+    duration_months: Int!
+    paid_from: String
+  }
+
   type Query {
+    loans: [Loan!]!
     me: User
     organization(id: ID!): Organization
     employees: [Employee]
@@ -355,7 +413,28 @@ export const typeDefs = `#graphql
     employmentType: String
     hireDate: String!
     basicSalary: Float
+    employeeClass: String
+    employeeGrade: String
+    hmoPlan: String
+    hmoProvider: String
+    pensionAdministrator: String
     templateId: String
+  }
+
+  
+  input SuspendEmployeeInput {
+    startDate: String!
+    endDate: String!
+    reason: String
+    attachmentUrl: String!
+    superAdminApproved: Boolean!
+  }
+
+  input OffboardEmployeeInput {
+    exitType: String!
+    exitDate: String!
+    reason: String
+    attachmentUrl: String!
   }
 
   input UpdateEmployeeInput {
@@ -377,6 +456,11 @@ export const typeDefs = `#graphql
     bankName: String
     bankAccountNumber: String
     pensionId: String
+    employeeClass: String
+    employeeGrade: String
+    hmoPlan: String
+    hmoProvider: String
+    pensionAdministrator: String
   }
 
   input LeaveRequestInput {
@@ -385,14 +469,21 @@ export const typeDefs = `#graphql
     endDate: String!
     totalDays: Float!
     reason: String
+    attachmentUrl: String
   }
 
   type Mutation {
+    createLoan(input: LoanInput!): Loan!
     register(input: RegisterInput!): AuthPayload!
     login(email: String!, password: String!): AuthPayload!
     
     createEmployee(input: EmployeeInput!): Employee!
-    updateEmployee(id: ID!, input: UpdateEmployeeInput!): Employee!
+    
+    updateOrganizationFeatures(strictLeaveNotice: Boolean!): Organization!
+    updateEmployee(id: ID!, input: UpdateEmployeeInput!, auditAction: String, auditContext: String): Employee!
+    suspendEmployee(id: ID!, input: SuspendEmployeeInput!): Employee!
+    offboardEmployee(id: ID!, input: OffboardEmployeeInput!): Employee!
+
     updateEmployeeSelf(input: UpdateEmployeeInput!): Employee!
     deleteEmployee(id: ID!): Boolean
     startOnboarding(employeeId: ID!): Employee
@@ -417,7 +508,8 @@ export const typeDefs = `#graphql
     createLeaveType(name: String!, daysPerYear: Int!, isPaid: Boolean, requiresApproval: Boolean): LeaveType!
     submitLeaveRequest(input: LeaveRequestInput!): LeaveRequest!
     approveLeaveRequest(id: ID!): LeaveRequest!
-    rejectLeaveRequest(id: ID!, reason: String!): LeaveRequest!
+    rejectLeaveRequest(id: ID!, reason: String
+    attachmentUrl: String!): LeaveRequest!
     
     clockIn: Attendance!
     clockOut: Attendance!
@@ -427,9 +519,11 @@ export const typeDefs = `#graphql
     archiveDocument(id: ID!): Document!
     deleteDocument(id: ID!): Document!
     approveDocument(id: ID!): Document!
-    rejectDocument(id: ID!, reason: String!): Document!
+    rejectDocument(id: ID!, reason: String
+    attachmentUrl: String!): Document!
     approveProfileUpdateRequest(id: ID!): ProfileUpdateRequest!
-    rejectProfileUpdateRequest(id: ID!, reason: String!): ProfileUpdateRequest!
+    rejectProfileUpdateRequest(id: ID!, reason: String
+    attachmentUrl: String!): ProfileUpdateRequest!
     
     markNotificationRead(id: ID!): Notification!
 
@@ -437,15 +531,21 @@ export const typeDefs = `#graphql
     createPayrollRun(month: String!, periodStart: String!, periodEnd: String!): PayrollRun!
     submitPayrollRun(id: ID!): PayrollRun!
     approvePayrollRun(id: ID!): PayrollRun!
-    rejectPayrollRun(id: ID!, reason: String!): PayrollRun!
+    rejectPayrollRun(id: ID!, reason: String
+    attachmentUrl: String!): PayrollRun!
     generatePayslip(recordId: ID!): String!
-    requestCompensationUpdate(employeeId: ID!, basicSalary: Float!, allowances: String, reason: String!): SalaryHistory!
+    requestCompensationUpdate(employeeId: ID!, basicSalary: Float
+    hmoPlan: String
+    hmoProvider: String
+    pensionAdministrator: String!, allowances: String, reason: String
+    attachmentUrl: String!): SalaryHistory!
 
     # Phase 4 Mutations
     createPolicy(title: String!, category: String!, content: String, requiresAck: Boolean): Policy
     submitPolicy(id: ID!): Policy!
     approvePolicy(id: ID!): Policy!
-    rejectPolicy(id: ID!, reason: String!): Policy!
+    rejectPolicy(id: ID!, reason: String
+    attachmentUrl: String!): Policy!
     acknowledgePolicy(policyId: ID!): Boolean
     createAnnouncement(title: String!, content: String!, priority: String!): Announcement
     createGoal(employeeId: ID!, title: String!, weight: Float!, period: String!): Goal
@@ -455,7 +555,8 @@ export const typeDefs = `#graphql
     updateCheckIn(id: ID!, selfAppraisal: String, managerNotes: String, overallRating: Float, status: String): CheckIn
     createOnboardingTask(employeeId: ID!, title: String!, description: String, category: String!, assignedTo: String, dueDate: String): OnboardingTask
     updateOnboardingTask(id: ID!, status: String, isCompleted: Boolean): OnboardingTask
-    initiateOffboarding(employeeId: ID!, exitType: String!, exitDate: String!, reason: String): Offboarding
+    initiateOffboarding(employeeId: ID!, exitType: String!, exitDate: String!, reason: String
+    attachmentUrl: String): Offboarding
     updateOffboarding(id: ID!, assetReturned: Boolean, accessRevoked: Boolean, handoverComplete: Boolean): Offboarding!
   }
 `;
