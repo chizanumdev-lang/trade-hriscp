@@ -88,7 +88,7 @@ export default function HRAssistant() {
             <Bot className="w-4 h-4 text-blue-600" />
             <span className="text-sm font-medium text-slate-700">AI HR Assistant</span>
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-3">HR Assistant</h1>
+          
           <p className="text-lg text-slate-600">Ask me anything about HR policies, leave, payroll, and more</p>
         </div>
 

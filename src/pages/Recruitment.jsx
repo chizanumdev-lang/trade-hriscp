@@ -153,9 +153,7 @@ export default function Recruitment() {
               <UserPlus className="w-4 h-4 text-indigo-600" />
               <span className="text-sm font-medium text-slate-700">Recruitment Management</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">
-              Recruitment
-            </h1>
+            
             <p className="text-lg text-slate-600">
               Manage job postings and track applicants
             </p>

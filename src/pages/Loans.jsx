@@ -46,28 +46,35 @@ export default function Loans() {
     loadUser();
   }, []);
 
-  const { data: loans = [] } = useQuery({
-    queryKey: ['loans'],
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+
+  const { data: loansData, isLoading: loadingLoans } = useQuery({
+    queryKey: ['loans', page, limit],
     queryFn: async () => {
       const LOANS_QUERY = `
-        query {
-          loans {
-            id
-            employee_id
-            employee_name
-            loan_type
-            loan_amount
-            duration_months
-            monthly_installment
-            start_month
-            status
+        query GetPaginatedLoans($page: Int!, $limit: Int!) {
+          paginatedLoans(page: $page, limit: $limit) {
+            loans {
+              id
+              employee_id
+              employee_name
+              loan_type
+              loan_amount
+              duration_months
+              monthly_installment
+              start_month
+              status
+            }
+            totalCount
+            totalPages
+            currentPage
           }
         }
       `;
-      const data = await gqlClient.request(LOANS_QUERY);
-      return data.loans || [];
+      const data = await gqlClient.request(LOANS_QUERY, { page, limit });
+      return data.paginatedLoans;
     },
-    initialData: [],
   });
 
   const { data: employees = [] } = useQuery({
@@ -85,7 +92,9 @@ export default function Loans() {
     enabled: isAdmin,
   });
 
-  const myLoans = isAdmin ? loans : loans.filter(l => l.employee_id === employee?.id);
+  const myLoans = loansData?.loans || [];
+  const totalLoans = loansData?.totalCount || 0;
+  const totalPages = loansData?.totalPages || 1;
 
   const createLoanMutation = useMutation({
     mutationFn: async (data) => {
@@ -132,7 +141,7 @@ export default function Loans() {
               <DollarSign className="w-4 h-4 text-blue-600" />
               <span className="text-sm font-medium text-slate-700">Loan Management</span>
             </div>
-            <h1 className="text-4xl font-bold text-slate-900 mb-3">{isAdmin ? 'Employee' : 'My'} Loans</h1>
+            
             <p className="text-lg text-slate-600">Manage and track loan requests</p>
           </div>
           <Dialog open={showForm} onOpenChange={setShowForm}>
@@ -340,6 +349,32 @@ export default function Loans() {
               </CardContent>
             </Card>
           )}
+        </div>
+        
+        <div className="mt-6 flex items-center justify-between px-2">
+          <p className="text-sm text-slate-500 font-medium">
+            Showing <span className="text-slate-900 font-semibold">{((page - 1) * limit) + 1}</span> to <span className="text-slate-900 font-semibold">{Math.min(page * limit, totalLoans)}</span> of <span className="text-slate-900 font-semibold">{totalLoans}</span> loans
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="rounded-lg shadow-sm border-slate-200 hover:bg-slate-50 hover:text-indigo-600"
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages || totalPages === 0}
+              className="rounded-lg shadow-sm border-slate-200 hover:bg-slate-50 hover:text-indigo-600"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
     </div>

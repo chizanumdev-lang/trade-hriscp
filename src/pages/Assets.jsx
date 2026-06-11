@@ -172,7 +172,7 @@ export default function Assets() {
             <Laptop className="w-4 h-4 text-indigo-600" />
             <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wider">Asset Management</span>
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Assets</h1>
+          
           <p className="text-slate-500 mt-1">Track and manage company devices and equipment.</p>
         </div>
         

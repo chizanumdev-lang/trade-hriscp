@@ -183,9 +183,7 @@ export default function Expenses() {
               <Receipt className="w-4 h-4 text-purple-600" />
               <span className="text-sm font-medium text-slate-700">Expense Management</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">
-              Expense Claims
-            </h1>
+            
             <p className="text-lg text-slate-600">
               Submit and manage expense reimbursements
             </p>

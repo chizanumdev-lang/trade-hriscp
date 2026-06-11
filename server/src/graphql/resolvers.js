@@ -120,6 +120,46 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         start_month: l.startDate.toISOString().slice(0, 7)
       }));
     },
+    paginatedLoans: async (_, { page = 1, limit = 10, employeeId }, { prisma, user, requireAuth }) => {
+      requireAuth();
+      const skip = (page - 1) * limit;
+      const where = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role) 
+        ? {} 
+        : { employeeId: user.employeeId };
+        
+      if (employeeId && ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role)) {
+          where.employeeId = employeeId;
+      }
+
+      const [loansData, totalCount] = await Promise.all([
+        prisma.loan.findMany({
+          where,
+          skip,
+          take: limit,
+          include: { employee: true },
+          orderBy: { createdAt: 'desc' }
+        }),
+        prisma.loan.count({ where })
+      ]);
+      
+      const mappedLoans = loansData.map(l => ({
+        ...l,
+        employee_id: l.employeeId,
+        employee_name: l.employee?.fullName,
+        loan_type: 'standard', // For backward compat with UI
+        loan_amount: l.amount,
+        duration_months: Math.ceil(l.amount / l.monthlyRepayment),
+        monthly_installment: l.monthlyRepayment,
+        start_month: l.startDate.toISOString().slice(0, 7)
+      }));
+      
+      return {
+        loans: mappedLoans,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page
+      };
+    },
     employees: async (_, __, { prisma, user, requireAuth }) => {
       requireAuth();
       const emps = await prisma.employee.findMany({ 
@@ -132,6 +172,59 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         ...emp,
         hireDate: emp.hireDate ? emp.hireDate.toISOString() : null
       }));
+    },
+    paginatedEmployees: async (_, { page = 1, limit = 10, search = "", status = "all", employmentStatus = "all" }, { prisma, user, requireAuth }) => {
+      requireAuth();
+      const skip = (page - 1) * limit;
+      
+      const where = {
+        organizationId: user.organizationId,
+      };
+
+      if (employmentStatus && employmentStatus !== "all") {
+        where.employmentStatus = employmentStatus.toUpperCase();
+      } else {
+        where.employmentStatus = { notIn: ['RESIGNED', 'TERMINATED', 'OFFBOARDED'] };
+      }
+
+      if (search) {
+        where.OR = [
+          { fullName: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { jobTitle: { contains: search, mode: 'insensitive' } }
+        ];
+      }
+
+      if (status && status !== "all") {
+        if (status === "not_started") {
+          where.OR = where.OR ? [...where.OR] : []; // simplified approach, let's just add to where
+          where.onboardingStatus = { in: ['not_started', null, ''] }; // Need to handle nulls mapping to not_started
+        } else {
+          where.onboardingStatus = status;
+        }
+      }
+
+      const [emps, totalCount] = await Promise.all([
+        prisma.employee.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' }
+        }),
+        prisma.employee.count({ where })
+      ]);
+
+      const totalPages = Math.ceil(totalCount / limit);
+
+      return {
+        employees: emps.map(emp => ({
+          ...emp,
+          hireDate: emp.hireDate ? emp.hireDate.toISOString() : null
+        })),
+        totalCount,
+        totalPages: totalPages === 0 ? 1 : totalPages,
+        currentPage: page
+      };
     },
     employee: async (_, { id }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
@@ -183,6 +276,28 @@ me: async (_, __, { prisma, user, requireAuth }) => {
       const where = employeeId ? { employeeId } : {};
       // Should also restrict to organization but skipped for brevity
       return prisma.leaveRequest.findMany({ where, orderBy: { createdAt: 'desc' } });
+    },
+    paginatedLeaveRequests: async (_, { page = 1, limit = 10, employeeId }, { prisma, user, requireAuth }) => {
+      requireAuth();
+      const skip = (page - 1) * limit;
+      const where = employeeId ? { employeeId } : {};
+      
+      const [leaveRequests, totalCount] = await Promise.all([
+        prisma.leaveRequest.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' }
+        }),
+        prisma.leaveRequest.count({ where })
+      ]);
+      
+      return {
+        leaveRequests,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page
+      };
     },
     attendanceRecords: async (_, { employeeId, date }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();

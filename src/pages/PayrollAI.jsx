@@ -187,7 +187,7 @@ export default function PayrollAI() {
               <Sparkles className="w-4 h-4 text-green-600" />
               <span className="text-sm font-medium text-slate-700">AI Payroll Assistant</span>
             </div>
-            <h1 className="text-4xl font-bold text-slate-900 mb-3">Payroll AI Suggestions</h1>
+            
             <p className="text-lg text-slate-600">AI-powered payroll analysis and recommendations</p>
           </div>
           <Button 

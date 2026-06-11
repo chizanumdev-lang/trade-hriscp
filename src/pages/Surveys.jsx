@@ -188,9 +188,7 @@ export default function Surveys() {
               <MessageSquare className="w-4 h-4 text-teal-600" />
               <span className="text-sm font-medium text-slate-700">Employee Engagement</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">
-              Surveys
-            </h1>
+            
             <p className="text-lg text-slate-600">
               Create surveys and gather employee feedback
             </p>

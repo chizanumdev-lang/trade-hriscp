@@ -3,7 +3,7 @@ import { gqlClient } from "@/api/graphqlClient";
 import { gql } from "graphql-request";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Upload, Grid, List, Search, Users } from "lucide-react";
+import { ArrowLeft, Plus, Upload, Grid, List, Search, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import EmployeeList from "../components/dashboard/EmployeeList";
@@ -53,42 +53,58 @@ export default function Employees() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
+  const [page, setPage] = useState(1);
+  const limit = 10;
 
-  const { data: employees = [], isLoading } = useQuery({
-    queryKey: ['employees'],
+  const { data: paginatedData, isLoading: loadingPaginated, isFetching } = useQuery({
+    queryKey: ['paginatedEmployees', page, limit, searchTerm, statusFilter],
     queryFn: async () => {
       const query = gql`
-        query GetEmployeesList {
-          employees {
-            id
-            employeeCode
-            fullName
-            email
-            jobTitle
-            department {
-              name
+        query GetPaginatedEmployeesList($page: Int, $limit: Int, $search: String, $employmentStatus: String) {
+          paginatedEmployees(page: $page, limit: $limit, search: $search, employmentStatus: $employmentStatus) {
+            employees {
+              id
+              employeeCode
+              fullName
+              email
+              jobTitle
+              department {
+                name
+              }
+              employmentStatus
+              onboardingStatus
+              onboardingProgress
+              hireDate
             }
-            employmentStatus
-            onboardingStatus
-            onboardingProgress
-            hireDate
+            totalCount
+            totalPages
+            currentPage
           }
         }
       `;
-      const data = await gqlClient.request(query);
-      return (data.employees || []).map(emp => ({
-        ...emp,
-        full_name: emp.fullName,
-        job_title: emp.jobTitle,
-        department_name: emp.department?.name,
-        employment_status: emp.employmentStatus,
-        onboarding_status: emp.onboardingStatus,
-        progress_percentage: emp.onboardingProgress,
-        start_date: emp.hireDate
-      }));
+      const data = await gqlClient.request(query, { page, limit, search: searchTerm, employmentStatus: statusFilter });
+      return {
+        ...data.paginatedEmployees,
+        employees: data.paginatedEmployees.employees.map(emp => ({
+          ...emp,
+          full_name: emp.fullName,
+          job_title: emp.jobTitle,
+          department_name: emp.department?.name,
+          employment_status: emp.employmentStatus,
+          onboarding_status: emp.onboardingStatus,
+          progress_percentage: emp.onboardingProgress,
+          start_date: emp.hireDate
+        }))
+      };
     },
-    initialData: [],
+    keepPreviousData: true,
   });
+
+  // Reset page to 1 when search or status filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter]);
+
 
   const { data: templates = [] } = useQuery({
     queryKey: ['templates'],
@@ -179,13 +195,8 @@ export default function Employees() {
     },
   });
 
-  const filteredEmployees = employees.filter(employee => {
-    const matchesSearch = employee.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          employee.job_title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || employee.employment_status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const currentEmployees = paginatedData?.employees || [];
+  const totalEmployees = paginatedData?.totalCount || 0;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -230,13 +241,11 @@ export default function Employees() {
                 <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wider">Directory</span>
               </div>
             )}
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-              {showAddForm ? "Add New Employee" : "Employees"}
-            </h1>
+            
             <p className="text-slate-500 mt-1">
               {showAddForm 
                 ? "Add a new team member to your organization." 
-                : `Manage your ${employees.length} employee${employees.length !== 1 ? 's' : ''}`
+                : `Manage your ${totalEmployees} employee${totalEmployees !== 1 ? 's' : ''}`
               }
             </p>
           </div>
@@ -326,7 +335,7 @@ export default function Employees() {
             </div>
           </div>
 
-          {isLoading ? (
+          {loadingPaginated && !paginatedData ? (
             viewMode === 'list' ? (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
                 <EmployeeList employees={[]} isLoading={true} onOpenDetail={setSelectedEmployeeId} />
@@ -334,7 +343,7 @@ export default function Employees() {
             ) : (
               <CardSkeleton />
             )
-          ) : filteredEmployees.length === 0 ? (
+          ) : currentEmployees.length === 0 ? (
             <div className="bg-white/50 border border-slate-200/60 border-dashed rounded-2xl p-16 flex flex-col items-center justify-center text-center">
               <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center mb-4">
                 <Users className="w-8 h-8 text-slate-300" />
@@ -343,20 +352,57 @@ export default function Employees() {
               <p className="text-slate-500 mt-1 max-w-sm">We couldn't find any employees matching your search criteria.</p>
             </div>
           ) : viewMode === 'list' ? (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
-              <EmployeeList employees={filteredEmployees} isLoading={false} onOpenDetail={setSelectedEmployeeId} />
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden relative">
+              {(loadingPaginated || isFetching) && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center pointer-events-none" />
+              )}
+              <EmployeeList employees={currentEmployees} isLoading={false} onOpenDetail={setSelectedEmployeeId} />
             </div>
           ) : (
             <motion.div 
-              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 relative"
               variants={containerVariants}
               initial="hidden"
               animate="show"
             >
-              {filteredEmployees.map(employee => (
-                <EmployeeCard key={employee.id} employee={employee} onOpenDetail={setSelectedEmployeeId} />
+              {(loadingPaginated || isFetching) && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center pointer-events-none -m-4 p-4 rounded-xl" />
+              )}
+              {currentEmployees.map((employee) => (
+                <motion.div key={employee.id} variants={itemVariants}>
+                  <EmployeeCard 
+                    employee={employee} 
+                    onOpenDetail={setSelectedEmployeeId}
+                  />
+                </motion.div>
               ))}
             </motion.div>
+          )}
+
+          {paginatedData?.totalPages > 1 && (
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between text-sm mt-6">
+              <span className="text-slate-500">
+                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, paginatedData.totalCount)} of {paginatedData.totalCount} entries
+              </span>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setPage(p => Math.min(paginatedData.totalPages, p + 1))}
+                  disabled={page === paginatedData.totalPages}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </motion.div>
       )}

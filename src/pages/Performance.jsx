@@ -167,10 +167,7 @@ export default function Performance() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-              <Target className="w-8 h-8 text-blue-600" />
-              Performance Management
-            </h1>
+            
             <p className="text-slate-600 mt-1">
               Track and manage employee performance evaluations
             </p>

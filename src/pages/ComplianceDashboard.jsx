@@ -222,7 +222,7 @@ export default function ComplianceDashboard() {
               <Shield className="w-4 h-4 text-red-600" />
               <span className="text-sm font-medium text-slate-700">AI Compliance Monitor</span>
             </div>
-            <h1 className="text-4xl font-bold text-slate-900 mb-3">Compliance Dashboard</h1>
+            
             <p className="text-lg text-slate-600">AI-powered compliance monitoring and alerts</p>
           </div>
           <Button 

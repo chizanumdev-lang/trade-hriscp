@@ -934,6 +934,8 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                 <PremiumField icon={Briefcase} label="Job Title" value={employee.job_title} />
                 <PremiumField icon={Building} label="Department" value={employee.department_name || employee.department_id || 'Not assigned'} />
                 <PremiumField icon={FileText} label="Employment Type" value={employee.employment_type?.replace('_', ' ')} />
+                <PremiumField icon={Shield} label="Employee Class" value={employee.employeeClass || 'Permanent'} />
+                <PremiumField icon={Star} label="Employee Grade" value={employee.employeeGrade || 'Not set'} />
                 <PremiumField icon={CheckCircle} label="Employment Status" value={<Badge className="bg-green-100 text-green-700 hover:bg-green-200">{employee.employment_status}</Badge>} />
                 <PremiumField icon={Calendar} label="Start Date" value={employee.start_date ? format(new Date(employee.start_date), 'MMM dd, yyyy') : 'Not set'} />
                 <PremiumField icon={User} label="Reports To" value={employee.manager_email || 'Not assigned'} />

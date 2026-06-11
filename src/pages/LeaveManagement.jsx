@@ -225,9 +225,7 @@ export default function LeaveManagement() {
               <Plane className="w-4 h-4 text-blue-600" />
               <span className="text-sm font-medium text-slate-700">Leave Management</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">
-              Leave Requests
-            </h1>
+            
             <p className="text-lg text-slate-600">
               Request time off and manage approvals
             </p>

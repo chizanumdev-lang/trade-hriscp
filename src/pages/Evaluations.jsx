@@ -67,9 +67,7 @@ export default function Evaluations() {
             <ClipboardCheck className="w-4 h-4 text-indigo-600" />
             <span className="text-sm font-medium text-slate-700">Performance Management</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">
-            360° Evaluations & Training
-          </h1>
+          
           <p className="text-lg text-slate-600">
             Comprehensive performance reviews and skill development tracking
           </p>

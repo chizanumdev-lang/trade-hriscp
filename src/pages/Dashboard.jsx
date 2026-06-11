@@ -12,7 +12,9 @@ import {
   TrendingUp,
   Plus,
   Search,
-  Filter
+  Filter,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +35,8 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
+  const [page, setPage] = useState(1);
+  const limit = 5;
 
   if (user?.role === 'EMPLOYEE') {
     return <Navigate to="/employeeselfservice" />;
@@ -66,6 +70,47 @@ export default function Dashboard() {
     initialData: [],
   });
 
+  const { data: paginatedData, isLoading: loadingPaginated, isFetching } = useQuery({
+    queryKey: ['paginatedEmployees', page, limit, searchTerm, statusFilter],
+    queryFn: async () => {
+      const PAGINATED_QUERY = gql`
+        query GetPaginatedDashboardEmployees($page: Int, $limit: Int, $search: String, $status: String) {
+          paginatedEmployees(page: $page, limit: $limit, search: $search, status: $status) {
+            employees {
+              id
+              fullName
+              email
+              jobTitle
+              onboardingStatus
+              onboardingProgress
+            }
+            totalCount
+            totalPages
+            currentPage
+          }
+        }
+      `;
+      const data = await gqlClient.request(PAGINATED_QUERY, { page, limit, search: searchTerm, status: statusFilter });
+      return {
+        ...data.paginatedEmployees,
+        employees: data.paginatedEmployees.employees.map(emp => ({
+          ...emp,
+          full_name: emp.fullName,
+          job_title: emp.jobTitle,
+          onboarding_status: emp.onboardingStatus || 'not_started',
+          progress_percentage: emp.onboardingProgress || 0
+        }))
+      };
+    },
+    keepPreviousData: true,
+  });
+
+  // Reset page to 1 when search or status filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter]);
+
+
   const { data: tasks = [], isLoading: loadingTasks } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
@@ -94,14 +139,7 @@ export default function Dashboard() {
 
   const pendingTasks = tasks.filter(t => t.status === 'pending').length;
 
-  // Filter employees
-  const filteredEmployees = employees.filter(employee => {
-    const matchesSearch = employee.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          employee.job_title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || employee.onboarding_status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const currentEmployees = paginatedData?.employees || [];
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -126,8 +164,7 @@ export default function Dashboard() {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">HR Dashboard</h1>
-          <p className="text-slate-500 mt-1">Welcome back! Here's what's happening with onboarding.</p>
+          <p className="text-lg font-semibold text-slate-700 tracking-tight">Welcome back! Here's what's happening with onboarding.</p>
         </div>
         <Link to={createPageUrl("Employees?action=add")}>
           <Button className="bg-slate-900 text-white hover:bg-slate-800 shadow-sm rounded-lg px-5 transition-all">
@@ -209,13 +246,43 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <div className="flex-1 p-0">
+            <div className="flex-1 p-0 relative">
+              {(loadingPaginated || isFetching) && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center pointer-events-none">
+                  {/* Optional spinner */}
+                </div>
+              )}
               <EmployeeList 
-                employees={filteredEmployees} 
-                isLoading={loadingEmployees}
+                employees={currentEmployees} 
+                isLoading={loadingPaginated && !paginatedData}
                 onOpenDetail={setSelectedEmployeeId}
               />
             </div>
+            {paginatedData?.totalPages > 1 && (
+              <div className="p-4 border-t border-slate-100 flex items-center justify-between text-sm">
+                <span className="text-slate-500">
+                  Showing {(page - 1) * limit + 1} to {Math.min(page * limit, paginatedData.totalCount)} of {paginatedData.totalCount} entries
+                </span>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setPage(p => Math.min(paginatedData.totalPages, p + 1))}
+                    disabled={page === paginatedData.totalPages}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

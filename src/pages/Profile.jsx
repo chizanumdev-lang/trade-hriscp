@@ -177,9 +177,7 @@ export default function Profile() {
             <UserCircle className="w-4 h-4 text-blue-600" />
             <span className="text-sm font-medium text-slate-700">My Profile</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">
-            Profile Settings
-          </h1>
+          
           <p className="text-lg text-slate-600">
             Manage your personal information and preferences
           </p>

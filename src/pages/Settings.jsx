@@ -9,7 +9,7 @@ export default function Settings() {
           <SettingsIcon className="w-4 h-4 text-blue-600" />
           <span className="text-sm font-medium text-slate-700">System Settings</span>
         </div>
-        <h1 className="text-4xl font-bold text-slate-900 mb-3">Settings</h1>
+        
         <p className="text-lg text-slate-600">Please select a settings category from the sidebar.</p>
       </div>
 

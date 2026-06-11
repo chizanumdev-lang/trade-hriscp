@@ -332,7 +332,7 @@ export default function PendingApprovals() {
           <Inbox className="w-4 h-4 text-indigo-600" />
           <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wider">Inbox</span>
         </div>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Approvals</h1>
+        
         <p className="text-slate-500 mt-1">Review and action pending requests across the organization.</p>
       </motion.div>
 

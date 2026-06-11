@@ -50,9 +50,7 @@ export default function Templates() {
               </Button>
             )}
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">
-                {showForm ? "Create Template" : "Onboarding Templates"}
-              </h1>
+              
               <p className="text-slate-500 mt-1">
                 {showForm 
                   ? "Build reusable onboarding flows" 

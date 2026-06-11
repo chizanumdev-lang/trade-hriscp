@@ -133,7 +133,7 @@ export default function KnowledgeBank() {
               <BookOpen className="w-4 h-4 text-blue-600" />
               <span className="text-sm font-medium text-slate-700">Knowledge & Policies</span>
             </div>
-            <h1 className="text-3xl font-bold text-slate-900">Knowledge Bank</h1>
+            
             <p className="text-slate-600 mt-2">Central repository for company policies, handbooks, and SOPs.</p>
           </div>
           

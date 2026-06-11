@@ -213,9 +213,7 @@ export default function Attendance() {
               <Calendar className="w-4 h-4 text-indigo-600" />
               <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wider">Attendance Management</span>
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">
-              Staff Attendance
-            </h1>
+            
             <p className="text-slate-500">
               Track and manage employee attendance records
             </p>

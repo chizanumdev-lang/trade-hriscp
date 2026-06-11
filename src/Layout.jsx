@@ -329,16 +329,6 @@ export default function Layout({ children }) {
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">{activePrimary?.title}</h2>
         </div>
         
-        <div className="px-3 mb-4">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search..." 
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-            />
-          </div>
-        </div>
 
         <div className="flex-1 overflow-y-auto px-3 pb-6 relative">
           <AnimatePresence mode="wait">

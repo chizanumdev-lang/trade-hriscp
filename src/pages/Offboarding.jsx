@@ -133,7 +133,7 @@ export default function Offboarding() {
               <UserMinus className="w-4 h-4 text-blue-600" />
               <span className="text-sm font-medium text-slate-700">Offboarding Management</span>
             </div>
-            <h1 className="text-4xl font-bold text-slate-900 mb-3">Offboarding Journey</h1>
+            
             <p className="text-lg text-slate-600">Manage employee departures smoothly</p>
           </div>
           <Dialog open={showForm} onOpenChange={setShowForm}>

@@ -161,9 +161,7 @@ export default function HRLetters() {
               <FileText className="w-4 h-4 text-indigo-600" />
               <span className="text-sm font-medium text-slate-700">HR Letters & Documents</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">
-              HR Letters
-            </h1>
+            
             <p className="text-lg text-slate-600">
               Request and manage official HR documents
             </p>

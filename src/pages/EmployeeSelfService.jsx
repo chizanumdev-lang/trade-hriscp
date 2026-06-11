@@ -263,9 +263,7 @@ NET SALARY: ${payroll.net_salary} SAR
             <User className="w-4 h-4 text-indigo-600" />
             <span className="text-sm font-medium text-slate-700">Employee Self-Service</span>
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-3 tracking-tight">
-            Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-600">{employee.full_name}</span>!
-          </h1>
+          
           <p className="text-lg text-slate-600">
             Manage your profile, view documents, and track your information
           </p>

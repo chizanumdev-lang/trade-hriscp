@@ -200,9 +200,7 @@ export default function CompanyWall() {
             <Home className="w-4 h-4 text-blue-600" />
             <span className="text-sm font-medium text-slate-700">Company Wall</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">
-            Company Updates
-          </h1>
+          
           <p className="text-lg text-slate-600">
             Stay connected with your team
           </p>

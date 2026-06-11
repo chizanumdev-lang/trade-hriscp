@@ -321,9 +321,7 @@ export default function TaskManager() {
             <FolderKanban className="w-4 h-4 text-indigo-600" />
             <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wider">Task Management</span>
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">
-            Tasks & Projects
-          </h1>
+          
           <p className="text-slate-500">
             Manage tasks, track progress, and collaborate with your team
           </p>

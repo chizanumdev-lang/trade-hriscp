@@ -86,7 +86,7 @@ export default function Organogram() {
             <Users className="w-4 h-4 text-teal-600" />
             <span className="text-sm font-medium text-slate-700">Organization Structure</span>
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-3">Organogram</h1>
+          
           <p className="text-lg text-slate-600">Visual representation of your organization structure</p>
         </div>
 

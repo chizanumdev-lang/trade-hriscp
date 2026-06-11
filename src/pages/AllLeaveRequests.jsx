@@ -66,24 +66,37 @@ export default function AllLeaveRequests() {
     reason: '',
     attachment_url: '',
   });
+  
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
 
-  const { data: leaveRequests, isLoading: loadingRequests } = useQuery({
-    queryKey: ['leave-requests'],
+  const { data: leaveRequestsData, isLoading: loadingRequests } = useQuery({
+    queryKey: ['leave-requests', page, limit],
     queryFn: async () => {
       const LEAVE_QUERY = gql`
-        query { leaveRequests { id employeeId startDate endDate totalDays status reason createdAt } }
+        query GetPaginatedLeaveRequests($page: Int!, $limit: Int!) { 
+          paginatedLeaveRequests(page: $page, limit: $limit) {
+            leaveRequests { id employeeId startDate endDate totalDays status reason createdAt }
+            totalCount
+            totalPages
+            currentPage
+          }
+        }
       `;
-      const data = await gqlClient.request(LEAVE_QUERY);
-      return (data.leaveRequests || []).map(l => ({
-        ...l,
-        employee_name: l.employeeId,
-        employee_email: l.employeeId,
-        leave_type: 'annual',
-        start_date: l.startDate,
-        end_date: l.endDate,
-        total_days: l.totalDays,
-        approvers: []
-      }));
+      const data = await gqlClient.request(LEAVE_QUERY, { page, limit });
+      return {
+        ...data.paginatedLeaveRequests,
+        leaveRequests: data.paginatedLeaveRequests.leaveRequests.map(l => ({
+          ...l,
+          employee_name: l.employeeId,
+          employee_email: l.employeeId,
+          leave_type: 'annual',
+          start_date: l.startDate,
+          end_date: l.endDate,
+          total_days: l.totalDays,
+          approvers: []
+        }))
+      };
     },
   });
 
@@ -218,7 +231,9 @@ export default function AllLeaveRequests() {
     cancelled: 'bg-slate-50 text-slate-700 border-slate-200',
   };
 
-  const displayRequests = leaveRequests || [];
+  const displayRequests = leaveRequestsData?.leaveRequests || [];
+  const totalRequests = leaveRequestsData?.totalCount || 0;
+  const totalPages = leaveRequestsData?.totalPages || 1;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -247,7 +262,7 @@ export default function AllLeaveRequests() {
               <Plane className="w-4 h-4 text-indigo-600" />
               <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wider">Leave Management</span>
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">Leave Requests</h1>
+            
             <p className="text-slate-500">Manage and approve employee time off</p>
           </div>
           <Dialog open={showForm} onOpenChange={(open) => {
@@ -495,6 +510,31 @@ export default function AllLeaveRequests() {
                       </div>
                     </motion.div>
                   ))}
+                  <div className="mt-6 flex items-center justify-between px-2">
+                    <p className="text-sm text-slate-500 font-medium">
+                      Showing <span className="text-slate-900 font-semibold">{((page - 1) * limit) + 1}</span> to <span className="text-slate-900 font-semibold">{Math.min(page * limit, totalRequests)}</span> of <span className="text-slate-900 font-semibold">{totalRequests}</span> requests
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="rounded-lg shadow-sm border-slate-200 hover:bg-slate-50 hover:text-indigo-600"
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages || totalPages === 0}
+                        className="rounded-lg shadow-sm border-slate-200 hover:bg-slate-50 hover:text-indigo-600"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

@@ -110,9 +110,7 @@ export default function Training() {
             <Video className="w-4 h-4 text-purple-600" />
             <span className="text-sm font-medium text-slate-700">Learning Management System</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">
-            Training Center
-          </h1>
+          
           <p className="text-lg text-slate-600">
             Expand your skills with our comprehensive training library
           </p>

@@ -83,9 +83,7 @@ export default function EmployeePortal() {
             <Sparkles className="w-4 h-4 text-blue-600" />
             <span className="text-sm font-medium text-slate-700">Welcome to the Team!</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">
-            Hi, {employee.full_name.split(' ')[0]}! 👋
-          </h1>
+          
           <p className="text-lg text-slate-600">
             We're excited to have you as our {employee.job_title}
           </p>

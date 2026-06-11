@@ -133,7 +133,7 @@ export default function Payroll() {
               <Button variant="ghost" onClick={() => setSelectedRunId(null)}>
                 <ArrowLeft className="w-4 h-4 mr-2" /> Back to Runs
               </Button>
-              <h1 className="text-3xl font-bold text-slate-900">Payroll Records for {run?.month}</h1>
+              
               <Badge variant="outline" className={run?.status === 'APPROVED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>
                 {run?.status}
               </Badge>
@@ -234,7 +234,7 @@ export default function Payroll() {
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Payroll Administration</h1>
+            
             <p className="text-slate-600">Generate and manage monthly payroll runs.</p>
           </div>
           

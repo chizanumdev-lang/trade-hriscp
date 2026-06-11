@@ -332,11 +332,34 @@ export const typeDefs = `#graphql
     paid_from: String
   }
 
+  type PaginatedEmployees {
+    employees: [Employee!]!
+    totalCount: Int!
+    totalPages: Int!
+    currentPage: Int!
+  }
+
+  type PaginatedLeaveRequests {
+    leaveRequests: [LeaveRequest!]!
+    totalCount: Int!
+    totalPages: Int!
+    currentPage: Int!
+  }
+
+  type PaginatedLoans {
+    loans: [Loan!]!
+    totalCount: Int!
+    totalPages: Int!
+    currentPage: Int!
+  }
+
   type Query {
     loans: [Loan!]!
+    paginatedLoans(page: Int, limit: Int, employeeId: ID): PaginatedLoans!
     me: User
     organization(id: ID!): Organization
     employees: [Employee]
+    paginatedEmployees(page: Int, limit: Int, search: String, status: String, employmentStatus: String): PaginatedEmployees!
     employee(id: ID!): Employee
     departments: [Department]
     department(id: ID!): Department
@@ -346,6 +369,7 @@ export const typeDefs = `#graphql
     # Phase 2 Queries
     leaveTypes: [LeaveType]
     leaveRequests(employeeId: ID): [LeaveRequest]
+    paginatedLeaveRequests(page: Int, limit: Int, employeeId: ID): PaginatedLeaveRequests!
     attendanceRecords(employeeId: ID, date: String): [Attendance]
     documents(employeeId: ID, category: String): [Document]
     documentHistory(documentId: ID!): [DocumentVersion]
