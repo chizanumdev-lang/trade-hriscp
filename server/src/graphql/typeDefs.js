@@ -50,16 +50,12 @@ export const typeDefs = `#graphql
     probationStartDate: String
     probationEndDate: String
     basicSalary: Float
-    employeeClass: String
-    employeeGrade: String
     hmoPlan: String
     hmoProvider: String
     pensionAdministrator: String
     allowances: String
     onboardingStatus: String
     onboardingProgress: Int
-    employeeClass: String
-    employeeGrade: String
   }
 
   type Department {
@@ -69,6 +65,7 @@ export const typeDefs = `#graphql
     status: String!
     headEmployeeId: String
     employees: [Employee]
+    loans: [Loan]
   }
 
   type Shift {
