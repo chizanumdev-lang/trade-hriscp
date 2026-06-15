@@ -102,7 +102,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
   const departments = departmentsData || [];
 
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
-  const [promoteForm, setPromoteForm] = useState({ jobTitle: '', departmentId: '', employeeClass: '', employeeGrade: '' });
+  const [promoteForm, setPromoteForm] = useState({ jobTitle: '', departmentId: '', employeeClass: '', employeeGrade: '', isHeadOfDepartment: false });
 
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [suspendForm, setSuspendForm] = useState({ startDate: '', endDate: '', reason: '', superAdminApproved: false });
@@ -2204,6 +2204,16 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                   placeholder="e.g. A, B, Professional"
                 />
               </div>
+              <div className="flex items-center space-x-2 mt-4">
+                <Checkbox 
+                  id="isHead" 
+                  checked={promoteForm.isHeadOfDepartment} 
+                  onCheckedChange={(checked) => setPromoteForm({...promoteForm, isHeadOfDepartment: checked})}
+                />
+                <label htmlFor="isHead" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Appoint as Head of Department
+                </label>
+              </div>
               <Button 
                 onClick={() => {
                   updateEmployeeMutation.mutate({ 
@@ -2212,10 +2222,11 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                       job_title: promoteForm.jobTitle, 
                       department_id: promoteForm.departmentId,
                       employeeClass: promoteForm.employeeClass,
-                      employeeGrade: promoteForm.employeeGrade
+                      employeeGrade: promoteForm.employeeGrade,
+                      isHeadOfDepartment: promoteForm.isHeadOfDepartment
                     },
                     auditAction: 'PROMOTE',
-                    auditContext: `Promoted to ${promoteForm.jobTitle || 'new level'} (Grade: ${promoteForm.employeeGrade || '-'}, Class: ${promoteForm.employeeClass || '-'})`
+                    auditContext: `Promoted to ${promoteForm.jobTitle || 'new level'} (Grade: ${promoteForm.employeeGrade || '-'}, Class: ${promoteForm.employeeClass || '-'})${promoteForm.isHeadOfDepartment ? ' and Appointed Head of Department' : ''}`
                   });
                   setShowPromoteDialog(false);
                 }} 

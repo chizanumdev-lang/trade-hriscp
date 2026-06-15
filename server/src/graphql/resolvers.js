@@ -822,6 +822,8 @@ me: async (_, __, { prisma, user, requireAuth }) => {
       if (!existing) throw new Error("Employee not found");
       
       const updateData = { ...input };
+      const isHeadOfDepartment = updateData.isHeadOfDepartment;
+      delete updateData.isHeadOfDepartment;
       if (input.dateOfBirth) {
         const dNum = Number(input.dateOfBirth);
         updateData.dateOfBirth = isNaN(dNum) ? new Date(input.dateOfBirth) : new Date(dNum);
@@ -861,6 +863,22 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         where: { id },
         data: updateData
       });
+      
+      // Update department head if requested
+      if (isHeadOfDepartment) {
+        const targetDeptId = updateData.departmentId || existing.departmentId;
+        if (targetDeptId) {
+          await prisma.department.update({
+            where: { id: targetDeptId },
+            data: { headEmployeeId: id }
+          });
+          // Also upgrade user role to MANAGER if needed
+          await prisma.user.updateMany({
+            where: { employeeId: id, role: 'EMPLOYEE' },
+            data: { role: 'MANAGER' }
+          });
+        }
+      }
       
       const actionString = auditAction || 'UPDATE';
       const actionWithContext = auditContext ? `${actionString} - ${auditContext}` : actionString;

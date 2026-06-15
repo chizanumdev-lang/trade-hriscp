@@ -495,6 +495,7 @@ export const typeDefs = `#graphql
     hmoPlan: String
     hmoProvider: String
     pensionAdministrator: String
+    isHeadOfDepartment: Boolean
   }
 
   input LeaveRequestInput {
