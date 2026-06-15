@@ -3,6 +3,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import { createAuditLog, recordApprovalEvent } from '../utils/audit.js';
 import { NotificationService } from '../services/NotificationService.js';
 import { client as triggerClient } from '../jobs/trigger.js';
+import { applyDynamicBenefits } from '../utils/benefitsMatrix.js';
 
 const checkAndPromoteEmployee = async (employeeId, prisma) => {
   const emp = await prisma.employee.findUnique({ 
@@ -276,6 +277,12 @@ me: async (_, __, { prisma, user, requireAuth }) => {
       const where = employeeId ? { employeeId } : {};
       // Should also restrict to organization but skipped for brevity
       return prisma.leaveRequest.findMany({ where, orderBy: { createdAt: 'desc' } });
+    },
+    compensationBands: async (_, __, { user, prisma }) => {
+      if (!user) throw new Error("Not authenticated");
+      return prisma.compensationBand.findMany({
+        where: { organizationId: user.organizationId }
+      });
     },
     paginatedLeaveRequests: async (_, { page = 1, limit = 10, employeeId }, { prisma, user, requireAuth }) => {
       requireAuth();
@@ -813,6 +820,30 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         }
       });
     },
+    
+    upsertCompensationBand: async (_, { input }, { user, prisma }) => {
+      if (!user || user.role !== 'SUPER_ADMIN' && user.role !== 'HR_ADMIN') throw new Error("Not authorized");
+      const { grade, minSalary, maxSalary, hmoPlan, annualLeaveDays } = input;
+      
+      return prisma.compensationBand.upsert({
+        where: {
+          organizationId_grade: {
+            organizationId: user.organizationId,
+            grade
+          }
+        },
+        update: { minSalary, maxSalary, hmoPlan, annualLeaveDays },
+        create: {
+          organizationId: user.organizationId,
+          grade,
+          minSalary,
+          maxSalary,
+          hmoPlan,
+          annualLeaveDays
+        }
+      });
+    },     
+    
     updateEmployee: async (_, { id, input, auditAction, auditContext }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       
@@ -902,6 +933,11 @@ me: async (_, __, { prisma, user, requireAuth }) => {
             deepLink: '/EmployeeSelfService',
             sendEmail: true
           });
+        }
+        
+        // Dynamically recalculate and apply benefits
+        if (updateData.employeeGrade || existing.employeeGrade) {
+          await applyDynamicBenefits(id, updateData.employeeGrade || existing.employeeGrade, prisma);
         }
       }
       

@@ -147,6 +147,7 @@ model Organization {
   policies          Policy[]
   payrollRuns       PayrollRun[]
   approvalWorkflows ApprovalWorkflow[]
+  compensationBands CompensationBand[]
 }
 
 // ─── DEPARTMENT ───────────────────────────────────────────
@@ -728,6 +729,21 @@ model ApprovalWorkflow {
   updatedAt      DateTime     @updatedAt
 
   @@unique([organizationId, name])
+}
+
+model CompensationBand {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  grade           String       // "Entry Level", "Mid-Level", "Senior Level", "Management", "CEO"
+  minSalary       Float
+  maxSalary       Float
+  hmoPlan         String       // "Bronze", "Silver", "Gold", "Platinum"
+  annualLeaveDays Int          // 15, 25, 28
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([organizationId, grade])
 }
 
 model Asset {

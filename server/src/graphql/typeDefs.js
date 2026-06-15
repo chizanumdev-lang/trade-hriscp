@@ -15,6 +15,16 @@ export const typeDefs = `#graphql
     user: User!
   }
 
+  type CompensationBand {
+    id: ID!
+    organizationId: String!
+    grade: String!
+    minSalary: Float!
+    maxSalary: Float!
+    hmoPlan: String!
+    annualLeaveDays: Float!
+  }
+
   type Organization {
     id: ID!
     name: String!
@@ -369,6 +379,8 @@ export const typeDefs = `#graphql
     paginatedLoans(page: Int, limit: Int, employeeId: ID): PaginatedLoans!
     me: User
     organization(id: ID!): Organization
+    organizations: [Organization!]!
+    compensationBands: [CompensationBand!]!
     employees: [Employee]
     paginatedEmployees(page: Int, limit: Int, search: String, status: String, employmentStatus: String): PaginatedEmployees!
     employee(id: ID!): Employee
@@ -469,6 +481,14 @@ export const typeDefs = `#graphql
     exitDate: String!
     reason: String
     attachmentUrl: String!
+  }
+
+  input CompensationBandInput {
+    grade: String!
+    minSalary: Float!
+    maxSalary: Float!
+    hmoPlan: String!
+    annualLeaveDays: Float!
   }
 
   input UpdateEmployeeInput {
@@ -596,5 +616,7 @@ export const typeDefs = `#graphql
     initiateOffboarding(employeeId: ID!, exitType: String!, exitDate: String!, reason: String
     attachmentUrl: String): Offboarding
     updateOffboarding(id: ID!, assetReturned: Boolean, accessRevoked: Boolean, handoverComplete: Boolean): Offboarding!
+    
+    upsertCompensationBand(input: CompensationBandInput!): CompensationBand!
   }
 `;

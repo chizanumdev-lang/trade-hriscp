@@ -2190,11 +2190,21 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
               </div>
               <div className="space-y-2">
                 <Label>New Grade</Label>
-                <Input 
-                  value={promoteForm.employeeGrade} 
-                  onChange={(e) => setPromoteForm({...promoteForm, employeeGrade: e.target.value})}
-                  placeholder="e.g. Level 3, Director"
-                />
+                <Select
+                  value={promoteForm.employeeGrade}
+                  onValueChange={(value) => setPromoteForm({...promoteForm, employeeGrade: value})}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select grade" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Entry Level">Entry Level</SelectItem>
+                    <SelectItem value="Team Member">Team Member</SelectItem>
+                    <SelectItem value="Mid-Level">Mid-Level</SelectItem>
+                    <SelectItem value="Senior Level">Senior Level</SelectItem>
+                    <SelectItem value="Management">Management</SelectItem>
+                    <SelectItem value="Department Head">Department Head</SelectItem>
+                    <SelectItem value="CEO">CEO</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>New Class</Label>
