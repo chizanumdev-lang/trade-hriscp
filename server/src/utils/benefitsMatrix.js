@@ -1,61 +1,39 @@
 // server/src/utils/benefitsMatrix.js
 
-export const applyDynamicBenefits = async (employeeId, newGrade, prisma) => {
-  // If no grade provided, do nothing
-  if (!newGrade) return;
-
-  const emp = await prisma.employee.findUnique({ where: { id: employeeId } });
-  if (!emp) return;
-
+export const calculateBenefits = async (emp, newGrade, prisma) => {
   const organizationId = emp.organizationId;
-
-  // 1. Fetch the CompensationBand for this organization and grade
   const band = await prisma.compensationBand.findUnique({
-    where: {
-      organizationId_grade: {
-        organizationId,
-        grade: newGrade,
-      }
-    }
+    where: { organizationId_grade: { organizationId, grade: newGrade } }
   });
 
-  // Default values if no band is configured yet for this grade
   let hmoPlan = "Bronze";
   let annualLeaveDays = 15;
-  let newBasicSalary = emp.basicSalary || 0; // Don't change if not configured
+  let newBasicSalary = emp.basicSalary || 0;
   
   if (band) {
     hmoPlan = band.hmoPlan;
     annualLeaveDays = band.annualLeaveDays;
-    
-    // Auto-adjust salary to minimum if it's below the new band's minimum,
-    // or max if it's above the max.
-    if (!emp.basicSalary || emp.basicSalary < band.minSalary) {
-      newBasicSalary = band.minSalary;
-    } else if (emp.basicSalary > band.maxSalary) {
-      newBasicSalary = band.maxSalary;
-    } else {
-      newBasicSalary = emp.basicSalary;
-    }
+    if (!emp.basicSalary || emp.basicSalary < band.minSalary) newBasicSalary = band.minSalary;
+    else if (emp.basicSalary > band.maxSalary) newBasicSalary = band.maxSalary;
+    else newBasicSalary = emp.basicSalary;
   } else {
-    // Hardcoded fallback rules from Handbook if band doesn't exist
-    if (newGrade === 'CEO') {
-      annualLeaveDays = 28;
-      hmoPlan = 'Platinum';
-    } else if (newGrade === 'Department Head' || newGrade === 'Management') {
-      annualLeaveDays = 25;
-      hmoPlan = 'Platinum';
-    } else if (newGrade === 'Senior Level') {
-      annualLeaveDays = 15;
-      hmoPlan = 'Gold';
-    } else if (newGrade === 'Mid-Level') {
-      annualLeaveDays = 15;
-      hmoPlan = 'Silver';
-    } else if (newGrade === 'Entry Level' || newGrade === 'Team Member') {
-      annualLeaveDays = 15;
-      hmoPlan = 'Bronze';
-    }
+    if (newGrade === 'CEO') { annualLeaveDays = 28; hmoPlan = 'Platinum'; }
+    else if (newGrade === 'Department Head' || newGrade === 'Management') { annualLeaveDays = 25; hmoPlan = 'Platinum'; }
+    else if (newGrade === 'Senior Level') { annualLeaveDays = 15; hmoPlan = 'Gold'; }
+    else if (newGrade === 'Mid-Level') { annualLeaveDays = 15; hmoPlan = 'Silver'; }
+    else if (newGrade === 'Entry Level' || newGrade === 'Team Member') { annualLeaveDays = 15; hmoPlan = 'Bronze'; }
   }
+  return { hmoPlan, annualLeaveDays, newBasicSalary };
+};
+
+export const applyDynamicBenefits = async (employeeId, newGrade, prisma) => {
+  if (!newGrade) return;
+  const emp = await prisma.employee.findUnique({ where: { id: employeeId } });
+  if (!emp) return;
+
+  const { hmoPlan, annualLeaveDays, newBasicSalary } = await calculateBenefits(emp, newGrade, prisma);
+
+  const organizationId = emp.organizationId;
 
   // 2. Update the Employee's salary and HMO
   await prisma.employee.update({

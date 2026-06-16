@@ -102,7 +102,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
   const departments = departmentsData || [];
 
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
-  const [promoteForm, setPromoteForm] = useState({ jobTitle: '', departmentId: '', employeeClass: '', employeeGrade: '', isHeadOfDepartment: false });
+  const [promoteForm, setPromoteForm] = useState({ jobTitle: '', departmentId: '', employeeClass: '', employeeGrade: '', isHeadOfDepartment: false, effectiveDate: new Date().toISOString().split('T')[0] });
 
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [suspendForm, setSuspendForm] = useState({ startDate: '', endDate: '', reason: '', superAdminApproved: false });
@@ -328,8 +328,46 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
     },
     onError: (err) => {
       console.error(err);
-      toast.error("Failed to suspend employee.");
+      toast.error("Failed to update employee.");
     }
+  });
+
+  const requestPromotionMutation = useMutation({
+    mutationFn: async (input) => {
+      const PROMOTE_MUTATION = gql`
+        mutation RequestPromotion($input: RequestPromotionInput!) {
+          requestPromotion(input: $input) { id status isExecuted }
+        }
+      `;
+      await gqlClient.request(PROMOTE_MUTATION, { input });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['employee', employeeId]);
+      setShowPromoteDialog(false);
+      setPromoteForm({ jobTitle: '', departmentId: '', employeeClass: '', employeeGrade: '', isHeadOfDepartment: false, effectiveDate: new Date().toISOString().split('T')[0] });
+      toast.success("Promotion requested successfully.");
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error("Failed to request promotion.");
+    }
+  });
+
+  const { data: promotionPreview, isFetching: isFetchingPreview } = useQuery({
+    queryKey: ['promotionPreview', employee?.id, promoteForm.employeeGrade],
+    queryFn: async () => {
+      if (!promoteForm.employeeGrade) return null;
+      const PREVIEW_QUERY = gql`
+        query PreviewBenefits($employeeId: ID!, $newGrade: String!) {
+          previewPromotionBenefits(employeeId: $employeeId, newGrade: $newGrade) {
+            oldSalary newSalary oldLeaveDays newLeaveDays oldHmoPlan newHmoPlan
+          }
+        }
+      `;
+      const result = await gqlClient.request(PREVIEW_QUERY, { employeeId: employee.id, newGrade: promoteForm.employeeGrade });
+      return result.previewPromotionBenefits;
+    },
+    enabled: !!employee && !!promoteForm.employeeGrade
   });
 
   const offboardEmployeeMutation = useMutation({
@@ -2224,26 +2262,63 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                   Appoint as Head of Department
                 </label>
               </div>
+              <div className="space-y-2">
+                <Label>Effective Date</Label>
+                <Input 
+                  type="date"
+                  value={promoteForm.effectiveDate} 
+                  onChange={(e) => setPromoteForm({...promoteForm, effectiveDate: e.target.value})}
+                />
+              </div>
+
+              {promoteForm.employeeGrade && (
+                <div className="mt-4 p-4 bg-gray-50 border rounded-lg">
+                  <h4 className="text-sm font-semibold mb-2">Benefits Preview</h4>
+                  {isFetchingPreview ? (
+                    <p className="text-sm text-gray-500">Calculating new benefits...</p>
+                  ) : promotionPreview ? (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Salary:</span>
+                        <span className="font-medium">
+                          {employee?.basicSalary?.toLocaleString() || 0} → {promotionPreview.newSalary.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Annual Leave:</span>
+                        <span className="font-medium">
+                          {promotionPreview.oldLeaveDays} days → {promotionPreview.newLeaveDays} days
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">HMO Plan:</span>
+                        <span className="font-medium">
+                          {promotionPreview.oldHmoPlan} → {promotionPreview.newHmoPlan}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">Select a valid grade to preview benefits.</p>
+                  )}
+                </div>
+              )}
+
               <Button 
                 onClick={() => {
-                  updateEmployeeMutation.mutate({ 
-                    id: employee.id, 
-                    data: { 
-                      job_title: promoteForm.jobTitle, 
-                      department_id: promoteForm.departmentId,
-                      employeeClass: promoteForm.employeeClass,
-                      employeeGrade: promoteForm.employeeGrade,
-                      isHeadOfDepartment: promoteForm.isHeadOfDepartment
-                    },
-                    auditAction: 'PROMOTE',
-                    auditContext: `Promoted to ${promoteForm.jobTitle || 'new level'} (Grade: ${promoteForm.employeeGrade || '-'}, Class: ${promoteForm.employeeClass || '-'})${promoteForm.isHeadOfDepartment ? ' and Appointed Head of Department' : ''}`
+                  requestPromotionMutation.mutate({ 
+                    employeeId: employee.id, 
+                    newJobTitle: promoteForm.jobTitle || undefined, 
+                    newDepartmentId: promoteForm.departmentId || undefined,
+                    newEmployeeClass: promoteForm.employeeClass || undefined,
+                    newEmployeeGrade: promoteForm.employeeGrade || undefined,
+                    isHeadOfDepartment: promoteForm.isHeadOfDepartment,
+                    effectiveDate: promoteForm.effectiveDate
                   });
-                  setShowPromoteDialog(false);
                 }} 
-                disabled={updateEmployeeMutation.isPending || (!promoteForm.jobTitle && !promoteForm.employeeClass && !promoteForm.employeeGrade)}
+                disabled={requestPromotionMutation.isPending || (!promoteForm.jobTitle && !promoteForm.employeeClass && !promoteForm.employeeGrade)}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
               >
-                {updateEmployeeMutation.isPending ? 'Saving...' : 'Confirm Promotion'}
+                {requestPromotionMutation.isPending ? 'Requesting...' : 'Confirm Promotion'}
               </Button>
             </div>
           </DialogContent>

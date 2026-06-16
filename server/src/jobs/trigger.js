@@ -85,3 +85,72 @@ client.defineJob({
     return { status: 'success', count: pendingDocuments.length };
   },
 });
+
+// Job 3: Daily task to execute scheduled promotions
+client.defineJob({
+  id: 'execute-scheduled-promotions-daily',
+  name: 'Execute Scheduled Promotions',
+  version: '1.0.0',
+  trigger: cronTrigger({
+    cron: "1 0 * * *", // Runs every day at 12:01 AM
+  }),
+  run: async (payload, io, ctx) => {
+    await io.logger.info('Starting daily check for scheduled promotions...');
+    
+    // Find approved promotions that haven't been executed and whose effectiveDate is today or earlier
+    const pendingPromotions = await io.runTask('fetch-pending-promotions', async () => {
+      return prisma.promotionRequest.findMany({
+        where: {
+          status: 'APPROVED',
+          isExecuted: false,
+          effectiveDate: { lte: new Date() }
+        }
+      });
+    });
+
+    if (pendingPromotions.length === 0) {
+      await io.logger.info('No scheduled promotions to execute today.');
+      return { status: 'success', count: 0 };
+    }
+
+    // Dynamic import to avoid circular dependencies in jobs
+    const { applyDynamicBenefits } = await import('../utils/benefitsMatrix.js');
+
+    await io.logger.info(`Found ${pendingPromotions.length} scheduled promotions to execute.`);
+
+    let executedCount = 0;
+    for (const req of pendingPromotions) {
+      await io.runTask(`execute-promotion-${req.id}`, async () => {
+        await prisma.employee.update({
+          where: { id: req.employeeId },
+          data: {
+            jobTitle: req.newJobTitle || undefined,
+            departmentId: req.newDepartmentId || undefined,
+            employeeClass: req.newEmployeeClass || undefined,
+            employeeGrade: req.newEmployeeGrade || undefined
+          }
+        });
+        
+        if (req.isHeadOfDepartment && req.newDepartmentId) {
+          await prisma.department.update({
+            where: { id: req.newDepartmentId },
+            data: { headEmployeeId: req.employeeId }
+          });
+        }
+        
+        if (req.newEmployeeGrade) {
+          await applyDynamicBenefits(req.employeeId, req.newEmployeeGrade, prisma);
+        }
+        
+        await prisma.promotionRequest.update({
+          where: { id: req.id },
+          data: { isExecuted: true }
+        });
+        executedCount++;
+      });
+    }
+
+    return { status: 'success', count: executedCount };
+  },
+});
+

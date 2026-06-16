@@ -3,7 +3,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import { createAuditLog, recordApprovalEvent } from '../utils/audit.js';
 import { NotificationService } from '../services/NotificationService.js';
 import { client as triggerClient } from '../jobs/trigger.js';
-import { applyDynamicBenefits } from '../utils/benefitsMatrix.js';
+import { applyDynamicBenefits, calculateBenefits } from '../utils/benefitsMatrix.js';
 
 const checkAndPromoteEmployee = async (employeeId, prisma) => {
   const emp = await prisma.employee.findUnique({ 
@@ -283,6 +283,41 @@ me: async (_, __, { prisma, user, requireAuth }) => {
       return prisma.compensationBand.findMany({
         where: { organizationId: user.organizationId }
       });
+    },
+    promotionRequests: async (_, { employeeId }, { user, prisma }) => {
+      if (!user) throw new Error("Not authenticated");
+      const where = employeeId ? { employeeId } : {};
+      return prisma.promotionRequest.findMany({
+        where,
+        include: { employee: true, requestedBy: true, approvals: true },
+        orderBy: { createdAt: 'desc' }
+      });
+    },
+    previewPromotionBenefits: async (_, { employeeId, newGrade }, { user, prisma }) => {
+      if (!user) throw new Error("Not authenticated");
+      const emp = await prisma.employee.findUnique({ where: { id: employeeId } });
+      if (!emp) throw new Error("Employee not found");
+      
+      const { hmoPlan, annualLeaveDays, newBasicSalary } = await calculateBenefits(emp, newGrade, prisma);
+      
+      let oldLeaveDays = 0;
+      const annualLeaveType = await prisma.leaveType.findFirst({
+        where: { organizationId: emp.organizationId, name: { contains: 'Annual', mode: 'insensitive' } }
+      });
+      if (annualLeaveType) {
+        const existingBalance = await prisma.leaveBalance.findUnique({
+          where: { employeeId_leaveTypeId_year: { employeeId, leaveTypeId: annualLeaveType.id, year: new Date().getFullYear() } }
+        });
+        if (existingBalance) oldLeaveDays = existingBalance.totalEntitled;
+      }
+      return {
+        oldSalary: emp.basicSalary || 0,
+        newSalary: newBasicSalary,
+        oldLeaveDays,
+        newLeaveDays: annualLeaveDays,
+        oldHmoPlan: emp.hmoPlan || 'None',
+        newHmoPlan: hmoPlan
+      };
     },
     paginatedLeaveRequests: async (_, { page = 1, limit = 10, employeeId }, { prisma, user, requireAuth }) => {
       requireAuth();
@@ -843,6 +878,82 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         }
       });
     },     
+    
+    requestPromotion: async (_, { input }, { user, prisma }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { employeeId, effectiveDate, ...rest } = input;
+      
+      const req = await prisma.promotionRequest.create({
+        data: {
+          employeeId,
+          requestedById: user.id,
+          effectiveDate: new Date(effectiveDate),
+          status: 'PENDING',
+          isExecuted: false,
+          ...rest
+        }
+      });
+  
+      await prisma.approvalRecord.create({
+        data: {
+          entityType: 'PromotionRequest',
+          entityId: req.id,
+          approverUserId: user.id,
+          action: 'PENDING',
+          promotionRequestId: req.id
+        }
+      });
+  
+      return req;
+    },
+    
+    approvePromotion: async (_, { id, status, comments }, { user, prisma }) => {
+      if (!user) throw new Error("Not authenticated");
+      
+      const req = await prisma.promotionRequest.update({
+        where: { id },
+        data: { status }
+      });
+  
+      await prisma.approvalRecord.create({
+        data: {
+          entityType: 'PromotionRequest',
+          entityId: id,
+          approverUserId: user.id,
+          action: status,
+          comments,
+          promotionRequestId: id
+        }
+      });
+  
+      // If approved and effectiveDate <= now, execute it immediately
+      if (status === 'APPROVED' && new Date(req.effectiveDate) <= new Date()) {
+        await prisma.employee.update({
+          where: { id: req.employeeId },
+          data: {
+            jobTitle: req.newJobTitle || undefined,
+            departmentId: req.newDepartmentId || undefined,
+            employeeClass: req.newEmployeeClass || undefined,
+            employeeGrade: req.newEmployeeGrade || undefined
+          }
+        });
+        if (req.isHeadOfDepartment && req.newDepartmentId) {
+          await prisma.department.update({
+            where: { id: req.newDepartmentId },
+            data: { headEmployeeId: req.employeeId }
+          });
+        }
+        if (req.newEmployeeGrade) {
+          await applyDynamicBenefits(req.employeeId, req.newEmployeeGrade, prisma);
+        }
+        await prisma.promotionRequest.update({
+          where: { id },
+          data: { isExecuted: true }
+        });
+      }
+  
+      return req;
+    },
     
     updateEmployee: async (_, { id, input, auditAction, auditContext }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);

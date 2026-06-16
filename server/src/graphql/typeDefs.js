@@ -15,6 +15,34 @@ export const typeDefs = `#graphql
     user: User!
   }
 
+  type PromotionRequest {
+    id: ID!
+    employeeId: String!
+    employee: Employee!
+    requestedById: String!
+    requestedBy: User!
+    newJobTitle: String
+    newDepartmentId: String
+    newEmployeeClass: String
+    newEmployeeGrade: String
+    isHeadOfDepartment: Boolean!
+    status: String!
+    isExecuted: Boolean!
+    effectiveDate: String!
+    createdAt: String!
+    updatedAt: String!
+    approvals: [ApprovalRecord!]
+  }
+
+  type PromotionBenefitsPreview {
+    oldSalary: Float
+    newSalary: Float
+    oldLeaveDays: Float
+    newLeaveDays: Float
+    oldHmoPlan: String
+    newHmoPlan: String
+  }
+
   type CompensationBand {
     id: ID!
     organizationId: String!
@@ -381,6 +409,8 @@ export const typeDefs = `#graphql
     organization(id: ID!): Organization
     organizations: [Organization!]!
     compensationBands: [CompensationBand!]!
+    promotionRequests(employeeId: ID): [PromotionRequest!]!
+    previewPromotionBenefits(employeeId: ID!, newGrade: String!): PromotionBenefitsPreview!
     employees: [Employee]
     paginatedEmployees(page: Int, limit: Int, search: String, status: String, employmentStatus: String): PaginatedEmployees!
     employee(id: ID!): Employee
@@ -489,6 +519,16 @@ export const typeDefs = `#graphql
     maxSalary: Float!
     hmoPlan: String!
     annualLeaveDays: Float!
+  }
+
+  input RequestPromotionInput {
+    employeeId: String!
+    newJobTitle: String
+    newDepartmentId: String
+    newEmployeeClass: String
+    newEmployeeGrade: String
+    isHeadOfDepartment: Boolean
+    effectiveDate: String!
   }
 
   input UpdateEmployeeInput {
@@ -618,5 +658,8 @@ export const typeDefs = `#graphql
     updateOffboarding(id: ID!, assetReturned: Boolean, accessRevoked: Boolean, handoverComplete: Boolean): Offboarding!
     
     upsertCompensationBand(input: CompensationBandInput!): CompensationBand!
+    
+    requestPromotion(input: RequestPromotionInput!): PromotionRequest!
+    approvePromotion(id: ID!, status: String!, comments: String): PromotionRequest!
   }
 `;

@@ -111,6 +111,7 @@ model User {
 
   notifications Notification[]
   auditLogs     AuditLog[]     @relation("AuditActor")
+  promotionRequests PromotionRequest[]
 }
 
 // ─── ORGANIZATION ─────────────────────────────────────────
@@ -263,6 +264,7 @@ model Employee {
   assets                Asset[]
   expenseClaims         ExpenseClaim[]
   loans                 Loan[]
+  promotionRequests     PromotionRequest[]
 }
 
 // ─── EMPLOYEE STATUS HISTORY ──────────────────────────────
@@ -514,6 +516,33 @@ model ApprovalRecord {
   leaveRequest   LeaveRequest? @relation(fields: [leaveRequestId], references: [id])
   payrollRunId   String?
   payrollRun     PayrollRun?   @relation(fields: [payrollRunId], references: [id])
+  promotionRequestId String?
+  promotionRequest   PromotionRequest? @relation(fields: [promotionRequestId], references: [id])
+}
+
+// ─── PROMOTION REQUEST ────────────────────────────────────
+
+model PromotionRequest {
+  id                 String          @id @default(uuid())
+  employeeId         String
+  employee           Employee        @relation(fields: [employeeId], references: [id])
+  requestedById      String
+  requestedBy        User            @relation(fields: [requestedById], references: [id])
+  
+  newJobTitle        String?
+  newDepartmentId    String?
+  newEmployeeClass   String?
+  newEmployeeGrade   String?
+  isHeadOfDepartment Boolean         @default(false)
+  
+  status             ApprovalStatus  @default(PENDING) // PENDING, APPROVED, REJECTED
+  isExecuted         Boolean         @default(false)
+  effectiveDate      DateTime
+  
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  
+  approvals          ApprovalRecord[]
 }
 
 // ─── NOTIFICATION SERVICE ─────────────────────────────────
