@@ -94,6 +94,8 @@ export const typeDefs = `#graphql
     allowances: String
     onboardingStatus: String
     onboardingProgress: Int
+    managerId: String
+    manager: Employee
   }
 
   type Department {
@@ -542,6 +544,7 @@ export const typeDefs = `#graphql
     passportNumber: String
     jobTitle: String
     departmentId: String
+    managerId: String
     employmentType: String
     employmentStatus: String
     hireDate: String

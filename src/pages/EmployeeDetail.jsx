@@ -116,7 +116,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
       const EMP_QUERY = gql`
         query GetEmployee($id: ID!) {
           employee(id: $id) {
-            id fullName email privateEmail phone dateOfBirth gender maritalStatus nationality nationalId passportNumber jobTitle departmentId department { name } employmentStatus employmentType hireDate probationStartDate probationEndDate basicSalary allowances bankName bankAccountNumber pensionId hmoPlan hmoProvider pensionAdministrator
+            id fullName email privateEmail phone dateOfBirth gender maritalStatus nationality nationalId passportNumber jobTitle departmentId department { name } manager { id fullName email } employmentStatus employmentType hireDate probationStartDate probationEndDate basicSalary allowances bankName bankAccountNumber pensionId hmoPlan hmoProvider pensionAdministrator
           }
         }
       `;
@@ -129,6 +129,8 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
         private_email: e.privateEmail,
         job_title: e.jobTitle,
         department_name: e.department?.name || 'N/A',
+        manager_email: e.manager?.fullName || e.manager?.email || 'Not assigned',
+        manager_id: e.manager?.id || null,
         employment_status: e.employmentStatus,
         employment_type: e.employmentType,
         start_date: parseSafeDate(e.hireDate),
@@ -415,6 +417,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
         passportNumber: data.personal_info?.iqama_number || undefined,
         jobTitle: data.job_title || undefined,
         departmentId: data.department_id || undefined,
+        managerId: data.manager_id || undefined,
         employmentType: data.employment_type || undefined,
         employmentStatus: data.employment_status || undefined,
         hireDate: data.start_date || undefined,
@@ -952,14 +955,14 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                 <div className="space-y-2">
                   <Label>Reports To (Manager)</Label>
                   <Select
-                    value={editData.manager_email || ''}
-                    onValueChange={(value) => setEditData(prev => ({ ...prev, manager_email: value }))}
+                    value={editData.manager_id || ''}
+                    onValueChange={(value) => setEditData(prev => ({ ...prev, manager_id: value }))}
                   >
                     <SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value={null}>No Manager</SelectItem>
                       {employees.filter(e => e.id !== employee.id).map(emp => (
-                        <SelectItem key={emp.id} value={emp.email}>
+                        <SelectItem key={emp.id} value={emp.id}>
                           {emp.full_name} - {emp.job_title}
                         </SelectItem>
                       ))}

@@ -1013,7 +1013,7 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         }
       }
 
-      if (input.departmentId !== undefined && input.departmentId !== existing.departmentId) {
+      if (input.departmentId !== undefined && input.departmentId !== existing.departmentId && input.managerId === undefined) {
         let managerId = null;
         if (input.departmentId) {
           const dept = await prisma.department.findUnique({ where: { id: input.departmentId } });
@@ -2117,6 +2117,10 @@ me: async (_, __, { prisma, user, requireAuth }) => {
     department: async (parent, _, { prisma }) => {
       if (!parent.departmentId) return null;
       return prisma.department.findUnique({ where: { id: parent.departmentId } });
+    },
+    manager: async (parent, _, { prisma }) => {
+      if (!parent.managerId) return null;
+      return prisma.employee.findUnique({ where: { id: parent.managerId } });
     },
     basicSalary: (parent, _, { user }) => {
       return (user.role === 'SUPER_ADMIN' || user.role === 'HR_ADMIN' || user.employeeId === parent.id) ? parent.basicSalary : null;
