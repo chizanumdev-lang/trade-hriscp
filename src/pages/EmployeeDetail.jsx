@@ -398,9 +398,9 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
         mutation UpdateEmployee($id: ID!, $input: UpdateEmployeeInput!, $auditAction: String, $auditContext: String) {
           updateEmployee(id: $id, input: $input, auditAction: $auditAction, auditContext: $auditContext) {
             id
-            employment_status
-            job_title
-            department_id
+            employmentStatus
+            jobTitle
+            departmentId
           }
         }
       `;
