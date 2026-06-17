@@ -144,7 +144,9 @@ export const typeDefs = `#graphql
     leaveTypeId: String!
     startDate: String!
     endDate: String!
+    selectedDates: [String!]
     totalDays: Float!
+    isHalfDay: Boolean!
     status: String!
     reason: String
     attachmentUrl: String
@@ -565,7 +567,9 @@ export const typeDefs = `#graphql
     leaveTypeId: String!
     startDate: String!
     endDate: String!
+    selectedDates: [String!]
     totalDays: Float!
+    isHalfDay: Boolean
     reason: String
     attachmentUrl: String
   }
@@ -607,6 +611,7 @@ export const typeDefs = `#graphql
     submitLeaveRequest(input: LeaveRequestInput!): LeaveRequest!
     approveLeaveRequest(id: ID!): LeaveRequest!
     rejectLeaveRequest(id: ID!, reason: String, attachmentUrl: String): LeaveRequest!
+    cancelLeaveRequest(id: ID!): LeaveRequest!
     
     submitLeavePlan(year: Int!, plannedDates: [String!]!): LeavePlan!
     approveLeavePlan(planId: ID!): LeavePlan!

@@ -62,9 +62,11 @@ export default function AllLeaveRequests() {
     leave_type: 'annual',
     start_date: '',
     end_date: '',
-    total_days: 0,
     reason: '',
     attachment_url: '',
+    isHalfDay: false,
+    useMultipleDates: false,
+    selectedDates: [],
   });
   
   const [page, setPage] = useState(1);
@@ -94,10 +96,25 @@ export default function AllLeaveRequests() {
           start_date: l.startDate,
           end_date: l.endDate,
           total_days: l.totalDays,
+          isHalfDay: l.isHalfDay,
+          selectedDates: l.selectedDates,
           approvers: []
         }))
       };
     },
+  });
+
+  const { data: leaveTypes = [] } = useQuery({
+    queryKey: ['leaveTypes'],
+    queryFn: async () => {
+      const GET_LEAVE_TYPES = gql`
+        query GetLeaveTypes {
+          leaveTypes { id name maxDays defaultNoticeDaysRequired }
+        }
+      `;
+      const data = await gqlClient.request(GET_LEAVE_TYPES);
+      return data.leaveTypes || [];
+    }
   });
 
   const { data: employees = [] } = useQuery({
@@ -117,16 +134,33 @@ export default function AllLeaveRequests() {
   const createLeaveMutation = useMutation({
     mutationFn: async (data) => {
       const CREATE_LEAVE = gql`
-        mutation CreateLeave($employeeId: ID!, $startDate: String!, $endDate: String!, $totalDays: Int!, $reason: String) {
-          createLeaveRequest(employeeId: $employeeId, startDate: $startDate, endDate: $endDate, totalDays: $totalDays, reason: $reason) { id }
+        mutation CreateLeave($employeeId: ID!, $leaveTypeId: String!, $startDate: String!, $endDate: String!, $totalDays: Float!, $reason: String, $attachmentUrl: String, $isHalfDay: Boolean, $selectedDates: [String!]) {
+          submitLeaveRequest(input: {
+            leaveTypeId: $leaveTypeId,
+            startDate: $startDate,
+            endDate: $endDate,
+            totalDays: $totalDays,
+            reason: $reason,
+            attachmentUrl: $attachmentUrl,
+            isHalfDay: $isHalfDay,
+            selectedDates: $selectedDates
+          }) { id }
         }
       `;
+      
+      const start = data.useMultipleDates && data.selectedDates.length > 0 ? data.selectedDates[0] : data.start_date;
+      const end = data.useMultipleDates && data.selectedDates.length > 0 ? data.selectedDates[data.selectedDates.length - 1] : data.end_date;
+
       const leave = await gqlClient.request(CREATE_LEAVE, {
         employeeId: data.employee_id,
-        startDate: new Date(data.start_date).toISOString(),
-        endDate: new Date(data.end_date).toISOString(),
-        totalDays: parseInt(data.total_days),
-        reason: data.reason
+        leaveTypeId: data.leave_type, // Using leaveType ID now
+        startDate: new Date(start || new Date()).toISOString(),
+        endDate: new Date(end || new Date()).toISOString(),
+        totalDays: data.isHalfDay ? 0.5 : parseFloat(data.total_days),
+        reason: data.reason,
+        attachmentUrl: data.attachment_url,
+        isHalfDay: data.isHalfDay,
+        selectedDates: data.useMultipleDates ? data.selectedDates : []
       });
 
       await createAuditLog('create', leave.id, data.employee_id, { after: leave });
@@ -144,6 +178,9 @@ export default function AllLeaveRequests() {
         total_days: 0,
         reason: '',
         attachment_url: '',
+        isHalfDay: false,
+        useMultipleDates: false,
+        selectedDates: [],
       });
     },
   });
@@ -180,6 +217,9 @@ export default function AllLeaveRequests() {
       total_days: leave.total_days,
       reason: leave.reason,
       attachment_url: leave.attachment_url || '',
+      isHalfDay: leave.isHalfDay || false,
+      useMultipleDates: leave.selectedDates?.length > 0,
+      selectedDates: leave.selectedDates || [],
     });
     setShowForm(true);
   };
@@ -196,17 +236,28 @@ export default function AllLeaveRequests() {
     }
     setUploadingDoc(false);
   };
-
   useEffect(() => {
+    if (formData.useMultipleDates) return;
     if (formData.start_date && formData.end_date) {
       const start = new Date(formData.start_date);
       const end = new Date(formData.end_date);
       const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      setFormData(prev => ({ ...prev, total_days: days > 0 ? days : 0 }));
+      setFormData(prev => ({ ...prev, total_days: prev.isHalfDay ? (days > 0 ? days * 0.5 : 0) : (days > 0 ? days : 0) }));
     } else {
       setFormData(prev => ({ ...prev, total_days: 0 }));
     }
-  }, [formData.start_date, formData.end_date]);
+  }, [formData.start_date, formData.end_date, formData.isHalfDay, formData.useMultipleDates]);
+
+  const addSelectedDate = (date) => {
+    if (!date) return;
+    const newDates = [...formData.selectedDates, date].sort();
+    setFormData({ ...formData, selectedDates: newDates, total_days: formData.isHalfDay ? newDates.length * 0.5 : newDates.length });
+  };
+
+  const removeSelectedDate = (date) => {
+    const newDates = formData.selectedDates.filter(d => d !== date);
+    setFormData({ ...formData, selectedDates: newDates, total_days: formData.isHalfDay ? newDates.length * 0.5 : newDates.length });
+  };
 
   const handleApprove = async (leave) => {
     updateLeaveMutation.mutate({
@@ -277,6 +328,9 @@ export default function AllLeaveRequests() {
                 total_days: 0,
                 reason: '',
                 attachment_url: '',
+                isHalfDay: false,
+                useMultipleDates: false,
+                selectedDates: [],
               });
             }
           }}>
@@ -320,31 +374,90 @@ export default function AllLeaveRequests() {
                     <Select value={formData.leave_type} onValueChange={(value) => setFormData(prev => ({ ...prev, leave_type: value }))}>
                       <SelectTrigger className="rounded-lg"><SelectValue /></SelectTrigger>
                       <SelectContent className="rounded-xl border-slate-100 shadow-lg">
-                        <SelectItem value="annual">Annual Leave</SelectItem>
-                        <SelectItem value="sick">Sick Leave</SelectItem>
-                        <SelectItem value="personal">Personal Leave</SelectItem>
-                        <SelectItem value="emergency">Emergency Leave</SelectItem>
-                        <SelectItem value="unpaid">Unpaid Leave</SelectItem>
-                        <SelectItem value="maternity">Maternity Leave</SelectItem>
-                        <SelectItem value="paternity">Paternity Leave</SelectItem>
+                        {leaveTypes.map(type => (
+                          <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Total Days</Label>
-                    <Input type="number" value={formData.total_days} readOnly className="bg-slate-50 rounded-lg text-slate-500" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Start Date</Label>
-                    <Input type="date" value={formData.start_date} onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))} className="rounded-lg" required />
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      id="isHalfDay" 
+                      checked={formData.isHalfDay} 
+                      onChange={(e) => {
+                        const isHalf = e.target.checked;
+                        let tDays = 0;
+                        if (formData.useMultipleDates) {
+                          tDays = formData.selectedDates.length * (isHalf ? 0.5 : 1);
+                        } else if (formData.start_date && formData.end_date) {
+                          tDays = (Math.ceil((new Date(formData.end_date).getTime() - new Date(formData.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1) * (isHalf ? 0.5 : 1);
+                        }
+                        setFormData({ ...formData, isHalfDay: isHalf, total_days: tDays });
+                      }} 
+                      className="rounded border-slate-300"
+                    />
+                    <Label htmlFor="isHalfDay">Half-Day Request</Label>
                   </div>
-                  <div className="space-y-2">
-                    <Label>End Date</Label>
-                    <Input type="date" value={formData.end_date} onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))} className="rounded-lg" required />
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      id="useMultipleDates" 
+                      checked={formData.useMultipleDates} 
+                      onChange={(e) => {
+                        const useMultiple = e.target.checked;
+                        let tDays = 0;
+                        if (useMultiple) {
+                          tDays = formData.selectedDates.length * (formData.isHalfDay ? 0.5 : 1);
+                        } else if (formData.start_date && formData.end_date) {
+                          tDays = (Math.ceil((new Date(formData.end_date).getTime() - new Date(formData.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1) * (formData.isHalfDay ? 0.5 : 1);
+                        }
+                        setFormData({ ...formData, useMultipleDates: useMultiple, total_days: tDays });
+                      }} 
+                      className="rounded border-slate-300"
+                    />
+                    <Label htmlFor="useMultipleDates">Multiple Dates</Label>
                   </div>
+                </div>
+
+                {!formData.useMultipleDates ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Start Date</Label>
+                      <Input type="date" value={formData.start_date} onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))} className="rounded-lg" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End Date</Label>
+                      <Input type="date" value={formData.end_date} onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))} className="rounded-lg" required />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Selected Dates</Label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Input type="date" id="multipleDateInput" />
+                      <Button type="button" onClick={() => {
+                        const val = document.getElementById('multipleDateInput').value;
+                        if (val) addSelectedDate(val);
+                      }}>Add Date</Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.selectedDates.map(date => (
+                        <Badge key={date} variant="secondary" className="px-3 py-1 text-sm flex items-center gap-2">
+                          {format(new Date(date), 'MMM d, yyyy')}
+                          <XCircle className="w-4 h-4 cursor-pointer text-slate-400 hover:text-red-500" onClick={() => removeSelectedDate(date)} />
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="space-y-2">
+                  <Label>Total Days</Label>
+                  <Input type="number" value={formData.total_days} readOnly className="bg-slate-50 rounded-lg text-slate-500" />
                 </div>
 
                 <div className="space-y-2">
@@ -458,11 +571,16 @@ export default function AllLeaveRequests() {
                             </div>
                             <div className="flex items-center gap-2 text-sm text-slate-500 mb-3">
                               <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                              <span>{format(new Date(leave.start_date), 'MMM dd, yyyy')}</span>
-                              <span className="text-slate-300">-</span>
-                              <span>{format(new Date(leave.end_date), 'MMM dd, yyyy')}</span>
+                              {leave.selectedDates && leave.selectedDates.length > 0
+                                ? <span>{leave.selectedDates.map(d => format(new Date(d), 'MMM dd')).join(', ')}</span>
+                                : <>
+                                    <span>{format(new Date(leave.start_date), 'MMM dd, yyyy')}</span>
+                                    <span className="text-slate-300">-</span>
+                                    <span>{format(new Date(leave.end_date), 'MMM dd, yyyy')}</span>
+                                  </>
+                              }
                               <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-medium text-xs ml-1">
-                                {leave.total_days} day{leave.total_days !== 1 ? 's' : ''}
+                                {leave.total_days} day{leave.total_days !== 1 ? 's' : ''} {leave.isHalfDay && <Badge variant="secondary" className="ml-1 text-[10px]">Half Day</Badge>}
                               </span>
                             </div>
                             <p className="text-sm text-slate-600 bg-slate-50/80 p-3 rounded-xl border border-slate-100">

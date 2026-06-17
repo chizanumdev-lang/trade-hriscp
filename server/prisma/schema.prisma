@@ -362,6 +362,7 @@ model LeaveRequest {
   leaveType       LeaveType      @relation(fields: [leaveTypeId], references: [id])
   startDate       DateTime
   endDate         DateTime
+  selectedDates   Json?          // Array of date strings: ["2026-05-10", "2026-05-11"]
   totalDays       Float
   isHalfDay       Boolean        @default(false)
   reason          String?

@@ -29,6 +29,9 @@ export default function LeaveOverview() {
     reason: '',
     total_days: 0,
     attachment_url: '',
+    isHalfDay: false,
+    useMultipleDates: false,
+    selectedDates: [],
   });
 
   useEffect(() => {
@@ -81,6 +84,8 @@ export default function LeaveOverview() {
           start_date: l.startDate,
           end_date: l.endDate,
           total_days: l.totalDays,
+          isHalfDay: l.isHalfDay,
+          selectedDates: l.selectedDates,
           approvers: [] // Mocked
         };
       });
@@ -91,25 +96,33 @@ export default function LeaveOverview() {
   const createLeaveMutation = useMutation({
     mutationFn: async (data) => {
       const CREATE_LEAVE = gql`
-        mutation CreateLeave($employeeId: ID!, $leaveTypeId: String!, $startDate: String!, $endDate: String!, $totalDays: Float!, $reason: String, $attachmentUrl: String) {
+        mutation CreateLeave($employeeId: ID!, $leaveTypeId: String!, $startDate: String!, $endDate: String!, $totalDays: Float!, $reason: String, $attachmentUrl: String, $isHalfDay: Boolean, $selectedDates: [String!]) {
           submitLeaveRequest(input: {
             leaveTypeId: $leaveTypeId,
             startDate: $startDate,
             endDate: $endDate,
             totalDays: $totalDays,
             reason: $reason,
-            attachmentUrl: $attachmentUrl
+            attachmentUrl: $attachmentUrl,
+            isHalfDay: $isHalfDay,
+            selectedDates: $selectedDates
           }) { id }
         }
       `;
+      
+      const start = data.useMultipleDates && data.selectedDates.length > 0 ? data.selectedDates[0] : data.start_date;
+      const end = data.useMultipleDates && data.selectedDates.length > 0 ? data.selectedDates[data.selectedDates.length - 1] : data.end_date;
+
       return gqlClient.request(CREATE_LEAVE, {
         employeeId: data.employee_email,
         leaveTypeId: data.leave_type,
-        startDate: new Date(data.start_date).toISOString(),
-        endDate: new Date(data.end_date).toISOString(),
-        totalDays: parseFloat(data.total_days),
+        startDate: new Date(start).toISOString(),
+        endDate: new Date(end).toISOString(),
+        totalDays: data.isHalfDay ? 0.5 : parseFloat(data.total_days),
         reason: data.reason,
-        attachmentUrl: data.attachment_url
+        attachmentUrl: data.attachment_url,
+        isHalfDay: data.isHalfDay,
+        selectedDates: data.useMultipleDates ? data.selectedDates : []
       });
     },
     onSuccess: () => {
@@ -123,6 +136,9 @@ export default function LeaveOverview() {
         reason: '',
         total_days: 0,
         attachment_url: '',
+        isHalfDay: false,
+        useMultipleDates: false,
+        selectedDates: [],
       });
     },
   });
@@ -143,6 +159,13 @@ export default function LeaveOverview() {
           }
         `;
         return gqlClient.request(REJECT_LEAVE, { id });
+      } else if (status === 'CANCELLED') {
+        const CANCEL_LEAVE = gql`
+          mutation CancelLeave($id: ID!) {
+            cancelLeaveRequest(id: $id) { id status }
+          }
+        `;
+        return gqlClient.request(CANCEL_LEAVE, { id });
       }
     },
     onSuccess: () => {
@@ -180,6 +203,13 @@ export default function LeaveOverview() {
     });
   };
 
+  const handleCancel = (request) => {
+    updateLeaveMutation.mutate({
+      id: request.id,
+      status: 'CANCELLED'
+    });
+  };
+
   const calculateDays = (start, end) => {
     if (!start || !end) return 0;
     const startDate = new Date(start);
@@ -193,9 +223,21 @@ export default function LeaveOverview() {
   const handleDateChange = (field, value) => {
     const newData = { ...formData, [field]: value };
     if (field === 'start_date' || field === 'end_date') {
-      newData.total_days = calculateDays(newData.start_date, newData.end_date);
+      const days = calculateDays(newData.start_date, newData.end_date);
+      newData.total_days = newData.isHalfDay ? days * 0.5 : days;
     }
     setFormData(newData);
+  };
+
+  const addSelectedDate = (date) => {
+    if (!date) return;
+    const newDates = [...formData.selectedDates, date].sort();
+    setFormData({ ...formData, selectedDates: newDates, total_days: formData.isHalfDay ? newDates.length * 0.5 : newDates.length });
+  };
+
+  const removeSelectedDate = (date) => {
+    const newDates = formData.selectedDates.filter(d => d !== date);
+    setFormData({ ...formData, selectedDates: newDates, total_days: formData.isHalfDay ? newDates.length * 0.5 : newDates.length });
   };
 
   const myRequests = leaveRequests.filter(r => r.employee_email === user?.email);
@@ -205,8 +247,10 @@ export default function LeaveOverview() {
 
   const statusColors = {
     PENDING: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    PENDING_HR: 'bg-orange-100 text-orange-700 border-orange-200',
     APPROVED: 'bg-green-100 text-green-700 border-green-200',
     REJECTED: 'bg-red-100 text-red-700 border-red-200',
+    CANCELLED: 'bg-gray-100 text-gray-700 border-gray-200',
   };
 
   const selectedLeaveTypeObj = leaveTypes.find(t => t.id === formData.leave_type);
@@ -322,29 +366,98 @@ export default function LeaveOverview() {
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id="isHalfDay" 
+                        checked={formData.isHalfDay} 
+                        onChange={(e) => {
+                          const isHalf = e.target.checked;
+                          let tDays = 0;
+                          if (formData.useMultipleDates) {
+                            tDays = formData.selectedDates.length * (isHalf ? 0.5 : 1);
+                          } else {
+                            tDays = calculateDays(formData.start_date, formData.end_date) * (isHalf ? 0.5 : 1);
+                          }
+                          setFormData({ ...formData, isHalfDay: isHalf, total_days: tDays });
+                        }} 
+                        className="rounded border-slate-300"
+                      />
+                      <Label htmlFor="isHalfDay">Half-Day Request</Label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id="useMultipleDates" 
+                        checked={formData.useMultipleDates} 
+                        onChange={(e) => {
+                          const useMultiple = e.target.checked;
+                          let tDays = 0;
+                          if (useMultiple) {
+                            tDays = formData.selectedDates.length * (formData.isHalfDay ? 0.5 : 1);
+                          } else {
+                            tDays = calculateDays(formData.start_date, formData.end_date) * (formData.isHalfDay ? 0.5 : 1);
+                          }
+                          setFormData({ ...formData, useMultipleDates: useMultiple, total_days: tDays });
+                        }} 
+                        className="rounded border-slate-300"
+                      />
+                      <Label htmlFor="useMultipleDates">Multiple Non-Continuous Dates</Label>
+                    </div>
+                  </div>
+
+                  {!formData.useMultipleDates ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Start Date *</Label>
+                        <Input 
+                          type="date" 
+                          value={formData.start_date}
+                          onChange={(e) => handleDateChange('start_date', e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>End Date *</Label>
+                        <Input 
+                          type="date" 
+                          value={formData.end_date}
+                          onChange={(e) => handleDateChange('end_date', e.target.value)}
+                          required
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-2 col-span-1 md:col-span-2">
+                      <Label>Selected Dates</Label>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Input 
+                          type="date" 
+                          id="multipleDateInput"
+                        />
+                        <Button type="button" onClick={() => {
+                          const val = document.getElementById('multipleDateInput').value;
+                          if (val) addSelectedDate(val);
+                        }}>Add Date</Button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {formData.selectedDates.map(date => (
+                          <Badge key={date} variant="secondary" className="px-3 py-1 text-sm flex items-center gap-2">
+                            {format(new Date(date), 'MMM d, yyyy')}
+                            <XCircle className="w-4 h-4 cursor-pointer text-slate-400 hover:text-red-500" onClick={() => removeSelectedDate(date)} />
+                          </Badge>
+                        ))}
+                        {formData.selectedDates.length === 0 && <span className="text-sm text-slate-500">No dates added yet</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2 col-span-1 md:col-span-2">
                     <Label>Total Days</Label>
                     <Input type="number" value={formData.total_days} disabled className="bg-slate-50" />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Start Date *</Label>
-                    <Input 
-                      type="date" 
-                      value={formData.start_date}
-                      onChange={(e) => handleDateChange('start_date', e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>End Date *</Label>
-                    <Input 
-                      type="date" 
-                      value={formData.end_date}
-                      onChange={(e) => handleDateChange('end_date', e.target.value)}
-                      required
-                    />
                   </div>
                 </div>
 
@@ -423,8 +536,12 @@ export default function LeaveOverview() {
                       <div className="flex-1">
                         <h4 className="font-semibold text-slate-900 mb-2">{request.employee_name}</h4>
                         <div className="space-y-1 text-sm text-slate-600">
-                          <p><strong>Type:</strong> {request.leave_type.replace('_', ' ')}</p>
-                          <p><strong>Duration:</strong> {format(new Date(request.start_date), 'MMM d')} - {format(new Date(request.end_date), 'MMM d')} ({request.total_days} days)</p>
+                          <p><strong>Type:</strong> {request.leave_type.replace('_', ' ')} {request.isHalfDay && <Badge variant="secondary" className="ml-1 text-[10px]">Half Day</Badge>}</p>
+                          <p><strong>Duration:</strong> {
+                            request.selectedDates && request.selectedDates.length > 0 
+                              ? request.selectedDates.map(d => format(new Date(d), 'MMM d')).join(', ')
+                              : `${format(new Date(request.start_date), 'MMM d')} - ${format(new Date(request.end_date), 'MMM d')}`
+                          } ({request.total_days} days)</p>
                           <p><strong>Reason:</strong> {request.reason}</p>
                           {request.attachment_url && (
                             <p className="flex items-center gap-2">
@@ -496,9 +613,12 @@ export default function LeaveOverview() {
                           <div className="space-y-1 text-sm text-slate-600">
                             <p className="flex items-center gap-2">
                               <Calendar className="w-4 h-4" />
-                              {format(new Date(request.start_date), 'MMM d, yyyy')} - {format(new Date(request.end_date), 'MMM d, yyyy')}
+                              {request.selectedDates && request.selectedDates.length > 0
+                                ? request.selectedDates.map(d => format(new Date(d), 'MMM d')).join(', ')
+                                : `${format(new Date(request.start_date), 'MMM d, yyyy')} - ${format(new Date(request.end_date), 'MMM d, yyyy')}`
+                              }
                             </p>
-                            <p><strong>Days:</strong> {request.total_days}</p>
+                            <p><strong>Days:</strong> {request.total_days} {request.isHalfDay && <Badge variant="secondary" className="ml-1 text-[10px]">Half Day</Badge>}</p>
                             <p><strong>Reason:</strong> {request.reason}</p>
                             
                             {request.attachment_url && (
@@ -533,6 +653,22 @@ export default function LeaveOverview() {
                             )}
                           </div>
                         </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {['PENDING', 'PENDING_HR', 'APPROVED'].includes(request.status) && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                            onClick={() => {
+                              if (window.confirm("Are you sure you want to cancel this leave request?")) {
+                                handleCancel(request);
+                              }
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

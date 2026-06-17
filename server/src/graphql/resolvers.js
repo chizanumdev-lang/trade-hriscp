@@ -1531,7 +1531,9 @@ me: async (_, __, { prisma, user, requireAuth }) => {
           leaveTypeId: input.leaveTypeId,
           startDate: new Date(input.startDate),
           endDate: new Date(input.endDate),
-          totalDays: input.totalDays,
+          totalDays: input.isHalfDay ? 0.5 : (input.selectedDates?.length > 0 ? input.selectedDates.length : input.totalDays),
+          isHalfDay: input.isHalfDay || false,
+          selectedDates: input.selectedDates || null,
           reason: input.reason,
           attachmentUrl: input.attachmentUrl
         }
@@ -1586,6 +1588,25 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         data: { status: 'REJECTED' }
       });
       await recordApprovalEvent({ entityType: 'LeaveRequest', entityId: id, approverUserId: user.id, action: 'REJECTED', comments: reason, previousStatus: leave.status });
+      return updated;
+    },
+    cancelLeaveRequest: async (_, { id }, { prisma, user, requireAuth }) => {
+      requireAuth();
+      const leave = await prisma.leaveRequest.findUnique({ where: { id }, include: { employee: true } });
+      if (!leave) throw new Error("Leave request not found");
+      
+      // Allow employee to cancel their own, or an admin to cancel
+      if (leave.employee.email !== user.email && !['HR_ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+        throw new Error("Not authorized to cancel this leave request");
+      }
+      
+      if (leave.status === 'CANCELLED') throw new Error("Already cancelled");
+      
+      const updated = await prisma.leaveRequest.update({
+        where: { id },
+        data: { status: 'CANCELLED' }
+      });
+      await recordApprovalEvent({ entityType: 'LeaveRequest', entityId: id, approverUserId: user.id, action: 'CANCELLED', previousStatus: leave.status });
       return updated;
     },
     submitLeavePlan: async (_, { year, plannedDates }, { prisma, user, requireAuth }) => {
