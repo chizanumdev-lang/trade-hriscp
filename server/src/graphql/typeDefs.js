@@ -43,6 +43,28 @@ export const typeDefs = `#graphql
     newHmoPlan: String
   }
 
+  type PromotionHistory {
+    id: ID!
+    employeeId: String!
+    previousTitle: String
+    newTitle: String
+    previousGrade: String
+    newGrade: String
+    effectiveDate: String!
+    approvedBy: String
+    createdAt: String!
+  }
+
+  type EmployeeStatusHistory {
+    id: ID!
+    employeeId: String!
+    previousStatus: String!
+    newStatus: String!
+    changedBy: String
+    reason: String
+    createdAt: String!
+  }
+
   type CompensationBand {
     id: ID!
     organizationId: String!
@@ -96,6 +118,8 @@ export const typeDefs = `#graphql
     onboardingProgress: Int
     managerId: String
     manager: Employee
+    promotionHistory: [PromotionHistory]
+    statusHistory: [EmployeeStatusHistory]
   }
 
   type Department {

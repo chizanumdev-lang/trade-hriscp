@@ -15,6 +15,7 @@ export default function AddEmployeeForm({ templates, departments, onSubmit, onCa
     template_id: "",
     start_date: "",
     phone: "",
+    phoneExtension: "+234",
     status: "not_started",
     progress_percentage: 0,
     employment_type: "full_time",
@@ -28,7 +29,12 @@ export default function AddEmployeeForm({ templates, departments, onSubmit, onCa
       alert("Please select an onboarding template.");
       return;
     }
-    onSubmit(formData);
+    const submissionData = {
+      ...formData,
+      phone: formData.phone ? `${formData.phoneExtension} ${formData.phone.replace(/^0+/, '')}` : ""
+    };
+    delete submissionData.phoneExtension;
+    onSubmit(submissionData);
   };
 
   const handleChange = (field, value) => {
@@ -78,13 +84,37 @@ export default function AddEmployeeForm({ templates, departments, onSubmit, onCa
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleChange("phone", e.target.value)}
-                  placeholder="+1 (555) 000-0000"
-                />
+                <div className="flex gap-2">
+                  <Select value={formData.phoneExtension} onValueChange={(value) => handleChange("phoneExtension", value)}>
+                    <SelectTrigger className="w-[110px]">
+                      <SelectValue placeholder="Ext" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="+1">+1 (US/CA)</SelectItem>
+                      <SelectItem value="+44">+44 (UK)</SelectItem>
+                      <SelectItem value="+234">+234 (NG)</SelectItem>
+                      <SelectItem value="+91">+91 (IN)</SelectItem>
+                      <SelectItem value="+61">+61 (AU)</SelectItem>
+                      <SelectItem value="+27">+27 (ZA)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    className="flex-1"
+                    value={formData.phone}
+                    onChange={(e) => handleChange("phone", e.target.value)}
+                    placeholder={
+                      formData.phoneExtension === "+1" ? "(555) 000-0000" :
+                      formData.phoneExtension === "+44" ? "7911 123456" :
+                      formData.phoneExtension === "+234" ? "801 234 5678" :
+                      formData.phoneExtension === "+91" ? "98765 43210" :
+                      formData.phoneExtension === "+61" ? "412 345 678" :
+                      formData.phoneExtension === "+27" ? "82 123 4567" :
+                      "0000 000 0000"
+                    }
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="start_date" className="flex items-center gap-2">

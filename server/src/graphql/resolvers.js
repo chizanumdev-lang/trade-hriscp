@@ -897,12 +897,14 @@ me: async (_, __, { prisma, user, requireAuth }) => {
       if (!user) throw new Error("Not authenticated");
       const { employeeId, effectiveDate, ...rest } = input;
       
+      const isAutoApprove = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role);
+      
       const req = await prisma.promotionRequest.create({
         data: {
           employeeId,
           requestedById: user.id,
           effectiveDate: new Date(effectiveDate),
-          status: 'PENDING',
+          status: isAutoApprove ? 'APPROVED' : 'PENDING',
           isExecuted: false,
           ...rest
         }
@@ -913,10 +915,47 @@ me: async (_, __, { prisma, user, requireAuth }) => {
           entityType: 'PromotionRequest',
           entityId: req.id,
           approverUserId: user.id,
-          action: 'PENDING',
+          action: isAutoApprove ? 'APPROVED' : 'PENDING',
           promotionRequestId: req.id
         }
       });
+      
+      if (isAutoApprove && new Date(effectiveDate) <= new Date()) {
+        const currentEmployee = await prisma.employee.findUnique({ where: { id: employeeId }});
+        await prisma.employee.update({
+          where: { id: employeeId },
+          data: {
+            jobTitle: req.newJobTitle || undefined,
+            departmentId: req.newDepartmentId || undefined,
+            employeeClass: req.newEmployeeClass || undefined,
+            employeeGrade: req.newEmployeeGrade || undefined
+          }
+        });
+        if (req.isHeadOfDepartment && req.newDepartmentId) {
+          await prisma.department.update({
+            where: { id: req.newDepartmentId },
+            data: { headEmployeeId: employeeId }
+          });
+        }
+        if (req.newEmployeeGrade) {
+          await applyDynamicBenefits(employeeId, req.newEmployeeGrade, prisma);
+        }
+        await prisma.promotionHistory.create({
+          data: {
+            employeeId: employeeId,
+            previousTitle: currentEmployee.jobTitle,
+            newTitle: req.newJobTitle || currentEmployee.jobTitle,
+            previousGrade: currentEmployee.employeeGrade,
+            newGrade: req.newEmployeeGrade || currentEmployee.employeeGrade,
+            effectiveDate: new Date(effectiveDate),
+            approvedBy: user.id
+          }
+        });
+        await prisma.promotionRequest.update({
+          where: { id: req.id },
+          data: { isExecuted: true }
+        });
+      }
   
       return req;
     },
@@ -942,6 +981,7 @@ me: async (_, __, { prisma, user, requireAuth }) => {
   
       // If approved and effectiveDate <= now, execute it immediately
       if (status === 'APPROVED' && new Date(req.effectiveDate) <= new Date()) {
+        const currentEmployee = await prisma.employee.findUnique({ where: { id: req.employeeId }});
         await prisma.employee.update({
           where: { id: req.employeeId },
           data: {
@@ -960,6 +1000,17 @@ me: async (_, __, { prisma, user, requireAuth }) => {
         if (req.newEmployeeGrade) {
           await applyDynamicBenefits(req.employeeId, req.newEmployeeGrade, prisma);
         }
+        await prisma.promotionHistory.create({
+          data: {
+            employeeId: req.employeeId,
+            previousTitle: currentEmployee.jobTitle,
+            newTitle: req.newJobTitle || currentEmployee.jobTitle,
+            previousGrade: currentEmployee.employeeGrade,
+            newGrade: req.newEmployeeGrade || currentEmployee.employeeGrade,
+            effectiveDate: new Date(req.effectiveDate),
+            approvedBy: user.id
+          }
+        });
         await prisma.promotionRequest.update({
           where: { id },
           data: { isExecuted: true }
@@ -2180,6 +2231,18 @@ me: async (_, __, { prisma, user, requireAuth }) => {
     },
     passportNumber: (parent, _, { user }) => {
       return (user.role === 'SUPER_ADMIN' || user.role === 'HR_ADMIN' || user.employeeId === parent.id) ? parent.passportNumber : null;
+    },
+    promotionHistory: async (parent, _, { prisma }) => {
+      return prisma.promotionHistory.findMany({ 
+        where: { employeeId: parent.id },
+        orderBy: { createdAt: 'desc' }
+      });
+    },
+    statusHistory: async (parent, _, { prisma }) => {
+      return prisma.employeeStatusHistory.findMany({ 
+        where: { employeeId: parent.id },
+        orderBy: { createdAt: 'desc' }
+      });
     }
   },
   Department: {

@@ -58,6 +58,7 @@ const menuItems = [
   { id: 'assets', label: 'Assets', icon: Laptop },
   { id: 'performance', label: 'Performance', icon: TrendingUp },
   { id: 'notes', label: 'Notes', icon: StickyNote },
+  { id: 'lifecycle', label: 'Lifecycle & History', icon: Clock },
 ];
 
 export default function EmployeeDetail({ employeeIdProp, onClose }) {
@@ -115,8 +116,9 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
     queryFn: async () => {
       const EMP_QUERY = gql`
         query GetEmployee($id: ID!) {
-          employee(id: $id) {
             id fullName email privateEmail phone dateOfBirth gender maritalStatus nationality nationalId passportNumber jobTitle departmentId department { name } manager { id fullName email } employmentStatus employmentType hireDate probationStartDate probationEndDate basicSalary allowances bankName bankAccountNumber pensionId hmoPlan hmoProvider pensionAdministrator
+            promotionHistory { id previousTitle newTitle previousGrade newGrade effectiveDate approvedBy createdAt }
+            statusHistory { id previousStatus newStatus changedBy reason createdAt }
           }
         }
       `;
@@ -150,7 +152,9 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
           iban: e.bankAccountNumber,
           gosi_number: e.pensionId
         },
-        contract_details: {}
+        contract_details: {},
+        promotion_history: e.promotionHistory || [],
+        status_history: e.statusHistory || []
       };
     },
     enabled: !!employeeId
@@ -318,7 +322,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
         mutation SuspendEmployee($id: ID!, $input: SuspendEmployeeInput!) {
           suspendEmployee(id: $id, input: $input) {
             id
-            employment_status
+            employmentStatus
           }
         }
       `;
@@ -1942,6 +1946,83 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
           </div>
         );
 
+      case 'lifecycle':
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-slate-900">Lifecycle & History</h3>
+            
+            <div className="space-y-4 mt-6">
+              <h4 className="font-medium text-slate-800">Promotion History</h4>
+              {employee.promotion_history && employee.promotion_history.length > 0 ? (
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-3 font-medium text-slate-700">Date</th>
+                        <th className="px-4 py-3 font-medium text-slate-700">Previous Title</th>
+                        <th className="px-4 py-3 font-medium text-slate-700">New Title</th>
+                        <th className="px-4 py-3 font-medium text-slate-700">Previous Grade</th>
+                        <th className="px-4 py-3 font-medium text-slate-700">New Grade</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {employee.promotion_history.map(ph => (
+                        <tr key={ph.id} className="bg-white hover:bg-slate-50">
+                          <td className="px-4 py-3">{new Date(Number(ph.effectiveDate) || ph.effectiveDate).toLocaleDateString()}</td>
+                          <td className="px-4 py-3 text-slate-600">{ph.previousTitle || 'N/A'}</td>
+                          <td className="px-4 py-3 font-medium text-slate-900">{ph.newTitle || 'N/A'}</td>
+                          <td className="px-4 py-3 text-slate-600">{ph.previousGrade || 'N/A'}</td>
+                          <td className="px-4 py-3 font-medium text-slate-900">{ph.newGrade || 'N/A'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-4 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 text-sm">
+                  No promotion history found.
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4 mt-8">
+              <h4 className="font-medium text-slate-800">Status History</h4>
+              {employee.status_history && employee.status_history.length > 0 ? (
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-3 font-medium text-slate-700">Date</th>
+                        <th className="px-4 py-3 font-medium text-slate-700">Previous Status</th>
+                        <th className="px-4 py-3 font-medium text-slate-700">New Status</th>
+                        <th className="px-4 py-3 font-medium text-slate-700">Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {employee.status_history.map(sh => (
+                        <tr key={sh.id} className="bg-white hover:bg-slate-50">
+                          <td className="px-4 py-3">{new Date(Number(sh.createdAt) || sh.createdAt).toLocaleDateString()}</td>
+                          <td className="px-4 py-3 text-slate-600">
+                            <Badge variant="outline">{sh.previousStatus}</Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200">{sh.newStatus}</Badge>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">{sh.reason || 'N/A'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-4 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 text-sm">
+                  No status history found.
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
       default:
         return (
           <div className="text-center py-12">
@@ -2214,6 +2295,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                   onChange={(e) => setPromoteForm({...promoteForm, jobTitle: e.target.value})}
                   placeholder="e.g. Senior Software Engineer"
                 />
+                {employee.job_title && <p className="text-xs text-slate-500 mt-1">Current: {employee.job_title}</p>}
               </div>
               <div className="space-y-2">
                 <Label>New Department</Label>
@@ -2228,6 +2310,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                     ))}
                   </SelectContent>
                 </Select>
+                {employee.department_name && <p className="text-xs text-slate-500 mt-1">Current: {employee.department_name}</p>}
               </div>
               <div className="space-y-2">
                 <Label>New Grade</Label>
@@ -2246,6 +2329,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                     <SelectItem value="CEO">CEO</SelectItem>
                   </SelectContent>
                 </Select>
+                {employee.employeeGrade && <p className="text-xs text-slate-500 mt-1">Current: {employee.employeeGrade}</p>}
               </div>
               <div className="space-y-2">
                 <Label>New Class</Label>
@@ -2254,6 +2338,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                   onChange={(e) => setPromoteForm({...promoteForm, employeeClass: e.target.value})}
                   placeholder="e.g. A, B, Professional"
                 />
+                {employee.employeeClass && <p className="text-xs text-slate-500 mt-1">Current: {employee.employeeClass}</p>}
               </div>
               <div className="flex items-center space-x-2 mt-4">
                 <Checkbox 
