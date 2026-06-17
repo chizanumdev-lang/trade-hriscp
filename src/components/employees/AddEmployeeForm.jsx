@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserPlus, Mail, Briefcase, Calendar, FileText } from "lucide-react";
+import ReactCountryFlag from "react-country-flag";
 
 export default function AddEmployeeForm({ templates, departments, onSubmit, onCancel, isSubmitting }) {
   const [formData, setFormData] = useState({
@@ -90,12 +91,42 @@ export default function AddEmployeeForm({ templates, departments, onSubmit, onCa
                       <SelectValue placeholder="Ext" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="+1">+1 (US/CA)</SelectItem>
-                      <SelectItem value="+44">+44 (UK)</SelectItem>
-                      <SelectItem value="+234">+234 (NG)</SelectItem>
-                      <SelectItem value="+91">+91 (IN)</SelectItem>
-                      <SelectItem value="+61">+61 (AU)</SelectItem>
-                      <SelectItem value="+27">+27 (ZA)</SelectItem>
+                      <SelectItem value="+1">
+                        <div className="flex items-center gap-2">
+                          <ReactCountryFlag countryCode="US" svg style={{ width: '1.2em', height: '1.2em', borderRadius: '2px' }} />
+                          <span>+1 (US/CA)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="+44">
+                        <div className="flex items-center gap-2">
+                          <ReactCountryFlag countryCode="GB" svg style={{ width: '1.2em', height: '1.2em', borderRadius: '2px' }} />
+                          <span>+44 (UK)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="+234">
+                        <div className="flex items-center gap-2">
+                          <ReactCountryFlag countryCode="NG" svg style={{ width: '1.2em', height: '1.2em', borderRadius: '2px' }} />
+                          <span>+234 (NG)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="+91">
+                        <div className="flex items-center gap-2">
+                          <ReactCountryFlag countryCode="IN" svg style={{ width: '1.2em', height: '1.2em', borderRadius: '2px' }} />
+                          <span>+91 (IN)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="+61">
+                        <div className="flex items-center gap-2">
+                          <ReactCountryFlag countryCode="AU" svg style={{ width: '1.2em', height: '1.2em', borderRadius: '2px' }} />
+                          <span>+61 (AU)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="+27">
+                        <div className="flex items-center gap-2">
+                          <ReactCountryFlag countryCode="ZA" svg style={{ width: '1.2em', height: '1.2em', borderRadius: '2px' }} />
+                          <span>+27 (ZA)</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <Input
