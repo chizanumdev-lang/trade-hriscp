@@ -1048,6 +1048,23 @@ me: async (_, __, { prisma, user, requireAuth }) => {
             where: { employeeId: id, role: 'EMPLOYEE' },
             data: { role: 'MANAGER' }
           });
+          
+          // Re-assign all other employees in the department to report to this new manager
+          await prisma.employee.updateMany({
+            where: { departmentId: targetDeptId, id: { not: id } },
+            data: { managerId: id }
+          });
+          
+          // Ensure the new department head reports to HR
+          const hrAdmin = await prisma.user.findFirst({
+            where: { organizationId: user.organizationId, role: 'HR_ADMIN', employeeId: { not: null } }
+          });
+          if (hrAdmin) {
+            await prisma.employee.update({
+              where: { id },
+              data: { managerId: hrAdmin.employeeId }
+            });
+          }
         }
       }
       
