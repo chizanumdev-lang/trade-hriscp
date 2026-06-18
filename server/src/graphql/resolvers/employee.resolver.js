@@ -183,6 +183,17 @@ createEmployee: async (_, {
       managerId
     }
   });
+
+  await prisma.employeeStatusHistory.create({
+    data: {
+      employeeId: emp.id,
+      previousStatus: null,
+      newStatus: 'DRAFT',
+      effectiveDate: new Date(),
+      changedById: user.id,
+      reason: 'Employee created'
+    }
+  });
   await createAuditLog({
     prisma,
     ipAddress,
@@ -297,6 +308,19 @@ updateEmployee: async (_, {
     },
     data: updateData
   });
+
+  if (updateData.employmentStatus && updateData.employmentStatus !== existing.employmentStatus) {
+    await prisma.employeeStatusHistory.create({
+      data: {
+        employeeId: id,
+        previousStatus: existing.employmentStatus,
+        newStatus: updateData.employmentStatus,
+        effectiveDate: new Date(),
+        changedById: user.id,
+        reason: 'Status updated via edit'
+      }
+    });
+  }
 
   // Update department head if requested
   if (isHeadOfDepartment) {

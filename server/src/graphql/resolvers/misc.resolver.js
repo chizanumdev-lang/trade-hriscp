@@ -435,13 +435,23 @@ approveEmployeeData: async (_, {
     throw new Error(`Cannot approve employee profile: ${pendingDocs} document(s) are pending approval. Please review and approve all documents first.`);
   }
 
-  // Update employee status to PENDING_ONBOARDING
   const updatedEmp = await prisma.employee.update({
     where: {
       id: employeeId
     },
     data: {
       employmentStatus: 'PENDING_ONBOARDING'
+    }
+  });
+
+  await prisma.employeeStatusHistory.create({
+    data: {
+      employeeId: employeeId,
+      previousStatus: emp.employmentStatus,
+      newStatus: 'PENDING_ONBOARDING',
+      effectiveDate: new Date(),
+      changedById: user.id,
+      reason: 'Employee data approved'
     }
   });
   await createAuditLog({
@@ -484,8 +494,20 @@ startOnboarding: async (_, {
       id: employeeId
     },
     data: {
+      onboardingStatus: 'in_progress',
       employmentStatus: 'ONGOING_ONBOARDING',
-      onboardingStatus: 'in_progress'
+      onboardingProgress: 0
+    }
+  });
+
+  await prisma.employeeStatusHistory.create({
+    data: {
+      employeeId: employeeId,
+      previousStatus: emp.employmentStatus,
+      newStatus: 'ONGOING_ONBOARDING',
+      effectiveDate: new Date(),
+      changedById: user.id,
+      reason: 'Onboarding started'
     }
   });
 
@@ -557,6 +579,18 @@ suspendEmployee: async (_, {
         organization: true
       }
     });
+
+    await tx.employeeStatusHistory.create({
+      data: {
+        employeeId: id,
+        previousStatus: employee.employmentStatus,
+        newStatus: 'SUSPENDED',
+        effectiveDate: new Date(),
+        changedById: user.id,
+        reason: input.reason || 'Employee suspended'
+      }
+    });
+
     await tx.suspension.create({
       data: {
         employeeId: id,
@@ -626,6 +660,17 @@ offboardEmployee: async (_, {
       include: {
         department: true,
         organization: true
+      }
+    });
+
+    await tx.employeeStatusHistory.create({
+      data: {
+        employeeId: id,
+        previousStatus: employee.employmentStatus,
+        newStatus: statusMap[input.exitType] || 'OFFBOARDED',
+        effectiveDate: new Date(),
+        changedById: user.id,
+        reason: input.reason || `Employee offboarded (${input.exitType})`
       }
     });
     await tx.auditLog.create({
