@@ -234,7 +234,7 @@ archiveDocument: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'Document',
     entityId: id,
     action: 'UPDATE',

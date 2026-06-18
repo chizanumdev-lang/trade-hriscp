@@ -536,7 +536,7 @@ startOnboarding: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'Employee',
     entityId: emp.id,
     action: 'START_ONBOARDING',
@@ -599,7 +599,7 @@ suspendEmployee: async (_, {
     });
     await tx.auditLog.create({
       data: {
-        actorId: user.id,
+        userId: user.id, organizationId: user.organizationId,
         action: 'SUSPEND',
         entityType: 'EMPLOYEE',
         entityId: id,
@@ -999,7 +999,7 @@ updateEmployeeSelf: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'Employee',
     entityId: existing.id,
     action: 'UPDATE_SELF',
@@ -1032,7 +1032,7 @@ deleteEmployee: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'Employee',
     entityId: id,
     action: 'DELETE',
@@ -1603,7 +1603,7 @@ processApproval: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'ApprovalRecord',
     entityId: approvalRecord.id,
     action: 'CREATE'
@@ -1758,7 +1758,7 @@ uploadDocument: async (_, args, {
     }
   });
   await createAuditLog({
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'Document',
     entityId: document.id,
     action: 'CREATE'
@@ -1818,7 +1818,7 @@ replaceDocumentVersion: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'Document',
     entityId: id,
     action: 'UPDATE',
@@ -1856,7 +1856,7 @@ deleteDocument: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'Document',
     entityId: id,
     action: 'DELETE',
@@ -1890,7 +1890,7 @@ approveDocument: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'Document',
     entityId: id,
     action: 'APPROVE'
@@ -1930,7 +1930,7 @@ rejectDocument: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'Document',
     entityId: id,
     action: 'REJECT'
@@ -1989,7 +1989,7 @@ approveProfileUpdateRequest: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'ProfileUpdateRequest',
     entityId: id,
     action: 'APPROVE'
@@ -2030,7 +2030,7 @@ rejectProfileUpdateRequest: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'ProfileUpdateRequest',
     entityId: id,
     action: 'REJECT'
@@ -2071,7 +2071,7 @@ requestCompensationUpdate: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'SalaryHistory',
     entityId: record.id,
     action: 'CREATED',

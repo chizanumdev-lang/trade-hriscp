@@ -196,7 +196,7 @@ createEmployee: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'Employee',
     entityId: emp.id,
     action: 'CREATE',
@@ -383,7 +383,7 @@ updateEmployee: async (_, {
   await createAuditLog({
     prisma,
     ipAddress,
-    actorId: user.id,
+    userId: user.id, organizationId: user.organizationId,
     entityType: 'Employee',
     entityId: id,
     action: actionWithContext,

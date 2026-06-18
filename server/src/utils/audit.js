@@ -12,23 +12,25 @@ import { prisma } from '../db.js';
  * @param {String} [params.ipAddress] - The IP address of the actor
  */
 export const createAuditLog = async ({
-  actorId,
+  userId,
+  organizationId,
   entityType,
   entityId,
   action,
-  previousValue,
-  newValue,
-  ipAddress
+  details,
+  ipAddress,
+  prisma: providedPrisma // Optional prisma client if passed in transactions
 }) => {
+  const db = providedPrisma || prisma;
   try {
-    await prisma.auditLog.create({
+    await db.auditLog.create({
       data: {
-        actorId,
+        userId,
+        organizationId,
+        action,
         entityType,
         entityId,
-        action,
-        previousValue,
-        newValue,
+        details,
         ipAddress
       }
     });

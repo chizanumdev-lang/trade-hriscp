@@ -129,7 +129,7 @@ export const payrollResolvers = {
       });
 
       await createAuditLog({
-        prisma, ipAddress, actorId: user.id, entityType: 'PayrollRun', entityId: id,
+        prisma, ipAddress, userId: user.id, organizationId: user.organizationId, entityType: 'PayrollRun', entityId: id,
         action: 'SUBMITTED', previousValue: { status: 'DRAFT' }, newValue: { status: 'PENDING_APPROVAL' }
       });
 
@@ -146,7 +146,7 @@ export const payrollResolvers = {
       });
 
       await createAuditLog({
-        prisma, ipAddress, actorId: user.id, entityType: 'PayrollRun', entityId: id,
+        prisma, ipAddress, userId: user.id, organizationId: user.organizationId, entityType: 'PayrollRun', entityId: id,
         action: 'APPROVED', previousValue: { status: pr.status }, newValue: { status: 'APPROVED' }
       });
 
@@ -199,7 +199,7 @@ export const payrollResolvers = {
       });
 
       await createAuditLog({
-        prisma, ipAddress, actorId: user.id, entityType: 'PayrollRun', entityId: id,
+        prisma, ipAddress, userId: user.id, organizationId: user.organizationId, entityType: 'PayrollRun', entityId: id,
         action: 'REJECTED', previousValue: { status: pr.status }, newValue: { status: 'REJECTED' }
       });
 
