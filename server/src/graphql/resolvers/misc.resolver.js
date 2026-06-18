@@ -449,8 +449,7 @@ approveEmployeeData: async (_, {
       employeeId: employeeId,
       previousStatus: emp.employmentStatus,
       newStatus: 'PENDING_ONBOARDING',
-      effectiveDate: new Date(),
-      changedById: user.id,
+      changedBy: user.id,
       reason: 'Employee data approved'
     }
   });
@@ -505,8 +504,7 @@ startOnboarding: async (_, {
       employeeId: employeeId,
       previousStatus: emp.employmentStatus,
       newStatus: 'ONGOING_ONBOARDING',
-      effectiveDate: new Date(),
-      changedById: user.id,
+      changedBy: user.id,
       reason: 'Onboarding started'
     }
   });
@@ -585,8 +583,7 @@ suspendEmployee: async (_, {
         employeeId: id,
         previousStatus: employee.employmentStatus,
         newStatus: 'SUSPENDED',
-        effectiveDate: new Date(),
-        changedById: user.id,
+        changedBy: user.id,
         reason: input.reason || 'Employee suspended'
       }
     });
@@ -668,8 +665,7 @@ offboardEmployee: async (_, {
         employeeId: id,
         previousStatus: employee.employmentStatus,
         newStatus: statusMap[input.exitType] || 'OFFBOARDED',
-        effectiveDate: new Date(),
-        changedById: user.id,
+        changedBy: user.id,
         reason: input.reason || `Employee offboarded (${input.exitType})`
       }
     });

@@ -160,6 +160,40 @@ export const typeDefs = `#graphql
     daysPerYear: Int!
     isPaid: Boolean!
     requiresApproval: Boolean!
+    eligibleAfterDays: Int
+    applicableTo: JSON
+    isActive: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type LeaveBalance {
+    id: ID!
+    employeeId: String!
+    leaveTypeId: String!
+    year: Int!
+    totalAllocated: Float!
+    used: Float!
+    pending: Float!
+    available: Float!
+    carriedForward: Float!
+    expired: Float!
+    accrualRunAt: String
+    leaveType: LeaveType
+  }
+
+  type PublicHoliday {
+    id: ID!
+    organizationId: String!
+    name: String!
+    date: String!
+    isRecurring: Boolean!
+  }
+
+  input PublicHolidayInput {
+    name: String!
+    date: String!
+    isRecurring: Boolean
   }
 
   type LeaveRequest {
@@ -263,16 +297,76 @@ export const typeDefs = `#graphql
   type PayrollRecord {
     id: ID!
     employeeId: String!
+    employee: Employee
     basicSalary: Float
-    employeeClass: String
-    employeeGrade: String
-    hmoPlan: String
-    hmoProvider: String
-    pensionAdministrator: String!
+    allowances: JSON
     grossPay: Float!
+    deductions: JSON
     totalDeductions: Float!
     netPay: Float!
     payslipUrl: String
+    paymentBatches: JSON
+  }
+
+  type CompensationStructure {
+    id: ID!
+    organizationId: String!
+    name: String!
+    departmentId: String
+    gradeLevel: String
+    effectiveDate: String!
+    components: JSON!
+    status: String!
+    createdAt: String!
+  }
+
+  type EmployeeCompensation {
+    id: ID!
+    employeeId: String!
+    compensationStructureId: String!
+    compensationStructure: CompensationStructure
+    salaryAmount: Float!
+    overrides: JSON
+    effectiveDate: String!
+  }
+
+  type CompensationHistory {
+    id: ID!
+    employeeId: String!
+    previousSalary: Float!
+    newSalary: Float!
+    effectiveDate: String!
+    initiatorId: String!
+    approverId: String
+    createdAt: String!
+  }
+
+  type PayrollAdjustment {
+    id: ID!
+    employeeId: String!
+    payrollRunId: String
+    type: String!
+    amount: Float!
+    reason: String!
+    status: String!
+    createdAt: String!
+  }
+
+  type Payslip {
+    id: ID!
+    employeeId: String!
+    payrollRunId: String!
+    pdfUrl: String
+    issuedAt: String!
+    downloadCount: Int!
+  }
+
+  type PaymentBatch {
+    id: ID!
+    payrollRunId: String!
+    batchLabel: String!
+    percentage: Float!
+    records: JSON!
   }
 
   type SalaryHistory {
@@ -452,6 +546,9 @@ export const typeDefs = `#graphql
     leaveTypes: [LeaveType]
     leaveRequests(employeeId: ID): [LeaveRequest]
     paginatedLeaveRequests(page: Int, limit: Int, employeeId: ID): PaginatedLeaveRequests!
+    leaveBalances(employeeId: ID!): [LeaveBalance!]!
+    leaveCalendar(month: Int!, departmentId: ID): [LeaveRequest!]!
+    publicHolidays(year: Int!): [PublicHoliday!]!
     myLeavePlans(year: Int!): [LeavePlan!]!
     teamLeavePlans(year: Int!): [LeavePlan!]!
     attendanceRecords(employeeId: ID, date: String): [Attendance]
@@ -633,11 +730,13 @@ export const typeDefs = `#graphql
     processApproval(entityType: String!, entityId: ID!, action: String!, comments: String): ApprovalRecord!
 
     # Phase 2 Mutations
-    createLeaveType(name: String!, daysPerYear: Int!, isPaid: Boolean, requiresApproval: Boolean): LeaveType!
+    createLeaveType(name: String!, daysPerYear: Int!, isPaid: Boolean, requiresApproval: Boolean, eligibleAfterDays: Int, applicableTo: JSON): LeaveType!
     submitLeaveRequest(input: LeaveRequestInput!): LeaveRequest!
     approveLeaveRequest(id: ID!): LeaveRequest!
-    rejectLeaveRequest(id: ID!, reason: String, attachmentUrl: String): LeaveRequest!
-    cancelLeaveRequest(id: ID!): LeaveRequest!
+    rejectLeaveRequest(id: ID!, reason: String): LeaveRequest!
+    cancelLeaveRequest(id: ID!, reason: String): LeaveRequest!
+    createPublicHoliday(input: PublicHolidayInput!): PublicHoliday!
+    deletePublicHoliday(id: ID!): Boolean!
     
     submitLeavePlan(year: Int!, plannedDates: [String!]!): LeavePlan!
     approveLeavePlan(planId: ID!): LeavePlan!

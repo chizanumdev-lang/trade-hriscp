@@ -108,6 +108,41 @@ export default function Payroll() {
     }
   });
 
+  const lockRunMutation = useMutation({
+    mutationFn: async (id) => {
+      const MUTATION = `mutation LockRun($id: ID!) { lockPayrollRun(id: $id) { id status } }`;
+      await gqlClient.request(MUTATION, { id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['payroll-runs']);
+      toast.success("Payroll run locked successfully");
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error("Failed to lock payroll run");
+    }
+  });
+
+  const generatePaymentBatchesMutation = useMutation({
+    mutationFn: async (id) => {
+      const MUTATION = `
+        mutation GenerateBatches($id: ID!) { 
+          generatePaymentInstructions(payrollRunId: $id) { id batchLabel percentage } 
+        }
+      `;
+      const data = await gqlClient.request(MUTATION, { id });
+      return data.generatePaymentInstructions;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['payroll-runs']);
+      toast.success("Payment batches generated and ready for export");
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error("Failed to generate payment batches");
+    }
+  });
+
   const generatePayslipMutation = useMutation({
     mutationFn: async (recordId) => {
       const MUTATION = `mutation GenPayslip($id: ID!) { generatePayslip(recordId: $id) }`;
@@ -134,29 +169,54 @@ export default function Payroll() {
                 <ArrowLeft className="w-4 h-4 mr-2" /> Back to Runs
               </Button>
               
-              <Badge variant="outline" className={run?.status === 'APPROVED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>
+              <Badge variant="outline" className={
+                run?.status === 'APPROVED' || run?.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 
+                run?.status === 'LOCKED' || run?.status === 'PAYMENT_GENERATED' ? 'bg-blue-100 text-blue-700' :
+                'bg-yellow-100 text-yellow-700'
+              }>
                 {run?.status}
               </Badge>
             </div>
-            {run?.status === 'DRAFT' && (
-              <Button 
-                onClick={() => submitRunMutation.mutate(run.id)}
-                disabled={submitRunMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {submitRunMutation.isPending ? 'Submitting...' : 'Submit for Approval'}
-              </Button>
-            )}
-            {run?.status === 'PENDING_APPROVAL' && canApprove && (
-              <Button 
-                onClick={() => approveRunMutation.mutate(run.id)}
-                disabled={approveRunMutation.isPending}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                {approveRunMutation.isPending ? 'Approving...' : 'Approve Run'}
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {run?.status === 'DRAFT' && (
+                <Button 
+                  onClick={() => submitRunMutation.mutate(run.id)}
+                  disabled={submitRunMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {submitRunMutation.isPending ? 'Submitting...' : 'Submit for Approval'}
+                </Button>
+              )}
+              {run?.status === 'PENDING_APPROVAL' && canApprove && (
+                <Button 
+                  onClick={() => approveRunMutation.mutate(run.id)}
+                  disabled={approveRunMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {approveRunMutation.isPending ? 'Approving...' : 'Approve Run'}
+                </Button>
+              )}
+              {run?.status === 'APPROVED' && canApprove && (
+                <Button 
+                  onClick={() => lockRunMutation.mutate(run.id)}
+                  disabled={lockRunMutation.isPending}
+                  className="bg-slate-800 hover:bg-slate-900 text-white"
+                >
+                  {lockRunMutation.isPending ? 'Locking...' : 'Lock Payroll'}
+                </Button>
+              )}
+              {run?.status === 'LOCKED' && canApprove && (
+                <Button 
+                  onClick={() => generatePaymentBatchesMutation.mutate(run.id)}
+                  disabled={generatePaymentBatchesMutation.isPending}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {generatePaymentBatchesMutation.isPending ? 'Generating...' : 'Generate Bank CSV'}
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">

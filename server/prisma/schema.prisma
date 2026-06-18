@@ -52,7 +52,22 @@ enum PayrollStatus {
   DRAFT
   PENDING_APPROVAL
   APPROVED
+  LOCKED
+  PAYMENT_GENERATED
+  COMPLETED
   PAID
+}
+
+enum CompensationStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+}
+
+enum PayrollAdjustmentStatus {
+  DRAFT
+  APPROVED
+  PROCESSED
 }
 
 enum LeaveAccrualType {
@@ -143,6 +158,8 @@ model Organization {
   employees         Employee[]
   departments       Department[]
   leaveTypes        LeaveType[]
+  publicHolidays    PublicHoliday[]
+  compensationStructures CompensationStructure[]
   shifts            Shift[]
   announcements     Announcement[]
   policies          Policy[]
@@ -166,6 +183,7 @@ model Department {
   updatedAt      DateTime       @updatedAt
 
   employees Employee[]
+  compensationStructures CompensationStructure[]
 }
 
 // ─── EMPLOYEE (Central Source of Truth) ───────────────────
@@ -265,6 +283,10 @@ model Employee {
   expenseClaims         ExpenseClaim[]
   loans                 Loan[]
   promotionRequests     PromotionRequest[]
+  employeeCompensation  EmployeeCompensation?
+  compensationHistory   CompensationHistory[]
+  payrollAdjustments    PayrollAdjustment[]
+  payslips              Payslip[]
 }
 
 // ─── EMPLOYEE STATUS HISTORY ──────────────────────────────
@@ -328,6 +350,8 @@ model LeaveType {
   requiresReliefOfficer Boolean          @default(false)
   requiresProof         Boolean          @default(false)
   accrualType           LeaveAccrualType @default(ALL_AT_ONCE)
+  eligibleAfterDays     Int?             @default(0)
+  applicableTo          Json?            // Filter by department/grade
   isActive              Boolean          @default(true)
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
@@ -348,6 +372,8 @@ model LeaveBalance {
   pending        Float     @default(0)
   available      Float
   carriedForward Float     @default(0)
+  expired        Float     @default(0)
+  accrualRunAt   DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -370,6 +396,10 @@ model LeaveRequest {
   handoverNote    String?
   attachmentUrl   String?
   status          ApprovalStatus @default(PENDING)
+  rejectionReason    String?
+  cancellationReason String?
+  cancelledAt        DateTime?
+  cancelledById      String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -462,6 +492,7 @@ model PayrollRecord {
   overtimeHours   Float      @default(0)
   overtimeAmount  Float      @default(0)
   payslipUrl      String? // Generated PDF URL
+  paymentBatches  Json?   // 60/40 splits generated
   notes           String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
@@ -814,4 +845,98 @@ model Loan {
   startDate        DateTime
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+// ─── PUBLIC HOLIDAYS ──────────────────────────────────────
+
+model PublicHoliday {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  date           DateTime
+  isRecurring    Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, date])
+}
+
+// ─── COMPENSATION & ADJUSTMENTS ───────────────────────────
+
+model CompensationStructure {
+  id             String             @id @default(uuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id])
+  name           String
+  departmentId   String?
+  department     Department?        @relation(fields: [departmentId], references: [id])
+  gradeLevel     String?
+  effectiveDate  DateTime
+  components     Json               // { earnings: {}, deductions: {} }
+  status         CompensationStatus @default(DRAFT)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  employeeCompensations EmployeeCompensation[]
+}
+
+model EmployeeCompensation {
+  id                      String                @id @default(uuid())
+  employeeId              String                @unique
+  employee                Employee              @relation(fields: [employeeId], references: [id])
+  compensationStructureId String
+  compensationStructure   CompensationStructure @relation(fields: [compensationStructureId], references: [id])
+  salaryAmount            Float
+  overrides               Json?                 // { addedAllowances: {}, removedAllowances: {} }
+  effectiveDate           DateTime
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+}
+
+model CompensationHistory {
+  id             String   @id @default(uuid())
+  employeeId     String
+  employee       Employee @relation(fields: [employeeId], references: [id])
+  previousSalary Float
+  newSalary      Float
+  effectiveDate  DateTime
+  initiatorId    String
+  approverId     String?
+  createdAt      DateTime @default(now())
+}
+
+model PayrollAdjustment {
+  id           String                  @id @default(uuid())
+  employeeId   String
+  employee     Employee                @relation(fields: [employeeId], references: [id])
+  payrollRunId String?
+  type         String                  // BONUS, DEDUCTION, REIMBURSEMENT
+  amount       Float
+  reason       String
+  status       PayrollAdjustmentStatus @default(DRAFT)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+}
+
+model Payslip {
+  id            String     @id @default(uuid())
+  employeeId    String
+  employee      Employee   @relation(fields: [employeeId], references: [id])
+  payrollRunId  String
+  pdfUrl        String?
+  issuedAt      DateTime
+  downloadCount Int        @default(0)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model PaymentBatch {
+  id           String     @id @default(uuid())
+  payrollRunId String
+  batchLabel   String     // FIRST (60%), SECOND (40%)
+  percentage   Float
+  records      Json       // Array of payment instructions
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 }

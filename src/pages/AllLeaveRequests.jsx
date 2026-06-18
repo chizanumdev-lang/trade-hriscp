@@ -144,7 +144,7 @@ export default function AllLeaveRequests() {
             attachmentUrl: $attachmentUrl,
             isHalfDay: $isHalfDay,
             selectedDates: $selectedDates
-          }) { id }
+          }) { id status }
         }
       `;
       
@@ -152,7 +152,6 @@ export default function AllLeaveRequests() {
       const end = data.useMultipleDates && data.selectedDates.length > 0 ? data.selectedDates[data.selectedDates.length - 1] : data.end_date;
 
       const leave = await gqlClient.request(CREATE_LEAVE, {
-        employeeId: data.employee_id,
         leaveTypeId: data.leave_type, // Using leaveType ID now
         startDate: new Date(start || new Date()).toISOString(),
         endDate: new Date(end || new Date()).toISOString(),
@@ -163,7 +162,7 @@ export default function AllLeaveRequests() {
         selectedDates: data.useMultipleDates ? data.selectedDates : []
       });
 
-      await createAuditLog('create', leave.id, data.employee_id, { after: leave });
+      await createAuditLog('create', leave.submitLeaveRequest.id, data.employee_id, { after: leave.submitLeaveRequest });
       return leave;
     },
     onSuccess: () => {

@@ -93,6 +93,23 @@ export default function LeaveOverview() {
     initialData: [],
   });
 
+  const { data: leaveBalances = [], refetch: refetchBalances } = useQuery({
+    queryKey: ['leave-balances', user?.employeeId],
+    queryFn: async () => {
+      if (!user?.employeeId) return [];
+      const BALANCES_QUERY = gql`
+        query GetBalances($employeeId: ID!) { 
+          leaveBalances(employeeId: $employeeId) { 
+            id leaveTypeId entitlement used pending available carriedForward expired 
+          } 
+        }
+      `;
+      const data = await gqlClient.request(BALANCES_QUERY, { employeeId: user.employeeId });
+      return data.leaveBalances || [];
+    },
+    enabled: !!user?.employeeId,
+  });
+
   const createLeaveMutation = useMutation({
     mutationFn: async (data) => {
       const CREATE_LEAVE = gql`
@@ -106,7 +123,7 @@ export default function LeaveOverview() {
             attachmentUrl: $attachmentUrl,
             isHalfDay: $isHalfDay,
             selectedDates: $selectedDates
-          }) { id }
+          }) { id status }
         }
       `;
       
@@ -114,7 +131,6 @@ export default function LeaveOverview() {
       const end = data.useMultipleDates && data.selectedDates.length > 0 ? data.selectedDates[data.selectedDates.length - 1] : data.end_date;
 
       return gqlClient.request(CREATE_LEAVE, {
-        employeeId: data.employee_email,
         leaveTypeId: data.leave_type,
         startDate: new Date(start).toISOString(),
         endDate: new Date(end).toISOString(),
@@ -127,6 +143,7 @@ export default function LeaveOverview() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
+      refetchBalances();
       setShowForm(false);
       setFormData({
         employee_email: employee?.email || '',
@@ -141,6 +158,10 @@ export default function LeaveOverview() {
         selectedDates: [],
       });
     },
+    onError: (error) => {
+      console.error(error);
+      alert(error.message || "Failed to submit leave request.");
+    }
   });
 
   const updateLeaveMutation = useMutation({
@@ -214,10 +235,18 @@ export default function LeaveOverview() {
     if (!start || !end) return 0;
     const startDate = new Date(start);
     const endDate = new Date(end);
-    if (endDate < startDate) return 0; // Prevent negative days
+    if (endDate < startDate) return 0;
 
-    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    let days = 0;
+    let currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      const dayOfWeek = currentDate.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        days++;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return days;
   };
 
   const handleDateChange = (field, value) => {
@@ -285,22 +314,32 @@ export default function LeaveOverview() {
 
         {/* Leave Balances */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {leaveTypes.map(type => {
-            const usedDays = myRequests
-              .filter(r => r.leaveTypeId === type.id && r.status === 'APPROVED')
-              .reduce((sum, r) => sum + r.totalDays, 0);
-            const remaining = type.daysPerYear - usedDays;
-            
-            return (
-              <Card key={type.id} className="border-slate-200">
+          {leaveBalances.length > 0 ? (
+            leaveBalances.map(balance => {
+              const type = leaveTypes.find(t => t.id === balance.leaveTypeId) || { name: 'Unknown' };
+              return (
+                <Card key={balance.id} className="border-slate-200">
+                  <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                    <p className="text-sm font-medium text-slate-500 uppercase">{type.name}</p>
+                    <p className="text-3xl font-bold text-blue-600 my-2">{balance.available}</p>
+                    <p className="text-xs text-slate-400">
+                      Entitlement: {balance.entitlement} | Used: {balance.used} | Pending: {balance.pending}
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            })
+          ) : (
+            leaveTypes.map(type => (
+              <Card key={type.id} className="border-slate-200 opacity-50">
                 <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                   <p className="text-sm font-medium text-slate-500 uppercase">{type.name}</p>
-                  <p className="text-3xl font-bold text-blue-600 my-2">{remaining}</p>
-                  <p className="text-xs text-slate-400">of {type.daysPerYear} days available</p>
+                  <p className="text-3xl font-bold text-slate-400 my-2">-</p>
+                  <p className="text-xs text-slate-400">Balance not initialized</p>
                 </CardContent>
               </Card>
-            );
-          })}
+            ))
+          )}
         </div>
 
         {/* Request Form */}

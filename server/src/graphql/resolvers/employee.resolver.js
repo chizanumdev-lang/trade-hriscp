@@ -187,10 +187,9 @@ createEmployee: async (_, {
   await prisma.employeeStatusHistory.create({
     data: {
       employeeId: emp.id,
-      previousStatus: null,
+      previousStatus: 'DRAFT',
       newStatus: 'DRAFT',
-      effectiveDate: new Date(),
-      changedById: user.id,
+      changedBy: user.id,
       reason: 'Employee created'
     }
   });
@@ -315,8 +314,7 @@ updateEmployee: async (_, {
         employeeId: id,
         previousStatus: existing.employmentStatus,
         newStatus: updateData.employmentStatus,
-        effectiveDate: new Date(),
-        changedById: user.id,
+        changedBy: user.id,
         reason: 'Status updated via edit'
       }
     });
