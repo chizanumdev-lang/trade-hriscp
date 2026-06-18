@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import depthLimit from 'graphql-depth-limit';
-import { createComplexityRule } from 'graphql-validation-complexity';
+import { createComplexityLimitRule } from 'graphql-validation-complexity';
 import { prisma } from './db.js';
 import { createContext } from './context.js';
 import { typeDefs } from './graphql/typeDefs.js';
@@ -87,9 +87,7 @@ const server = new ApolloServer({
   resolvers,
   validationRules: [
     depthLimit(10),
-    createComplexityRule({
-      maximumComplexity: 1000,
-      variables: {},
+    createComplexityLimitRule(1000, {
       onCost: (cost) => logger.info({ cost }, 'Query cost'),
     }),
   ],
