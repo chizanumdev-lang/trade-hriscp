@@ -1,4 +1,6 @@
 export const typeDefs = `#graphql
+  scalar JSON
+
   type User {
     id: ID!
     email: String!
