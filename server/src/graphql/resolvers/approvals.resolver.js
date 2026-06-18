@@ -176,24 +176,41 @@ previewPromotionBenefits: async (_, {
 profileUpdateRequests: async (_, __, {
   prisma,
   user,
-  requireRole
+  requireAuth
 }) => {
-  requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
-  // Should filter by organizationId, but profileUpdateRequest only has employeeId
-  // We will fetch where employee.organizationId == user.organizationId
-  return prisma.profileUpdateRequest.findMany({
-    where: {
-      employee: {
-        organizationId: user.organizationId
+  requireAuth();
+  if (['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role)) {
+    return prisma.profileUpdateRequest.findMany({
+      where: {
+        employee: {
+          organizationId: user.organizationId
+        }
+      },
+      include: {
+        employee: true
+      },
+      orderBy: {
+        createdAt: 'desc'
       }
-    },
-    include: {
-      employee: true
-    },
-    orderBy: {
-      createdAt: 'desc'
-    }
-  });
+    });
+  } else if (user.role === 'MANAGER') {
+    return prisma.profileUpdateRequest.findMany({
+      where: {
+        employee: {
+          organizationId: user.organizationId,
+          managerId: user.employeeId
+        }
+      },
+      include: {
+        employee: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+  } else {
+    return [];
+  }
 }
   },
 };
