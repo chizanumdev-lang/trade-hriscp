@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { CheckCircle2, XCircle, FileText, UserCircle, CalendarRange, Eye, Inbox, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import EmployeeDetail from './EmployeeDetail';
+import UnifiedProfileReviewDialog from '../components/UnifiedProfileReviewDialog';
 
 const GET_PENDING_APPROVALS = gql`
   query GetPendingApprovals {
@@ -202,6 +203,7 @@ const EmptyState = ({ message, icon: Icon }) => (
 export default function PendingApprovals() {
   const queryClient = useQueryClient();
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
+  const [selectedUnifiedEmployeeId, setSelectedUnifiedEmployeeId] = useState(null);
   const { data, isLoading: loading, error } = useQuery({
     queryKey: ['pendingApprovals'],
     queryFn: () => gqlClient.request(GET_PENDING_APPROVALS)
@@ -304,9 +306,26 @@ export default function PendingApprovals() {
   const pendingLeaves = data?.leaveRequests?.filter(l => l.status === 'PENDING') || [];
   const pendingProfiles = data?.profileUpdateRequests?.filter(p => p.status === 'PENDING') || [];
 
+  // Group by Employee for Unified View
+  const unifiedEmployeeIds = Array.from(new Set([
+    ...pendingEmployees.map(e => e.id),
+    ...pendingDocuments.map(d => d.employeeId),
+    ...pendingProfiles.map(p => p.employeeId)
+  ]));
+
   const getEmployeeName = (empId) => {
     const emp = data?.employees?.find(e => e.id === empId);
     return emp ? emp.fullName : 'Unknown Employee';
+  };
+
+  const getEmployeeDept = (empId) => {
+    const emp = data?.employees?.find(e => e.id === empId);
+    return emp?.department?.name || 'No Dept';
+  };
+
+  const getEmployeeJobTitle = (empId) => {
+    const emp = data?.employees?.find(e => e.id === empId);
+    return emp?.jobTitle || 'No Title';
   };
 
   return (
@@ -327,6 +346,15 @@ export default function PendingApprovals() {
           )}
         </DialogContent>
       </Dialog>
+      <UnifiedProfileReviewDialog 
+        open={!!selectedUnifiedEmployeeId}
+        onOpenChange={(open) => !open && setSelectedUnifiedEmployeeId(null)}
+        employeeId={selectedUnifiedEmployeeId}
+        employeeName={getEmployeeName(selectedUnifiedEmployeeId)}
+        isPendingActivation={pendingEmployees.some(e => e.id === selectedUnifiedEmployeeId)}
+        pendingDocs={pendingDocuments.filter(d => d.employeeId === selectedUnifiedEmployeeId)}
+        pendingProfiles={pendingProfiles.filter(p => p.employeeId === selectedUnifiedEmployeeId)}
+      />
       <motion.div variants={itemVariants}>
         <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-full mb-4">
           <Inbox className="w-4 h-4 text-indigo-600" />
@@ -337,8 +365,13 @@ export default function PendingApprovals() {
       </motion.div>
 
       <motion.div variants={itemVariants}>
-        <Tabs defaultValue="onboarding" className="space-y-6">
-          <TabsList className="bg-slate-50/80 border border-slate-100 p-1.5 rounded-xl">
+        <Tabs defaultValue="unified" className="space-y-6">
+          <TabsList className="bg-slate-50/80 border border-slate-100 p-1.5 rounded-xl flex-wrap h-auto">
+            <TabsTrigger value="unified" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex gap-2">
+              <UserCircle className="w-4 h-4" />
+              Unified Reviews
+              {unifiedEmployeeIds.length > 0 && <Badge variant="secondary" className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0 min-w-[20px]">{unifiedEmployeeIds.length}</Badge>}
+            </TabsTrigger>
             <TabsTrigger value="onboarding" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex gap-2">
               <UserCircle className="w-4 h-4" />
               Onboarding 
@@ -362,6 +395,48 @@ export default function PendingApprovals() {
           </TabsList>
 
           <div className="pt-2">
+            <TabsContent value="unified" className="m-0 focus-visible:outline-none">
+              {loading ? (
+                <ApprovalsSkeleton />
+              ) : unifiedEmployeeIds.length === 0 ? (
+                <EmptyState message="No pending reviews across the organization." icon={UserCircle} />
+              ) : (
+                <div className="space-y-3">
+                  {unifiedEmployeeIds.map(empId => {
+                    const eDocs = pendingDocuments.filter(d => d.employeeId === empId).length;
+                    const eProfs = pendingProfiles.filter(p => p.employeeId === empId).length;
+                    const ePendingOnboarding = pendingEmployees.some(e => e.id === empId);
+
+                    return (
+                      <motion.div 
+                        key={empId} 
+                        whileHover={{ y: -2 }}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border border-slate-200/60 rounded-xl bg-white shadow-sm hover:shadow-md transition-all gap-4 group"
+                      >
+                        <div>
+                          <h4 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{getEmployeeName(empId)}</h4>
+                          <p className="text-sm text-slate-500 mt-1">{getEmployeeJobTitle(empId)} • <span className="font-medium text-slate-600">{getEmployeeDept(empId)}</span></p>
+                          <div className="flex gap-2 mt-2">
+                            {ePendingOnboarding && <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">Pending Activation</Badge>}
+                            {eProfs > 0 && <Badge variant="outline" className="text-indigo-600 border-indigo-200 bg-indigo-50">{eProfs} Profile Changes</Badge>}
+                            {eDocs > 0 && <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">{eDocs} Documents</Badge>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button 
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
+                            onClick={() => setSelectedUnifiedEmployeeId(empId)}
+                          >
+                            Review & Action
+                          </Button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+
             <TabsContent value="onboarding" className="m-0 focus-visible:outline-none">
               {loading ? (
                 <ApprovalsSkeleton />
