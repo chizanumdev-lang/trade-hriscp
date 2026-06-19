@@ -281,21 +281,18 @@ onboardingTasks: async (_, { employeeId }, {
   requireAuth();
   const isAdmin = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role);
   
-  if (!isAdmin) {
-    if (employeeId && employeeId !== user.employeeId) {
-      throw new Error('Not authorized to view these tasks');
-    }
-    return prisma.onboardingTask.findMany({
-      where: {
-        employeeId: user.employeeId
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-  }
-
   const where = {
     employee: { organizationId: user.organizationId }
   };
+
+  if (!isAdmin) {
+    where.OR = [
+      { employeeId: user.employeeId },
+      { assignedTo: user.email },
+      { assignedTo: user.id }
+    ];
+  }
+
   if (employeeId) {
     where.employeeId = employeeId;
   }
