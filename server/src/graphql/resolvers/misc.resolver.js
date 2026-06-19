@@ -443,7 +443,7 @@ approveEmployeeData: async (_, {
       status: 'PENDING'
     },
     data: {
-      status: 'APPROVED'
+      status: 'ACTIVE'
     }
   });
   const updatedEmp = await prisma.employee.update({
