@@ -77,13 +77,11 @@ const checkAndPromoteEmployee = async (employeeId, prisma) => {
         });
         if (managerUser) {
           await NotificationService.notify({
-            prisma,
             userId: managerUser.id,
-            organizationId: emp.organizationId,
+            category: 'approval',
             title: 'Employee Approval Required',
             message: `${emp.firstName} ${emp.lastName} has completed their profile and is waiting for approval.`,
-            type: 'APPROVAL',
-            link: `/employees/${emp.id}`
+            deepLink: `/employees/${emp.id}`
           });
         }
       }
@@ -2012,6 +2010,20 @@ approveDocument: async (_, {
     action: 'APPROVED',
     previousStatus: document.status
   });
+  // Notify the employee that their document was approved
+  const docEmployee = await prisma.employee.findUnique({
+    where: { id: document.employeeId },
+    include: { user: true }
+  });
+  if (docEmployee?.user?.id) {
+    await NotificationService.notify({
+      userId: docEmployee.user.id,
+      category: 'approval',
+      title: 'Document Approved',
+      message: `Your document "${document.name}" has been approved.`,
+      deepLink: '/EmployeeSelfService'
+    });
+  }
   return updatedDocument;
 },
 rejectDocument: async (_, {
@@ -2054,14 +2066,20 @@ rejectDocument: async (_, {
     previousStatus: document.status
   });
   if (reason) {
-    await prisma.notification.create({
-      data: {
-        userId: document.employeeId,
+    // Find the employee's user account to notify them correctly
+    const docEmployee = await prisma.employee.findUnique({
+      where: { id: document.employeeId },
+      include: { user: true }
+    });
+    if (docEmployee?.user?.id) {
+      await NotificationService.notify({
+        userId: docEmployee.user.id,
+        category: 'approval',
         title: 'Document Rejected',
         message: `Your document "${document.name}" was rejected. Reason: ${reason}`,
-        category: 'ONBOARDING'
-      }
-    });
+        deepLink: '/EmployeeSelfService'
+      });
+    }
   }
   return document;
 },
@@ -2111,6 +2129,20 @@ approveProfileUpdateRequest: async (_, {
     action: 'APPROVED',
     previousStatus: request.status
   });
+  // Notify the employee that their profile update was approved
+  const profileEmployee = await prisma.employee.findUnique({
+    where: { id: request.employeeId },
+    include: { user: true }
+  });
+  if (profileEmployee?.user?.id) {
+    await NotificationService.notify({
+      userId: profileEmployee.user.id,
+      category: 'approval',
+      title: 'Profile Update Approved',
+      message: `Your request to update "${request.fieldName}" has been approved.`,
+      deepLink: '/EmployeeSelfService'
+    });
+  }
   return updatedRequest;
 },
 rejectProfileUpdateRequest: async (_, {

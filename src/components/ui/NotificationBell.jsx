@@ -44,7 +44,7 @@ export default function NotificationBell() {
   const { data: { notifications = [] } = {}, isLoading } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => gqlClient.request(GET_NOTIFICATIONS),
-    refetchInterval: 30000, // Poll every 30s
+    refetchInterval: 10000, // Poll every 10s
   });
 
   const markReadMutation = useMutation({

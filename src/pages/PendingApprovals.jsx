@@ -209,7 +209,10 @@ export default function PendingApprovals() {
     queryFn: () => gqlClient.request(GET_PENDING_APPROVALS)
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+  };
 
   const handleError = (err) => {
     const errMsg = err.response?.errors?.[0]?.message || err.message || "Operation failed.";
@@ -306,6 +309,8 @@ export default function PendingApprovals() {
   const pendingLeaves = data?.leaveRequests?.filter(l => l.status === 'PENDING') || [];
   const pendingProfiles = data?.profileUpdateRequests?.filter(p => p.status === 'PENDING') || [];
 
+  const standalonePendingDocuments = pendingDocuments.filter(d => !pendingEmployees.some(e => e.id === d.employeeId));
+
   // Group by Employee for Unified View
   const unifiedEmployeeIds = Array.from(new Set([
     ...pendingEmployees.map(e => e.id),
@@ -380,7 +385,7 @@ export default function PendingApprovals() {
             <TabsTrigger value="documents" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex gap-2">
               <FileText className="w-4 h-4" />
               Documents
-              {pendingDocuments.length > 0 && <Badge variant="secondary" className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0 min-w-[20px]">{pendingDocuments.length}</Badge>}
+              {standalonePendingDocuments.length > 0 && <Badge variant="secondary" className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0 min-w-[20px]">{standalonePendingDocuments.length}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="leaves" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex gap-2">
               <CalendarRange className="w-4 h-4" />
@@ -455,20 +460,11 @@ export default function PendingApprovals() {
                         <p className="text-sm text-slate-500 mt-1">{emp.jobTitle} • <span className="font-medium text-slate-600">{emp.department?.name || 'No Dept'}</span></p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Button variant="outline" className="rounded-lg border-slate-200 hover:bg-slate-50" onClick={() => setSelectedEmployeeId(emp.id)}>
-                          View Profile
-                        </Button>
                         <Button 
                           className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
-                          onClick={() => approveEmployee({ employeeId: emp.id })}
-                          disabled={isApprovingEmployee && empAppVars?.employeeId === emp.id}
+                          onClick={() => setSelectedUnifiedEmployeeId(emp.id)}
                         >
-                          {isApprovingEmployee && empAppVars?.employeeId === emp.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="w-4 h-4" />
-                          )}
-                          Approve
+                          Review & Action
                         </Button>
                       </div>
                     </motion.div>
@@ -480,11 +476,11 @@ export default function PendingApprovals() {
             <TabsContent value="documents" className="m-0 focus-visible:outline-none">
               {loading ? (
                 <ApprovalsSkeleton />
-              ) : pendingDocuments.length === 0 ? (
+              ) : standalonePendingDocuments.length === 0 ? (
                 <EmptyState message="No pending documents." icon={FileText} />
               ) : (
                 <div className="space-y-3">
-                  {pendingDocuments.map(doc => (
+                  {standalonePendingDocuments.map(doc => (
                     <motion.div 
                       key={doc.id} 
                       whileHover={{ y: -2 }}

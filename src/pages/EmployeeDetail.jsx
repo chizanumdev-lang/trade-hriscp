@@ -50,7 +50,7 @@ import { motion } from "framer-motion";
 
 const menuItems = [
   { id: 'personal', label: 'Personal', icon: User },
-  { id: 'job', label: 'Job Info', icon: Briefcase },
+  { id: 'job', label: 'Job Data & History', icon: Briefcase },
   { id: 'contracts', label: 'Contracts', icon: FileText },
   { id: 'financial', label: 'Financial', icon: DollarSign },
   { id: 'attendance', label: 'Attendance', icon: Calendar },
@@ -59,7 +59,6 @@ const menuItems = [
   { id: 'assets', label: 'Assets', icon: Laptop },
   { id: 'performance', label: 'Performance', icon: TrendingUp },
   { id: 'notes', label: 'Notes', icon: StickyNote },
-  { id: 'lifecycle', label: 'Lifecycle & History', icon: Clock },
 ];
 
 export default function EmployeeDetail({ employeeIdProp, onClose }) {
@@ -995,6 +994,84 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                 <PremiumField icon={CheckCircle} label="Employment Status" value={<Badge className="bg-green-100 text-green-700 hover:bg-green-200">{employee.employment_status}</Badge>} />
                 <PremiumField icon={Calendar} label="Start Date" value={employee.start_date ? format(new Date(employee.start_date), 'MMM dd, yyyy') : 'Not set'} />
                 <PremiumField icon={User} label="Reports To" value={employee.manager_email || 'Not assigned'} />
+              </div>
+            )}
+
+            {!isEditing && (
+              <div className="mt-8 pt-8 border-t border-slate-100">
+                <div className="space-y-4 mb-8">
+                  <h4 className="font-medium text-slate-800">Promotion History</h4>
+                  {employee.promotion_history && employee.promotion_history.length > 0 ? (
+                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                      <table className="w-full text-sm text-left">
+                        <thead className="bg-slate-50 text-slate-500">
+                          <tr>
+                            <th className="px-4 py-3 font-medium">Date</th>
+                            <th className="px-4 py-3 font-medium">Previous</th>
+                            <th className="px-4 py-3 font-medium">New</th>
+                            <th className="px-4 py-3 font-medium">Approved By</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {employee.promotion_history.map(ph => (
+                            <tr key={ph.id} className="hover:bg-slate-50/50">
+                              <td className="px-4 py-3 text-slate-600">{new Date(ph.createdAt).toLocaleDateString()}</td>
+                              <td className="px-4 py-3 text-slate-600">
+                                <div>{ph.previousTitle}</div>
+                                <div className="text-xs text-slate-400">{ph.previousGrade}</div>
+                              </td>
+                              <td className="px-4 py-3 font-medium text-slate-900">
+                                <div>{ph.newTitle}</div>
+                                <div className="text-xs text-slate-500">{ph.newGrade}</div>
+                              </td>
+                              <td className="px-4 py-3 text-slate-500">{ph.approvedBy || 'System'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-4 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 text-sm">
+                      No promotion history found.
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-medium text-slate-800">Status History</h4>
+                  {employee.status_history && employee.status_history.length > 0 ? (
+                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                      <table className="w-full text-sm text-left">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                          <tr>
+                            <th className="px-4 py-3 font-medium text-slate-700">Date</th>
+                            <th className="px-4 py-3 font-medium text-slate-700">Previous Status</th>
+                            <th className="px-4 py-3 font-medium text-slate-700">New Status</th>
+                            <th className="px-4 py-3 font-medium text-slate-700">Reason</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {employee.status_history.map(sh => (
+                            <tr key={sh.id} className="bg-white hover:bg-slate-50">
+                              <td className="px-4 py-3">{new Date(Number(sh.createdAt) || sh.createdAt).toLocaleDateString()}</td>
+                              <td className="px-4 py-3 text-slate-600">
+                                <Badge variant="outline">{sh.previousStatus}</Badge>
+                              </td>
+                              <td className="px-4 py-3">
+                                <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200">{sh.newStatus}</Badge>
+                              </td>
+                              <td className="px-4 py-3 text-slate-600">{sh.reason || 'N/A'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-4 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 text-sm">
+                      No status history found.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1956,86 +2033,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
           </div>
         );
 
-      case 'lifecycle':
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-slate-900">Lifecycle & History</h3>
 
-            <div className="space-y-4 mt-6">
-              <h4 className="font-medium text-slate-800">Promotion History</h4>
-              {employee.promotion_history && employee.promotion_history.length > 0 ? (
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">Date</th>
-                        <th className="px-4 py-3 font-medium">Previous</th>
-                        <th className="px-4 py-3 font-medium">New</th>
-                        <th className="px-4 py-3 font-medium">Approved By</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {employee.promotion_history.map(ph => (
-                        <tr key={ph.id} className="hover:bg-slate-50/50">
-                          <td className="px-4 py-3 text-slate-600">{new Date(ph.createdAt).toLocaleDateString()}</td>
-                          <td className="px-4 py-3 text-slate-600">
-                            <div>{ph.previousTitle}</div>
-                            <div className="text-xs text-slate-400">{ph.previousGrade}</div>
-                          </td>
-                          <td className="px-4 py-3 font-medium text-slate-900">
-                            <div>{ph.newTitle}</div>
-                            <div className="text-xs text-slate-500">{ph.newGrade}</div>
-                          </td>
-                          <td className="px-4 py-3 text-slate-500">{ph.approvedBy || 'System'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="p-4 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 text-sm">
-                  No promotion history found.
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-4 mt-8">
-              <h4 className="font-medium text-slate-800">Status History</h4>
-              {employee.status_history && employee.status_history.length > 0 ? (
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="px-4 py-3 font-medium text-slate-700">Date</th>
-                        <th className="px-4 py-3 font-medium text-slate-700">Previous Status</th>
-                        <th className="px-4 py-3 font-medium text-slate-700">New Status</th>
-                        <th className="px-4 py-3 font-medium text-slate-700">Reason</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {employee.status_history.map(sh => (
-                        <tr key={sh.id} className="bg-white hover:bg-slate-50">
-                          <td className="px-4 py-3">{new Date(Number(sh.createdAt) || sh.createdAt).toLocaleDateString()}</td>
-                          <td className="px-4 py-3 text-slate-600">
-                            <Badge variant="outline">{sh.previousStatus}</Badge>
-                          </td>
-                          <td className="px-4 py-3">
-                            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200">{sh.newStatus}</Badge>
-                          </td>
-                          <td className="px-4 py-3 text-slate-600">{sh.reason || 'N/A'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="p-4 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 text-sm">
-                  No status history found.
-                </div>
-              )}
-            </div>
-          </div>
-        );
 
       default:
         return (

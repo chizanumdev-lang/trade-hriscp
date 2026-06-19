@@ -101,7 +101,10 @@ export default function UnifiedProfileReviewDialog({
   const queryClient = useQueryClient();
   const [isApprovingAll, setIsApprovingAll] = useState(false);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+  };
 
   const handleError = (err) => {
     const errMsg = err.response?.errors?.[0]?.message || err.message || "Operation failed.";
