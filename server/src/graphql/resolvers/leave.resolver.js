@@ -54,6 +54,7 @@ export const leaveResolvers = {
     teamLeavePlans: async (_, { year, departmentId }, { prisma, user, requireAuth }) => {
       requireAuth();
       const isAdmin = ['HR_ADMIN', 'SUPER_ADMIN'].includes(user.role);
+      const isManager = user.role === 'MANAGER';
       let whereClause = { year };
 
       if (isAdmin) {
@@ -65,17 +66,23 @@ export const leaveResolvers = {
         });
       }
 
-      // For standard employees/managers, get their team's plans
-      const employee = await prisma.employee.findUnique({ where: { email: user.email } });
-      if (!employee) return [];
-
-      // A team is defined as employees sharing the same departmentId
-      if (employee.departmentId) {
-        whereClause.employee = { departmentId: employee.departmentId };
-      } else {
-        whereClause.employeeId = employee.id; // Fallback if no department
+      if (isManager) {
+        const employee = await prisma.employee.findUnique({ where: { email: user.email } });
+        if (!employee) return [];
+        if (employee.departmentId) {
+          whereClause.employee = { departmentId: employee.departmentId };
+        } else {
+          whereClause.employeeId = employee.id; // Fallback
+        }
+        return prisma.leavePlan.findMany({
+          where: whereClause, include: { employee: true }
+        });
       }
 
+      // Normal employees only see their own
+      const employee = await prisma.employee.findUnique({ where: { email: user.email } });
+      if (!employee) return [];
+      whereClause.employeeId = employee.id;
       return prisma.leavePlan.findMany({
         where: whereClause, include: { employee: true }
       });

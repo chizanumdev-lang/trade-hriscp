@@ -79,6 +79,8 @@ import Settings from './pages/Settings';
 import SettingsApprovalWorkflows from './pages/Settings/SettingsApprovalWorkflows';
 import SettingsShifts from './pages/Settings/SettingsShifts';
 import SettingsDepartments from './pages/Settings/SettingsDepartments';
+import SettingsLeaveTypes from './pages/SettingsLeaveTypes';
+import SettingsPublicHolidays from './pages/SettingsPublicHolidays';
 import Surveys from './pages/Surveys';
 import TaskManager from './pages/TaskManager';
 import Templates from './pages/Templates';
@@ -122,6 +124,8 @@ export const PAGES = {
     "SettingsApprovalWorkflows": SettingsApprovalWorkflows,
     "SettingsShifts": SettingsShifts,
     "SettingsDepartments": SettingsDepartments,
+    "SettingsLeaveTypes": SettingsLeaveTypes,
+    "SettingsPublicHolidays": SettingsPublicHolidays,
     "Surveys": Surveys,
     "TaskManager": TaskManager,
     "Templates": Templates,

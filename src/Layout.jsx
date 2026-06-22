@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, BarChart3, UserCircle, LogOut, Menu,
   Briefcase, Video, ClipboardCheck, Calendar, DollarSign, UserPlus, Receipt,
   MessageSquare, Settings, CheckSquare, Plane, MessageCircle, Home,
-  Target, ShieldCheck, Laptop, CheckCircle, TrendingUp, BookOpen, Moon, Sun, Search, Clock
+  Target, ShieldCheck, Laptop, CheckCircle, TrendingUp, BookOpen, Moon, Sun, Search, Clock, CalendarRange
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { gqlClient } from "@/api/graphqlClient";
@@ -208,6 +208,7 @@ export default function Layout({ children }) {
     enabled: !!user?.organizationId && (user?.role?.includes('ADMIN') || user?.role === 'admin' || user?.isOrgOwner),
   });
 
+  const isAdmin = ['HR_ADMIN', 'SUPER_ADMIN'].includes(user?.role);
   const pendingCount = pendingData ? 
     (pendingData.employees?.filter(e => e.employmentStatus === 'PENDING_APPROVAL').length || 0) +
     (pendingData.documents?.filter(d => {
@@ -215,7 +216,10 @@ export default function Layout({ children }) {
       const emp = pendingData.employees?.find(e => e.id === d.employeeId);
       return emp?.employmentStatus !== 'DRAFT';
     }).length || 0) +
-    (pendingData.leaveRequests?.filter(l => l.status === 'PENDING').length || 0) +
+    (pendingData.leaveRequests?.filter(l => {
+      if (isAdmin) return l.status === 'PENDING' || l.status === 'PENDING_HR';
+      return l.status === 'PENDING';
+    }).length || 0) +
     (pendingData.profileUpdateRequests?.filter(p => {
       if (p.status !== 'PENDING') return false;
       const emp = pendingData.employees?.find(e => e.id === p.employeeId);
@@ -236,6 +240,8 @@ export default function Layout({ children }) {
         { title: "Approval Workflows", url: createPageUrl("SettingsApprovalWorkflows"), icon: CheckCircle },
         { title: "Work Shifts", url: createPageUrl("SettingsShifts"), icon: Clock },
         { title: "Departments", url: createPageUrl("SettingsDepartments"), icon: Users },
+        { title: "Leave Types", url: createPageUrl("SettingsLeaveTypes"), icon: CalendarRange },
+        { title: "Public Holidays", url: createPageUrl("SettingsPublicHolidays"), icon: Calendar },
         { title: "Audit Logs", url: createPageUrl("AuditLogs"), icon: ShieldCheck }
       ]
     });

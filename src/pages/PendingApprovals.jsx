@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/AuthContext';
 import { gql } from 'graphql-request';
 import { gqlClient } from '@/api/graphqlClient';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
@@ -202,6 +203,7 @@ const EmptyState = ({ message, icon: Icon }) => (
 
 export default function PendingApprovals() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
   const [selectedUnifiedEmployeeId, setSelectedUnifiedEmployeeId] = useState(null);
   const { data, isLoading: loading, error } = useQuery({
@@ -312,7 +314,13 @@ export default function PendingApprovals() {
     return emp?.employmentStatus !== 'DRAFT';
   }) || [];
 
-  const pendingLeaves = data?.leaveRequests?.filter(l => l.status === 'PENDING') || [];
+  const isAdmin = ['HR_ADMIN', 'SUPER_ADMIN'].includes(user?.role);
+  const pendingLeaves = data?.leaveRequests?.filter(l => {
+    if (isAdmin) {
+      return l.status === 'PENDING' || l.status === 'PENDING_HR';
+    }
+    return l.status === 'PENDING';
+  }) || [];
   
   const pendingProfiles = data?.profileUpdateRequests?.filter(p => {
     if (p.status !== 'PENDING') return false;
