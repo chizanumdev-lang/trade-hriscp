@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { gqlClient } from "@/api/graphqlClient";
 import { gql } from "graphql-request";
@@ -249,8 +248,11 @@ export default function LeaveOverview() {
 
     setUploadingFile(true);
     try {
-      // Mocked file upload
-      setFormData(prev => ({ ...prev, attachment_url: 'https://example.com/mock.pdf' }));
+      const uploadResult = await uploadToCloudinary(file);
+      if (!uploadResult || !uploadResult.secure_url) {
+        throw new Error("Failed to upload document to cloud storage.");
+      }
+      setFormData(prev => ({ ...prev, attachment_url: uploadResult.secure_url }));
     } catch (error) {
       console.error("Error uploading file:", error);
       toast.error("Failed to upload file. Please try again.");
