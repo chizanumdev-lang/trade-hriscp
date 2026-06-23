@@ -217,6 +217,7 @@ export default function PendingApprovals() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+    queryClient.invalidateQueries({ queryKey: ['pendingApprovalsCount'] });
     queryClient.invalidateQueries({ queryKey: ['notifications'] });
   };
 

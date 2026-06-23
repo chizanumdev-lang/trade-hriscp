@@ -167,6 +167,7 @@ export default function LeaveOverview() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
       queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingApprovalsCount'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       refetchBalances();
       setShowForm(false);
@@ -218,6 +219,7 @@ export default function LeaveOverview() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
       queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingApprovalsCount'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       
       let actionText = 'updated';

@@ -202,6 +202,9 @@ export default function AllLeaveRequests() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingApprovalsCount'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       setEditingLeave(null);
       setShowForm(false);
     },
