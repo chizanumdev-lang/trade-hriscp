@@ -119,7 +119,7 @@ loans: async (_, __, {
   user,
   requireAuth
 }) => {
-  requireAuth();
+  
   const where = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role) ? {} : {
     employeeId: user.employeeId
   };
@@ -150,7 +150,7 @@ paginatedLoans: async (_, {
   user,
   requireAuth
 }) => {
-  requireAuth();
+  
   const skip = (page - 1) * limit;
   const where = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role) ? {} : {
     employeeId: user.employeeId
@@ -200,7 +200,7 @@ paginatedEmployees: async (_, {
   user,
   requireAuth
 }) => {
-  requireAuth();
+  
   const skip = (page - 1) * limit;
   const where = {
     organizationId: user.organizationId
@@ -266,7 +266,7 @@ departments: async (_, __, {
   user,
   requireAuth
 }) => {
-  requireAuth();
+  
   return prisma.department.findMany({
     where: {
       organizationId: user.organizationId
@@ -283,7 +283,7 @@ department: async (_, {
   user,
   requireAuth
 }) => {
-  requireAuth();
+  
   return prisma.department.findFirst({
     where: {
       id,
@@ -299,7 +299,7 @@ onboardingTasks: async (_, { employeeId }, {
   user,
   requireAuth
 }) => {
-  requireAuth();
+  
   const isAdmin = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role);
   
   const where = {
@@ -328,7 +328,7 @@ shifts: async (_, __, {
   user,
   requireAuth
 }) => {
-  requireAuth();
+  
   return prisma.shift.findMany({
     where: {
       organizationId: user.organizationId
@@ -340,7 +340,7 @@ approvalWorkflows: async (_, __, {
   user,
   requireAuth
 }) => {
-  requireAuth();
+  
   const workflows = await prisma.approvalWorkflow.findMany({
     where: {
       organizationId: user.organizationId
@@ -358,7 +358,7 @@ offboardingDetails: async (_, {
   prisma,
   requireAuth
 }) => {
-  requireAuth();
+  
   return prisma.offboarding.findUnique({
     where: {
       employeeId
@@ -369,10 +369,24 @@ allOffboardings: async (_, __, {
   prisma,
   requireAuth
 }) => {
-  requireAuth();
+  
   return prisma.offboarding.findMany({
     include: {
-      employee: true
+      employee: true,
+      approvals: true
+    }
+  });
+},
+allProbationRequests: async (_, __, {
+  prisma,
+  requireAuth
+}) => {
+  
+  requireAuth(); return prisma.probationRequest.findMany({
+    include: {
+      employee: true,
+      requestedBy: true,
+      approvals: true
     }
   });
 },
@@ -384,7 +398,7 @@ upcomingCelebrations: async (_, {
   requireAuth,
   ipAddress
 }) => {
-  requireAuth();
+  
   const employees = await prisma.employee.findMany({
     where: {
       organizationId: user.organizationId,
@@ -794,17 +808,15 @@ rejectSuspension: async (_, { id, comments }, { prisma, user, ipAddress }) => {
     return result;
 },
 
-offboardEmployee: async (_, {
+requestOffboarding: async (_, {
   id,
   input
-}, { prisma, user }) => {
+}, { prisma, user, ipAddress }) => {
   if (!user) throw new Error('Not authenticated');
   if (!['HR_ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
     throw new Error('Not authorized');
   }
   return await prisma.$transaction(async tx => {
-    // Find existing to avoid unique constraint if re-offboarding (optional), but let's just create or update
-    // We will use upsert for Offboarding to prevent unique constraint errors if the record somehow exists
     const offboarding = await tx.offboarding.upsert({
       where: {
         employeeId: id
@@ -813,55 +825,332 @@ offboardEmployee: async (_, {
         employeeId: id,
         exitType: input.exitType,
         exitDate: new Date(input.exitDate),
-        reason: input.reason
+        reason: input.reason,
+        status: 'PENDING'
       },
       update: {
         exitType: input.exitType,
         exitDate: new Date(input.exitDate),
-        reason: input.reason
-      }
-    });
-    const statusMap = {
-      'RESIGNATION': 'RESIGNED',
-      'TERMINATION': 'TERMINATED',
-      'RETIREMENT': 'OFFBOARDED',
-      'CONTRACT_EXPIRATION': 'OFFBOARDED'
-    };
-    const employee = await tx.employee.update({
-      where: {
-        id
-      },
-      data: {
-        employmentStatus: statusMap[input.exitType] || 'OFFBOARDED'
-      },
-      include: {
-        department: true,
-        organization: true
+        reason: input.reason,
+        status: 'PENDING'
       }
     });
 
-    await tx.employeeStatusHistory.create({
+    await tx.approvalRecord.create({
       data: {
-        employeeId: id,
-        previousStatus: employee.employmentStatus,
-        newStatus: statusMap[input.exitType] || 'OFFBOARDED',
-        changedBy: user.id,
-        reason: input.reason || `Employee offboarded (${input.exitType})`
+        entityType: 'Offboarding',
+        entityId: offboarding.id,
+        offboardingId: offboarding.id,
+        approverUserId: user.id,
+        action: 'PENDING'
       }
     });
+
     await createAuditLog({
-      organizationId: employee.organizationId,
+      prisma,
+      organizationId: user.organizationId,
       userId: user.id,
-      action: 'OFFBOARD',
+      action: 'OFFBOARDING_REQUESTED',
       entityType: 'EMPLOYEE',
       entityId: id,
+      ipAddress,
       details: {
         type: input.exitType,
         exitDate: input.exitDate,
         reason: input.reason
       }
     });
-    return employee;
+    const hrAdmins = await prisma.user.findMany({
+      where: { organizationId: user.organizationId, role: { in: ['HR_ADMIN', 'SUPER_ADMIN', 'admin'] } }
+    });
+    const offEmployee = await prisma.employee.findUnique({ where: { id } });
+    if (offEmployee) {
+      for (const admin of hrAdmins) {
+        await NotificationService.notify({
+          userId: admin.id,
+          category: 'PROBATION_OFFBOARDING',
+          title: 'Offboarding Requested',
+          message: `Offboarding requested for ${offEmployee.firstName} ${offEmployee.lastName}.`,
+          deepLink: `/employees/${id}`,
+          sendEmail: true,
+          emailProps: {
+            isOffboarding: true,
+            employeeName: `${offEmployee.firstName} ${offEmployee.lastName}`,
+            status: 'PENDING',
+            actionName: 'Offboarding Request'
+          }
+        });
+      }
+    }
+
+    return offboarding;
+  });
+},
+
+approveOffboarding: async (_, { id, comments }, { prisma, user, ipAddress }) => {
+  if (!user) throw new Error('Not authenticated');
+  if (!['HR_ADMIN', 'SUPER_ADMIN'].includes(user.role)) throw new Error('Not authorized');
+  return await prisma.$transaction(async tx => {
+    const offboarding = await tx.offboarding.update({
+      where: { id },
+      data: { status: 'APPROVED' }
+    });
+
+    const statusMap = {
+      'RESIGNATION': 'RESIGNED',
+      'TERMINATION': 'TERMINATED',
+      'RETIREMENT': 'OFFBOARDED',
+      'CONTRACT_EXPIRATION': 'OFFBOARDED'
+    };
+
+    const employee = await tx.employee.update({
+      where: { id: offboarding.employeeId },
+      data: { employmentStatus: statusMap[offboarding.exitType] || 'OFFBOARDED' }
+    });
+
+    await tx.employeeStatusHistory.create({
+      data: {
+        employeeId: employee.id,
+        previousStatus: 'ACTIVE',
+        newStatus: statusMap[offboarding.exitType] || 'OFFBOARDED',
+        changedBy: user.id,
+        reason: offboarding.reason || `Employee offboarded (${offboarding.exitType})`
+      }
+    });
+
+    await tx.approvalRecord.create({
+      data: {
+        entityType: 'Offboarding',
+        entityId: id,
+        offboardingId: id,
+        approverUserId: user.id,
+        action: 'APPROVED',
+        comments
+      }
+    });
+
+    await createAuditLog({
+      prisma,
+      organizationId: user.organizationId,
+      userId: user.id,
+      action: 'OFFBOARDING_APPROVED',
+      entityType: 'EMPLOYEE',
+      entityId: employee.id,
+      ipAddress,
+      details: { type: offboarding.exitType }
+    });
+    const offEmployee = await prisma.employee.findUnique({
+      where: { id: offboarding.employeeId },
+      include: { user: true }
+    });
+    if (offEmployee?.user?.id) {
+      await NotificationService.notify({
+        userId: offEmployee.user.id,
+        category: 'PROBATION_OFFBOARDING',
+        title: 'Offboarding Approved',
+        message: `Your offboarding request has been approved.`,
+        deepLink: '/EmployeeSelfService',
+        sendEmail: true,
+        emailProps: {
+          isOffboarding: true,
+          employeeName: `${offEmployee.firstName} ${offEmployee.lastName}`,
+          status: 'APPROVED',
+          actionName: 'Offboarding'
+        }
+      });
+    }
+
+    return offboarding;
+  });
+},
+
+rejectOffboarding: async (_, { id, comments }, { prisma, user, ipAddress }) => {
+  if (!user) throw new Error('Not authenticated');
+  if (!['HR_ADMIN', 'SUPER_ADMIN'].includes(user.role)) throw new Error('Not authorized');
+  return await prisma.$transaction(async tx => {
+    const offboarding = await tx.offboarding.update({
+      where: { id },
+      data: { status: 'REJECTED' }
+    });
+
+    await tx.approvalRecord.create({
+      data: {
+        entityType: 'Offboarding',
+        entityId: id,
+        offboardingId: id,
+        approverUserId: user.id,
+        action: 'REJECTED',
+        comments
+      }
+    });
+
+    await createAuditLog({
+      prisma,
+      organizationId: user.organizationId,
+      userId: user.id,
+      action: 'OFFBOARDING_REJECTED',
+      entityType: 'EMPLOYEE',
+      entityId: offboarding.employeeId,
+      ipAddress
+    });
+    const offEmployee = await prisma.employee.findUnique({
+      where: { id: offboarding.employeeId },
+      include: { user: true }
+    });
+    if (offEmployee?.user?.id) {
+      await NotificationService.notify({
+        userId: offEmployee.user.id,
+        category: 'PROBATION_OFFBOARDING',
+        title: 'Offboarding Rejected',
+        message: `Your offboarding request has been rejected.`,
+        deepLink: '/EmployeeSelfService',
+        sendEmail: true,
+        emailProps: {
+          isOffboarding: true,
+          employeeName: `${offEmployee.firstName} ${offEmployee.lastName}`,
+          status: 'REJECTED',
+          actionName: 'Offboarding'
+        }
+      });
+    }
+
+    return offboarding;
+  });
+},
+
+requestProbation: async (_, { input }, { prisma, user, ipAddress }) => {
+  if (!user) throw new Error('Not authenticated');
+  if (!['HR_ADMIN', 'SUPER_ADMIN'].includes(user.role)) throw new Error('Not authorized');
+  return await prisma.$transaction(async tx => {
+    const request = await tx.probationRequest.create({
+      data: {
+        employeeId: input.employeeId,
+        requestedById: user.id,
+        startDate: new Date(input.startDate),
+        endDate: new Date(input.endDate),
+        status: 'PENDING'
+      }
+    });
+
+    await tx.approvalRecord.create({
+      data: {
+        entityType: 'ProbationRequest',
+        entityId: request.id,
+        probationRequestId: request.id,
+        approverUserId: user.id,
+        action: 'PENDING'
+      }
+    });
+
+    await createAuditLog({
+      prisma,
+      organizationId: user.organizationId,
+      userId: user.id,
+      action: 'PROBATION_REQUESTED',
+      entityType: 'EMPLOYEE',
+      entityId: input.employeeId,
+      ipAddress,
+      details: { startDate: input.startDate, endDate: input.endDate }
+    });
+    const hrAdmins = await prisma.user.findMany({
+      where: { organizationId: user.organizationId, role: { in: ['HR_ADMIN', 'SUPER_ADMIN', 'admin'] } }
+    });
+    const probEmployee = await prisma.employee.findUnique({ where: { id: input.employeeId } });
+    if (probEmployee) {
+      for (const admin of hrAdmins) {
+        await NotificationService.notify({
+          userId: admin.id,
+          category: 'PROBATION_OFFBOARDING',
+          title: 'Probation Requested',
+          message: `Probation extension requested for ${probEmployee.firstName} ${probEmployee.lastName}.`,
+          deepLink: `/employees/${input.employeeId}`,
+          sendEmail: true,
+          emailProps: {
+            isOffboarding: false,
+            employeeName: `${probEmployee.firstName} ${probEmployee.lastName}`,
+            status: 'PENDING',
+            actionName: 'Probation Request'
+          }
+        });
+      }
+    }
+
+    return request;
+  });
+},
+
+approveProbation: async (_, { id, status, comments }, { prisma, user, ipAddress }) => {
+  if (!user) throw new Error('Not authenticated');
+  if (!['HR_ADMIN', 'SUPER_ADMIN'].includes(user.role)) throw new Error('Not authorized');
+  return await prisma.$transaction(async tx => {
+    const req = await tx.probationRequest.update({
+      where: { id },
+      data: { status }
+    });
+
+    await tx.approvalRecord.create({
+      data: {
+        entityType: 'ProbationRequest',
+        entityId: id,
+        probationRequestId: id,
+        approverUserId: user.id,
+        action: status,
+        comments
+      }
+    });
+
+    if (status === 'APPROVED') {
+      const currentEmployee = await tx.employee.findUnique({ where: { id: req.employeeId } });
+      await tx.employee.update({
+        where: { id: req.employeeId },
+        data: {
+          employmentStatus: 'PROBATION',
+          probationStartDate: new Date(req.startDate),
+          probationEndDate: new Date(req.endDate)
+        }
+      });
+      await tx.employeeStatusHistory.create({
+        data: {
+          employeeId: req.employeeId,
+          previousStatus: currentEmployee.employmentStatus,
+          newStatus: 'PROBATION',
+          changedBy: user.id,
+          reason: 'Probation approved'
+        }
+      });
+    }
+
+    await createAuditLog({
+      prisma,
+      organizationId: user.organizationId,
+      userId: user.id,
+      action: `PROBATION_${status}`,
+      entityType: 'EMPLOYEE',
+      entityId: req.employeeId,
+      ipAddress
+    });
+    const probEmployee = await prisma.employee.findUnique({
+      where: { id: req.employeeId },
+      include: { user: true }
+    });
+    if (probEmployee?.user?.id) {
+      await NotificationService.notify({
+        userId: probEmployee.user.id,
+        category: 'PROBATION_OFFBOARDING',
+        title: `Probation ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`,
+        message: `Your probation extension request has been ${status === 'APPROVED' ? 'approved' : 'rejected'}.`,
+        deepLink: '/EmployeeSelfService',
+        sendEmail: true,
+        emailProps: {
+          isOffboarding: false,
+          employeeName: `${probEmployee.firstName} ${probEmployee.lastName}`,
+          status: status,
+          actionName: 'Probation Extension'
+        }
+      });
+    }
+
+    return req;
   });
 },
 updateOrganizationFeatures: async (_, {
@@ -871,7 +1160,7 @@ updateOrganizationFeatures: async (_, {
   user,
   requireAuth
 }) => {
-  requireAuth();
+  
   if (!user.organizationId) throw new Error("Not in an organization");
   if (!['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role)) throw new Error("Not authorized");
   const org = await prisma.organization.findUnique({
@@ -897,7 +1186,7 @@ createLoan: async (_, {
   user,
   requireAuth
 }) => {
-  requireAuth();
+  
   const employeeId = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role) ? input.employee_id : user.employeeId;
   if (!employeeId) throw new Error("Employee not found");
   const employee = await prisma.employee.findUnique({
@@ -1618,7 +1907,7 @@ processApproval: async (_, {
   requireAuth,
   ipAddress
 }) => {
-  requireAuth();
+  
   // Only MANAGER, HR_ADMIN, or SUPER_ADMIN can process approvals
   if (['EMPLOYEE'].includes(user.role)) {
     throw new Error("Not authorized to process approvals");
@@ -1882,7 +2171,7 @@ submitLeaveRequest: async (_, {
   requireAuth,
   ipAddress
 }) => {
-  requireAuth();
+  
   if (!user.employeeId) throw new Error("User is not an employee");
   const employee = await prisma.employee.findUnique({
     where: {
@@ -1998,7 +2287,7 @@ cancelLeaveRequest: async (_, {
   user,
   requireAuth
 }) => {
-  requireAuth();
+  
   const leave = await prisma.leaveRequest.findUnique({
     where: {
       id
@@ -2036,7 +2325,7 @@ uploadDocument: async (_, args, {
   user,
   requireAuth
 }) => {
-  requireAuth();
+  
   const {
     employeeId,
     name,
@@ -2072,6 +2361,31 @@ uploadDocument: async (_, args, {
     action: 'CREATE'
   });
   await checkAndPromoteEmployee(employeeId, prisma);
+  
+  // Notify HR Admins
+  const hrAdmins = await prisma.user.findMany({
+    where: { organizationId: user.organizationId, role: { in: ['HR_ADMIN', 'SUPER_ADMIN', 'admin'] } }
+  });
+  const uploaderEmp = await prisma.employee.findUnique({ where: { id: employeeId } });
+  if (uploaderEmp) {
+    for (const admin of hrAdmins) {
+      await NotificationService.notify({
+        userId: admin.id,
+        category: 'DOCUMENT_NOTIFICATION',
+        title: 'New Document Uploaded',
+        message: `${uploaderEmp.firstName} ${uploaderEmp.lastName} uploaded a new document: ${name}`,
+        deepLink: `/employees/${employeeId}`,
+        sendEmail: true,
+        emailProps: {
+          isUpload: true,
+          employeeName: `${uploaderEmp.firstName} ${uploaderEmp.lastName}`,
+          documentName: name,
+          status: 'PENDING'
+        }
+      });
+    }
+  }
+
   return document;
 },
 replaceDocumentVersion: async (_, {
@@ -2085,7 +2399,7 @@ replaceDocumentVersion: async (_, {
   requireAuth,
   ipAddress
 }) => {
-  requireAuth();
+  
   const document = await prisma.document.findUnique({
     where: {
       id
@@ -2218,10 +2532,17 @@ approveDocument: async (_, {
   if (docEmployee?.user?.id) {
     await NotificationService.notify({
       userId: docEmployee.user.id,
-      category: 'approval',
+      category: 'DOCUMENT_NOTIFICATION',
       title: 'Document Approved',
       message: `Your document "${document.name}" has been approved.`,
-      deepLink: '/EmployeeSelfService'
+      deepLink: '/EmployeeSelfService',
+      sendEmail: true,
+      emailProps: {
+        isUpload: false,
+        employeeName: `${docEmployee.firstName} ${docEmployee.lastName}`,
+        documentName: document.name,
+        status: 'APPROVED'
+      }
     });
   }
   return updatedDocument;
@@ -2274,10 +2595,17 @@ rejectDocument: async (_, {
     if (docEmployee?.user?.id) {
       await NotificationService.notify({
         userId: docEmployee.user.id,
-        category: 'approval',
+        category: 'DOCUMENT_NOTIFICATION',
         title: 'Document Rejected',
         message: `Your document "${document.name}" was rejected. Reason: ${reason}`,
-        deepLink: '/EmployeeSelfService'
+        deepLink: '/EmployeeSelfService',
+        sendEmail: true,
+        emailProps: {
+          isUpload: false,
+          employeeName: `${docEmployee.firstName} ${docEmployee.lastName}`,
+          documentName: document.name,
+          status: 'REJECTED'
+        }
       });
     }
   }
@@ -2337,10 +2665,16 @@ approveProfileUpdateRequest: async (_, {
   if (profileEmployee?.user?.id) {
     await NotificationService.notify({
       userId: profileEmployee.user.id,
-      category: 'approval',
+      category: 'PROFILE_UPDATE',
       title: 'Profile Update Approved',
       message: `Your request to update "${request.fieldName}" has been approved.`,
-      deepLink: '/EmployeeSelfService'
+      deepLink: '/EmployeeSelfService',
+      sendEmail: true,
+      emailProps: {
+        employeeName: `${profileEmployee.firstName} ${profileEmployee.lastName}`,
+        fieldName: request.fieldName,
+        requestedValue: request.requestedValue
+      }
     });
   }
   return updatedRequest;
@@ -2385,6 +2719,28 @@ rejectProfileUpdateRequest: async (_, {
     comments: reason,
     previousStatus: request.status
   });
+
+  // Notify the employee that their profile update was rejected
+  const profileEmployee = await prisma.employee.findUnique({
+    where: { id: request.employeeId },
+    include: { user: true }
+  });
+  if (profileEmployee?.user?.id) {
+    await NotificationService.notify({
+      userId: profileEmployee.user.id,
+      category: 'PROFILE_UPDATE',
+      title: 'Profile Update Rejected',
+      message: `Your request to update "${request.fieldName}" has been rejected.`,
+      deepLink: '/EmployeeSelfService',
+      sendEmail: true,
+      emailProps: {
+        employeeName: `${profileEmployee.firstName} ${profileEmployee.lastName}`,
+        fieldName: request.fieldName,
+        requestedValue: request.requestedValue
+      }
+    });
+  }
+
   return updatedRequest;
 },
 // Phase 3 Mutations
@@ -2502,7 +2858,7 @@ generatePayslip: async (_, {
   requireAuth,
   ipAddress
 }) => {
-  requireAuth();
+  
   // To implement a real PDF generation async worker:
   // 1. Push a job to BullMQ queue: `pdfQueue.add('generatePayslip', { recordId })`.
   // 2. The worker would fetch the PayrollRecord and render a Handlebars HTML template.
@@ -2630,7 +2986,7 @@ acknowledgePolicy: async (_, {
   requireAuth,
   ipAddress
 }) => {
-  requireAuth();
+  
   await prisma.policyAcknowledgment.upsert({
     where: {
       policyId_userId: {
@@ -2657,7 +3013,7 @@ createOnboardingTask: async (_, {
   prisma,
   requireAuth
 }) => {
-  requireAuth();
+  
   return prisma.onboardingTask.create({
     data: {
       employeeId,
@@ -2677,7 +3033,7 @@ updateOnboardingTask: async (_, {
   prisma,
   requireAuth
 }) => {
-  requireAuth();
+  
   const data = {};
   if (status !== undefined) {
     data.status = status;
@@ -2774,7 +3130,7 @@ Department: {
     user,
     requireAuth
   }) => {
-    requireAuth();
+    
     const where = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role) ? {} : {
       employeeId: user.employeeId
     };

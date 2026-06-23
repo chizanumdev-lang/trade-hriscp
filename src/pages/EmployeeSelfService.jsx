@@ -329,10 +329,14 @@ export default function EmployeeSelfService() {
         </motion.div>
 
         {employee.employment_status === 'DRAFT' && (
-          <motion.div variants={itemVariants} className="bg-yellow-50/80 backdrop-blur-md border border-yellow-200/60 text-yellow-800 rounded-2xl p-4 mb-6 shadow-sm">
+          <motion.div 
+            variants={itemVariants} 
+            className="bg-yellow-50/80 backdrop-blur-md border border-yellow-200/60 text-yellow-800 rounded-2xl p-4 mb-6 shadow-sm cursor-pointer hover:bg-yellow-100/80 transition-colors"
+            onClick={() => navigate(createPageUrl("EmployeePortal"))}
+          >
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <span className="w-2 h-2 bg-yellow-500 rounded-full inline-block"></span>
-              {hasBeenRejected ? "Action Required: Profile Rejected" : "Draft Status"}
+              {hasBeenRejected ? "Action Required: Profile Rejected" : "Proceed to complete onboarding"}
             </h3>
             {hasBeenRejected && (
               <div className="mt-3 p-3 bg-white/60 rounded-xl border border-yellow-100">
@@ -340,20 +344,9 @@ export default function EmployeeSelfService() {
                 <p className="text-sm text-yellow-800">{rejectionRecord.reason || "No reason provided."}</p>
               </div>
             )}
-            <p className="mt-3 text-sm">
-              Your profile is currently in <strong>DRAFT</strong> status. To proceed to Pending Onboarding, please ensure you have provided your personal details (Phone, Private Email, Date of Birth, Gender, Marital Status, Nationality, National ID Number, Passport Number) below, and uploaded at least one required document in the Documents tab.
+            <p className="mt-2 text-sm text-yellow-700">
+              Click here to view your Tasks and projects.
             </p>
-            {hasBeenRejected && (
-              <div className="mt-4">
-                <Button 
-                  onClick={() => submitProfileMutation.mutate()} 
-                  disabled={submitProfileMutation.isPending}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
-                >
-                  {submitProfileMutation.isPending ? "Submitting..." : "Submit Profile for Review"}
-                </Button>
-              </div>
-            )}
           </motion.div>
         )}
 
@@ -361,10 +354,10 @@ export default function EmployeeSelfService() {
           <motion.div variants={itemVariants} className="bg-blue-50/80 backdrop-blur-md border border-blue-200/60 text-blue-800 rounded-2xl p-4 mb-6 shadow-sm">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <span className="w-2 h-2 bg-blue-500 rounded-full inline-block"></span>
-              Awaiting HR Approval
+              Onboarding tasks in review
             </h3>
             <p className="mt-1 text-sm">
-              Your profile is complete and is currently awaiting review by an HR administrator. You will be notified once your profile data is approved and your onboarding officially begins.
+              Your profile is complete and your onboarding tasks are currently in review.
             </p>
           </motion.div>
         )}

@@ -11,6 +11,11 @@ import ProbationNoticeEmail from '../emails/ProbationNoticeEmail.jsx';
 import SuspensionNoticeEmail from '../emails/SuspensionNoticeEmail.jsx';
 import ExitNoticeEmail from '../emails/ExitNoticeEmail.jsx';
 import BaseTemplate from '../emails/BaseTemplate.jsx';
+import ProfileCompletionEmail from '../emails/ProfileCompletionEmail.jsx';
+import ProfileUpdateEmail from '../emails/ProfileUpdateEmail.jsx';
+import ProbationOffboardingEmail from '../emails/ProbationOffboardingEmail.jsx';
+import ExpenseAssetEmail from '../emails/ExpenseAssetEmail.jsx';
+import DocumentNotificationEmail from '../emails/DocumentNotificationEmail.jsx';
 
 // Initialize Resend only if the API key is present
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -75,6 +80,16 @@ export class NotificationService {
                 htmlContent = await render(React.createElement(SuspensionNoticeEmail, { fullName: user.employee?.fullName, ...emailProps, deepLink }));
               } else if (category === 'exit_notice') {
                 htmlContent = await render(React.createElement(ExitNoticeEmail, { fullName: user.employee?.fullName, ...emailProps, deepLink }));
+              } else if (category === 'PROFILE_COMPLETION') {
+                htmlContent = await render(React.createElement(ProfileCompletionEmail, { link: deepLink ? `${frontendUrl}${deepLink}` : frontendUrl, ...emailProps }));
+              } else if (category === 'PROFILE_UPDATE') {
+                htmlContent = await render(React.createElement(ProfileUpdateEmail, { link: deepLink ? `${frontendUrl}${deepLink}` : frontendUrl, ...emailProps }));
+              } else if (category === 'PROBATION_OFFBOARDING') {
+                htmlContent = await render(React.createElement(ProbationOffboardingEmail, { link: deepLink ? `${frontendUrl}${deepLink}` : frontendUrl, ...emailProps }));
+              } else if (category === 'EXPENSE_ASSET') {
+                htmlContent = await render(React.createElement(ExpenseAssetEmail, { link: deepLink ? `${frontendUrl}${deepLink}` : frontendUrl, ...emailProps }));
+              } else if (category === 'DOCUMENT_NOTIFICATION') {
+                htmlContent = await render(React.createElement(DocumentNotificationEmail, { link: deepLink ? `${frontendUrl}${deepLink}` : frontendUrl, ...emailProps }));
               } else {
                 htmlContent = await render(React.createElement(BaseTemplate, { previewText: title }, 
                   React.createElement('div', { style: { fontFamily: 'sans-serif' } },

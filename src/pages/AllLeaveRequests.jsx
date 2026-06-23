@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plane, Plus, CheckCircle, XCircle, Upload, Calendar, Edit, Clock } from "lucide-react";
+import { Plane, Plus, CheckCircle, XCircle, Upload, Calendar, Edit, Clock, Paperclip } from "lucide-react";
 import { format } from "date-fns";
 import { uploadToCloudinary } from "@/utils/cloudinary";
 import { motion } from "framer-motion";
@@ -399,12 +399,16 @@ export default function AllLeaveRequests() {
                       onChange={(e) => {
                         const isHalf = e.target.checked;
                         let tDays = 0;
+                        let newEndDate = formData.end_date;
+                        if (isHalf && !formData.useMultipleDates) {
+                          newEndDate = formData.start_date;
+                        }
                         if (formData.useMultipleDates) {
                           tDays = formData.selectedDates.length * (isHalf ? 0.5 : 1);
-                        } else if (formData.start_date && formData.end_date) {
-                          tDays = (Math.ceil((new Date(formData.end_date).getTime() - new Date(formData.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1) * (isHalf ? 0.5 : 1);
+                        } else if (formData.start_date && newEndDate) {
+                          tDays = (Math.ceil((new Date(newEndDate).getTime() - new Date(formData.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1) * (isHalf ? 0.5 : 1);
                         }
-                        setFormData({ ...formData, isHalfDay: isHalf, total_days: tDays });
+                        setFormData({ ...formData, isHalfDay: isHalf, end_date: newEndDate, total_days: tDays });
                       }} 
                       className="rounded border-slate-300"
                     />
@@ -432,15 +436,21 @@ export default function AllLeaveRequests() {
                 </div>
 
                 {!formData.useMultipleDates ? (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={`grid gap-4 ${!formData.isHalfDay ? 'grid-cols-2' : 'grid-cols-1'}`}>
                     <div className="space-y-2">
                       <Label>Start Date</Label>
-                      <Input type="date" value={formData.start_date} onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))} className="rounded-lg" required />
+                      <Input type="date" value={formData.start_date} onChange={(e) => {
+                        const start = e.target.value;
+                        const end = formData.isHalfDay ? start : formData.end_date;
+                        setFormData(prev => ({ ...prev, start_date: start, end_date: end }));
+                      }} className="rounded-lg" required />
                     </div>
-                    <div className="space-y-2">
-                      <Label>End Date</Label>
-                      <Input type="date" value={formData.end_date} onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))} className="rounded-lg" required />
-                    </div>
+                    {!formData.isHalfDay && (
+                      <div className="space-y-2">
+                        <Label>End Date</Label>
+                        <Input type="date" value={formData.end_date} onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))} className="rounded-lg" required />
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -594,6 +604,18 @@ export default function AllLeaveRequests() {
                             <p className="text-sm text-slate-600 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
                               "{leave.reason}"
                             </p>
+                            {leave.attachment_url && (
+                              <div className="mt-3">
+                                <a 
+                                  href={leave.attachment_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="text-blue-600 hover:underline text-sm flex items-center gap-1"
+                                >
+                                  <Paperclip className="w-4 h-4" /> View Attachment
+                                </a>
+                              </div>
+                            )}
                           </div>
                         </div>
                         

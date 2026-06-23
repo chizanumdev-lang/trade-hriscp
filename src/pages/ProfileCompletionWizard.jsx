@@ -59,6 +59,8 @@ export default function ProfileCompletionWizard() {
   const employeeId = user?.employeeId;
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [identityType, setIdentityType] = useState('nationalId');
+  const [identityNumber, setIdentityNumber] = useState('');
   
   const [formData, setFormData] = useState({
     phone: '',
@@ -88,7 +90,9 @@ export default function ProfileCompletionWizard() {
           if (!isNaN(d.getTime())) {
             formattedDob = d.toISOString().split('T')[0];
           }
-        } catch (e) {}
+        } catch (e) {
+          // Ignore date parse errors
+        }
       }
 
       setFormData(prev => ({
@@ -119,12 +123,6 @@ export default function ProfileCompletionWizard() {
         return;
       }
       setStep(2);
-    } else if (step === 2) {
-      if (!formData.nationalId || !formData.passportNumber) {
-        toast.error("Please fill in your ID and Passport numbers");
-        return;
-      }
-      setStep(3);
     }
   };
 
@@ -133,6 +131,10 @@ export default function ProfileCompletionWizard() {
   };
 
   const handleSubmit = async () => {
+    if (!identityNumber) {
+      toast.error("Please enter your identity document number");
+      return;
+    }
     if (!documentData.file) {
       toast.error("Please select a document to upload");
       return;
@@ -141,8 +143,14 @@ export default function ProfileCompletionWizard() {
     try {
       setIsSubmitting(true);
       
+      const finalFormData = { 
+        ...formData, 
+        nationalId: identityType === 'nationalId' ? identityNumber : '', 
+        passportNumber: identityType === 'passport' ? identityNumber : '' 
+      };
+
       // 1. Update Employee Profile
-      await gqlClient.request(UPDATE_EMPLOYEE, { input: formData });
+      await gqlClient.request(UPDATE_EMPLOYEE, { input: finalFormData });
       
       // 2. Upload Document to Cloudinary
       const uploadResult = await uploadToCloudinary(documentData.file);
@@ -188,18 +196,17 @@ export default function ProfileCompletionWizard() {
         <Card className="border-slate-200 shadow-sm">
           <CardHeader>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-sm font-medium text-slate-500">Step {step} of 3</span>
+              <span className="text-sm font-medium text-slate-500">Step {step} of 2</span>
               <div className="flex gap-1">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className={`h-2 w-12 rounded-full ${i <= step ? 'bg-indigo-600' : 'bg-slate-200'}`} />
+                {[1, 2].map(i => (
+                  <div key={i} className={`h-2 w-16 rounded-full ${i <= step ? 'bg-indigo-600' : 'bg-slate-200'}`} />
                 ))}
               </div>
             </div>
-            <CardTitle>{step === 1 ? 'Personal Information' : step === 2 ? 'Identity Details' : 'Document Upload'}</CardTitle>
+            <CardTitle>{step === 1 ? 'Personal Information' : 'Identity Verification'}</CardTitle>
             <CardDescription>
               {step === 1 ? 'Please provide your basic contact and demographic details.' 
-               : step === 2 ? 'Please provide your official identification numbers.' 
-               : 'Please upload a clear copy of your National ID or Passport.'}
+               : 'Please select an identity document type, provide its number, and upload a clear copy.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -273,30 +280,31 @@ export default function ProfileCompletionWizard() {
             )}
 
             {step === 2 && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>National ID Number <span className="text-red-500">*</span></Label>
-                  <Input 
-                    value={formData.nationalId} 
-                    onChange={e => setFormData(p => ({...p, nationalId: e.target.value}))} 
-                    placeholder="Enter National ID"
-                  />
+              <div className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Document Type <span className="text-red-500">*</span></Label>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
+                      value={identityType}
+                      onChange={e => setIdentityType(e.target.value)}
+                    >
+                      <option value="nationalId">National ID (NIN)</option>
+                      <option value="passport">Passport</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Document Number <span className="text-red-500">*</span></Label>
+                    <Input 
+                      value={identityNumber} 
+                      onChange={e => setIdentityNumber(e.target.value)} 
+                      placeholder={identityType === 'nationalId' ? 'Enter NIN' : 'Enter Passport Number'}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Passport Number <span className="text-red-500">*</span></Label>
-                  <Input 
-                    value={formData.passportNumber} 
-                    onChange={e => setFormData(p => ({...p, passportNumber: e.target.value}))} 
-                    placeholder="Enter Passport Number"
-                  />
-                </div>
-              </div>
-            )}
 
-            {step === 3 && (
-              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Document File <span className="text-red-500">*</span></Label>
+                  <Label>Upload Document <span className="text-red-500">*</span></Label>
                   <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:bg-slate-50 transition-colors">
                     <input
                       type="file"
@@ -331,7 +339,7 @@ export default function ProfileCompletionWizard() {
                 </Button>
               ) : <div></div>}
               
-              {step < 3 ? (
+              {step < 2 ? (
                 <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={handleNext}>
                   Continue
                 </Button>

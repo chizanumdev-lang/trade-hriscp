@@ -68,24 +68,28 @@ const checkAndPromoteEmployee = async (employeeId, prisma) => {
         }
       });
 
-      // Notify the manager or HR about the pending approval
-      if (currentManagerId) {
-        const managerUser = await prisma.user.findFirst({
-          where: {
-            employeeId: currentManagerId
-          }
-        });
-        if (managerUser) {
-          await NotificationService.notify({
-            prisma,
-            userId: managerUser.id,
-            organizationId: emp.organizationId,
-            title: 'Employee Approval Required',
-            message: `${emp.firstName} ${emp.lastName} has completed their profile and is waiting for approval.`,
-            type: 'APPROVAL',
-            link: `/employees/${emp.id}`
-          });
+      // Notify HR Admins about the pending approval (excluding managers)
+      const hrAdmins = await prisma.user.findMany({
+        where: {
+          organizationId: emp.organizationId,
+          role: { in: ['HR_ADMIN', 'SUPER_ADMIN', 'admin'] }
         }
+      });
+      
+      for (const admin of hrAdmins) {
+        await NotificationService.notify({
+          prisma,
+          userId: admin.id,
+          organizationId: emp.organizationId,
+          title: 'Employee Approval Required',
+          message: `${emp.firstName} ${emp.lastName} has completed their profile and is waiting for approval.`,
+          type: 'APPROVAL',
+          link: `/employees/${emp.id}`,
+          sendEmail: true,
+          category: 'PROFILE_COMPLETION',
+          userEmail: admin.email,
+          employeeName: `${emp.firstName} ${emp.lastName}`
+        });
       }
     }
   }

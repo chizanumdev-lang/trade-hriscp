@@ -38,9 +38,6 @@ export default function Dashboard() {
   const [page, setPage] = useState(1);
   const limit = 5;
 
-  if (user?.role === 'EMPLOYEE') {
-    return <Navigate to="/employeeselfservice" />;
-  }
 
   const { data: employees = [], isLoading: loadingEmployees } = useQuery({
     queryKey: ['employees'],
@@ -157,6 +154,10 @@ export default function Dashboard() {
     hidden: { opacity: 0, y: 15 },
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };
+
+  if (user?.role === 'EMPLOYEE') {
+    return <Navigate to="/employeeselfservice" />;
+  }
 
   return (
     <motion.div 

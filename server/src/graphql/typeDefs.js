@@ -473,6 +473,7 @@ export const typeDefs = `#graphql
   type Offboarding {
     id: ID!
     employeeId: ID!
+    employee: Employee
     exitType: String!
     exitDate: String!
     reason: String
@@ -481,6 +482,22 @@ export const typeDefs = `#graphql
     accessRevoked: Boolean!
     handoverComplete: Boolean!
     finalPayrollProcessed: Boolean!
+    status: String!
+    approvals: [ApprovalRecord!]
+  }
+
+  type ProbationRequest {
+    id: ID!
+    employeeId: ID!
+    employee: Employee
+    requestedById: ID!
+    requestedBy: User
+    startDate: String!
+    endDate: String!
+    status: String!
+    createdAt: String!
+    updatedAt: String!
+    approvals: [ApprovalRecord!]
   }
 
   type Celebration {
@@ -605,6 +622,7 @@ export const typeDefs = `#graphql
     allOffboardings: [Offboarding]
     upcomingCelebrations(month: Int!): [Celebration]
     profileUpdateRequests: [ProfileUpdateRequest]
+    allProbationRequests: [ProbationRequest]
     auditLogs(entityType: String, action: String, limit: Int): [AuditLog]
   }
 
@@ -667,6 +685,12 @@ export const typeDefs = `#graphql
     exitDate: String!
     reason: String
     attachmentUrl: String
+  }
+
+  input RequestProbationInput {
+    employeeId: String!
+    startDate: String!
+    endDate: String!
   }
 
   input CompensationBandInput {
@@ -755,7 +779,11 @@ export const typeDefs = `#graphql
     updateStatutoryConfig(config: JSON!): Organization!
     updateEmployee(id: ID!, input: UpdateEmployeeInput!, auditAction: String, auditContext: String): Employee!
     suspendEmployee(id: ID!, input: SuspendEmployeeInput!): Employee!
-    offboardEmployee(id: ID!, input: OffboardEmployeeInput!): Employee!
+    requestOffboarding(id: ID!, input: OffboardEmployeeInput!): Offboarding!
+    approveOffboarding(id: ID!, comments: String): Offboarding!
+    rejectOffboarding(id: ID!, comments: String): Offboarding!
+    requestProbation(input: RequestProbationInput!): ProbationRequest!
+    approveProbation(id: ID!, status: String!, comments: String): ProbationRequest!
 
     updateEmployeeSelf(input: UpdateEmployeeInput!): Employee!
     submitProfileForReview(employeeId: ID!): Employee!

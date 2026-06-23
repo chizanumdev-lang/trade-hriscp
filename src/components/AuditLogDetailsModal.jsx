@@ -44,7 +44,9 @@ export function AuditLogDetailsModal({ isOpen, onClose, log }) {
         if (typeof p === 'string') p = JSON.parse(p);
         if (typeof p === 'object' && p !== null) prev = p;
       }
-    } catch(e) {}
+    } catch (e) {
+      // Ignore parse errors
+    }
     
     try {
       if (nextString) {
@@ -52,7 +54,9 @@ export function AuditLogDetailsModal({ isOpen, onClose, log }) {
         if (typeof n === 'string') n = JSON.parse(n);
         if (typeof n === 'object' && n !== null) next = n;
       }
-    } catch(e) {}
+    } catch (e) {
+      // Ignore parse errors
+    }
 
     const allKeys = Array.from(new Set([...Object.keys(prev), ...Object.keys(next)]));
     

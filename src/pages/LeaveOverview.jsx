@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { uploadToCloudinary } from "@/utils/cloudinary";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plane, Plus, Calendar, CheckCircle, XCircle, Clock, Upload, Paperclip } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { extractErrorMessage } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -192,7 +194,7 @@ export default function LeaveOverview() {
     },
     onError: (error) => {
       console.error(error);
-      const msg = error.response?.errors?.[0]?.message || error.message || "Failed to submit leave request.";
+      const msg = extractErrorMessage(error, "Failed to submit leave request.");
       toast.error(msg);
     }
   });
@@ -236,8 +238,8 @@ export default function LeaveOverview() {
       toast.success(`Leave request successfully ${actionText}`);
     },
     onError: (error) => {
-      console.error("Failed to update leave request:", error);
-      const msg = error.response?.errors?.[0]?.message || error.message || "Failed to update leave request.";
+      console.error(error);
+      const msg = extractErrorMessage(error, "Failed to update leave request.");
       toast.error(msg);
     }
   });
@@ -423,6 +425,13 @@ export default function LeaveOverview() {
                     toast.error("Please upload a supporting document for your leave request.");
                     return;
                   }
+                  
+                  const selectedBalance = leaveBalances.find(b => b.leaveTypeId === formData.leave_type);
+                  if (selectedBalance && formData.total_days > selectedBalance.available) {
+                    toast.error(`You cannot request ${formData.total_days} days. You only have ${selectedBalance.available} available for this leave type.`);
+                    return;
+                  }
+
                   createLeaveMutation.mutate(formData);
                 }}
                 className="space-y-6"
@@ -481,12 +490,16 @@ export default function LeaveOverview() {
                         onChange={(e) => {
                           const isHalf = e.target.checked;
                           let tDays = 0;
+                          let newEndDate = formData.end_date;
+                          if (isHalf && !formData.useMultipleDates) {
+                            newEndDate = formData.start_date;
+                          }
                           if (formData.useMultipleDates) {
                             tDays = formData.selectedDates.length * (isHalf ? 0.5 : 1);
                           } else {
-                            tDays = calculateDays(formData.start_date, formData.end_date) * (isHalf ? 0.5 : 1);
+                            tDays = calculateDays(formData.start_date, newEndDate) * (isHalf ? 0.5 : 1);
                           }
-                          setFormData({ ...formData, isHalfDay: isHalf, total_days: tDays });
+                          setFormData({ ...formData, isHalfDay: isHalf, end_date: newEndDate, total_days: tDays });
                         }} 
                         className="rounded border-slate-300"
                       />
@@ -521,20 +534,27 @@ export default function LeaveOverview() {
                         <Input 
                           type="date" 
                           value={formData.start_date}
-                          onChange={(e) => handleDateChange('start_date', e.target.value)}
+                          onChange={(e) => {
+                            handleDateChange('start_date', e.target.value);
+                            if (formData.isHalfDay) {
+                               handleDateChange('end_date', e.target.value);
+                            }
+                          }}
                           required
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label>End Date *</Label>
-                        <Input 
-                          type="date" 
-                          value={formData.end_date}
-                          onChange={(e) => handleDateChange('end_date', e.target.value)}
-                          required
-                        />
-                      </div>
+                      {!formData.isHalfDay && (
+                        <div className="space-y-2">
+                          <Label>End Date *</Label>
+                          <Input 
+                            type="date" 
+                            value={formData.end_date}
+                            onChange={(e) => handleDateChange('end_date', e.target.value)}
+                            required
+                          />
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="space-y-2 col-span-1 md:col-span-2">

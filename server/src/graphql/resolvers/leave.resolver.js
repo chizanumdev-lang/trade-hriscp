@@ -18,7 +18,9 @@ export const leaveResolvers = {
       let where = { employee: { organizationId: user.organizationId } };
       
       if (!isAdmin && !isManager) {
-        where.employeeId = user.employeeId;
+        const emp = await prisma.employee.findUnique({ where: { email: user.email } });
+        if (!emp) return [];
+        where.employeeId = emp.id;
       } else if (isManager && !employeeId) {
         // Manager fetching their own and team's leaves
         const manager = await prisma.employee.findUnique({ where: { id: user.employeeId } });
@@ -51,7 +53,9 @@ export const leaveResolvers = {
       let where = { employee: { organizationId: user.organizationId } };
       
       if (!isAdmin && !isManager) {
-        where.employeeId = user.employeeId;
+        const emp = await prisma.employee.findUnique({ where: { email: user.email } });
+        if (!emp) return { leaveRequests: [], total: 0, pages: 0, currentPage: page };
+        where.employeeId = emp.id;
       } else if (isManager && !employeeId) {
         const manager = await prisma.employee.findUnique({ where: { id: user.employeeId } });
         if (manager && manager.departmentId) {
@@ -193,7 +197,9 @@ export const leaveResolvers = {
         }
       } else {
         // Regular employees only see their own leave
-        whereClause.employeeId = user.employeeId;
+        const emp = await prisma.employee.findUnique({ where: { email: user.email } });
+        if (!emp) return [];
+        whereClause.employeeId = emp.id;
       }
       
       return prisma.leaveRequest.findMany({
@@ -267,6 +273,17 @@ export const leaveResolvers = {
         ipAddress
       });
 
+      if (leave.employee?.user?.id) {
+        await NotificationService.notify({
+          userId: leave.employee.user.id,
+          category: 'leave',
+          title: `Leave Request ${nextStatus === 'APPROVED' ? 'Approved' : 'Updated'}`,
+          message: `Your leave request from ${new Date(leave.startDate).toLocaleDateString()} to ${new Date(leave.endDate).toLocaleDateString()} has been ${nextStatus}.`,
+          deepLink: '/LeaveManagement',
+          sendEmail: true
+        });
+      }
+
       return updated;
     },
     rejectLeaveRequest: async (_, { id, reason }, { prisma, user, requireRole, ipAddress }) => {
@@ -311,6 +328,17 @@ export const leaveResolvers = {
         newValue: JSON.stringify({ status: 'REJECTED', reason }),
         ipAddress
       });
+
+      if (leave.employee?.user?.id) {
+        await NotificationService.notify({
+          userId: leave.employee.user.id,
+          category: 'leave',
+          title: 'Leave Request Rejected',
+          message: `Your leave request from ${new Date(leave.startDate).toLocaleDateString()} to ${new Date(leave.endDate).toLocaleDateString()} was rejected. Reason: ${reason}`,
+          deepLink: '/LeaveManagement',
+          sendEmail: true
+        });
+      }
 
       return updated;
     },

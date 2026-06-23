@@ -25,7 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import NotificationBell from "@/components/ui/NotificationBell";
+
 
 const navigationStructure = [
   {
@@ -203,6 +203,8 @@ export default function Layout({ children }) {
       documents { id status employeeId }
       leaveRequests { id status employeeId employee { email } }
       profileUpdateRequests { id status employeeId }
+      allProbationRequests { id status employeeId }
+      allOffboardings { id status employeeId }
     }
   `;
 
@@ -214,24 +216,27 @@ export default function Layout({ children }) {
   });
 
   const isAdmin = ['HR_ADMIN', 'SUPER_ADMIN', 'admin'].includes(user?.role) || user?.is_organization_owner;
-  const pendingCount = pendingData ? 
-    (pendingData.employees?.filter(e => e.employmentStatus === 'PENDING_APPROVAL').length || 0) +
-    (pendingData.documents?.filter(d => {
-      if (d.status !== 'PENDING') return false;
-      const emp = pendingData.employees?.find(e => e.id === d.employeeId);
-      return emp?.employmentStatus !== 'DRAFT';
-    }).length || 0) +
-    (pendingData.leaveRequests?.filter(l => {
-      if (l.employee?.email === user?.email || l.employeeId === user?.employeeId) return false;
-      if (isAdmin) return l.status === 'PENDING_HR' || l.status === 'PENDING_SUPER_ADMIN';
-      return l.status === 'PENDING';
-    }).length || 0) +
-    (pendingData.profileUpdateRequests?.filter(p => {
-      if (p.status !== 'PENDING') return false;
-      const emp = pendingData.employees?.find(e => e.id === p.employeeId);
-      return emp?.employmentStatus !== 'DRAFT';
-    }).length || 0)
-    : 0;
+  
+  const pendingEmployeesCount = pendingData?.employees?.filter(e => e.employmentStatus === 'PENDING_APPROVAL').length || 0;
+  const pendingDocumentCount = pendingData?.documents?.filter(d => {
+    if (d.status !== 'PENDING') return false;
+    const emp = pendingData.employees?.find(e => e.id === d.employeeId);
+    return emp?.employmentStatus !== 'DRAFT';
+  }).length || 0;
+  const pendingLeaveCount = pendingData?.leaveRequests?.filter(l => {
+    if (l.employee?.email === user?.email || l.employeeId === user?.employeeId) return false;
+    if (isAdmin) return l.status === 'PENDING_HR' || l.status === 'PENDING_SUPER_ADMIN';
+    return l.status === 'PENDING';
+  }).length || 0;
+  const pendingProfilesCount = pendingData?.profileUpdateRequests?.filter(p => {
+    if (p.status !== 'PENDING') return false;
+    const emp = pendingData.employees?.find(e => e.id === p.employeeId);
+    return emp?.employmentStatus !== 'DRAFT';
+  }).length || 0;
+  const pendingProbationCount = pendingData?.allProbationRequests?.filter(p => p.status === 'PENDING').length || 0;
+  const pendingOffboardingCount = pendingData?.allOffboardings?.filter(o => o.status === 'PENDING').length || 0;
+
+  const totalApprovalsCount = pendingEmployeesCount + pendingDocumentCount + pendingLeaveCount + pendingProfilesCount + pendingProbationCount + pendingOffboardingCount;
 
   let baseNavItems = isEmployee && !user?.role?.includes('ADMIN') && user?.role !== 'admin' ? employeeNavigation : [...navigationStructure];
 
@@ -257,10 +262,35 @@ export default function Layout({ children }) {
     if (item.title === "Dashboard") {
       return {
         ...item,
-        badge: pendingCount > 0 ? pendingCount : undefined,
+        badge: totalApprovalsCount > 0 ? totalApprovalsCount : undefined,
         children: item.children.map(child => {
           if (child.title === "Approvals") {
-            return { ...child, badge: pendingCount > 0 ? pendingCount : undefined };
+            return { ...child, badge: totalApprovalsCount > 0 ? totalApprovalsCount : undefined };
+          }
+          return child;
+        })
+      };
+    }
+    if (item.title === "Recruitment") {
+      return {
+        ...item,
+        badge: pendingOffboardingCount > 0 ? pendingOffboardingCount : undefined,
+        children: item.children.map(child => {
+          if (child.title === "Offboarding") {
+            return { ...child, badge: pendingOffboardingCount > 0 ? pendingOffboardingCount : undefined };
+          }
+          return child;
+        })
+      };
+    }
+    if (item.title === "Employees") {
+      const empBadgeCount = pendingLeaveCount + pendingProfilesCount;
+      return {
+        ...item,
+        badge: empBadgeCount > 0 ? empBadgeCount : undefined,
+        children: item.children.map(child => {
+          if (child.title === "Leave Management" && pendingLeaveCount > 0) {
+            return { ...child, badge: pendingLeaveCount };
           }
           return child;
         })
@@ -304,7 +334,7 @@ export default function Layout({ children }) {
           <h1 className="text-lg font-bold text-slate-900 tracking-tight">TradeVu</h1>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <NotificationBell />
+
         </div>
       </header>
 
@@ -361,7 +391,7 @@ export default function Layout({ children }) {
 
         {/* Theme Toggle & Avatar */}
         <div className="mt-auto flex flex-col gap-3 items-center w-full px-2 pt-4 pb-2">
-          <NotificationBell />
+
 
           <button onClick={toggleTheme} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${isDark ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-200 hover:text-slate-900'}`}>
             {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}

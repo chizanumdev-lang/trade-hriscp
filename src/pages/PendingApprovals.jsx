@@ -10,6 +10,7 @@ import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '../components/ui/dialog';
 import { CheckCircle2, XCircle, FileText, UserCircle, CalendarRange, Eye, Inbox, Loader2, AlertCircle } from 'lucide-react';
+import { extractErrorMessage } from '../lib/utils';
 import { motion } from 'framer-motion';
 import EmployeeDetail from './EmployeeDetail';
 import UnifiedProfileReviewDialog from '../components/UnifiedProfileReviewDialog';
@@ -59,6 +60,27 @@ const GET_PENDING_APPROVALS = gql`
       requestedValue
       status
       createdAt
+    }
+    allOffboardings {
+      id
+      employeeId
+      exitType
+      exitDate
+      reason
+      status
+      employee {
+        fullName
+      }
+    }
+    allProbationRequests {
+      id
+      employeeId
+      startDate
+      endDate
+      status
+      employee {
+        fullName
+      }
     }
   }
 `;
@@ -120,6 +142,33 @@ const APPROVE_PROFILE = gql`
 const REJECT_PROFILE = gql`
   mutation RejectProfile($id: ID!, $reason: String, $attachmentUrl: String!) {
     rejectProfileUpdateRequest(id: $id, reason: $reason, attachmentUrl: $attachmentUrl) {
+      id
+      status
+    }
+  }
+`;
+
+const APPROVE_OFFBOARDING = gql`
+  mutation ApproveOffboarding($id: ID!, $comments: String) {
+    approveOffboarding(id: $id, comments: $comments) {
+      id
+      status
+    }
+  }
+`;
+
+const REJECT_OFFBOARDING = gql`
+  mutation RejectOffboarding($id: ID!, $comments: String) {
+    rejectOffboarding(id: $id, comments: $comments) {
+      id
+      status
+    }
+  }
+`;
+
+const APPROVE_PROBATION = gql`
+  mutation ApproveProbation($id: ID!, $status: String!, $comments: String) {
+    approveProbation(id: $id, status: $status, comments: $comments) {
       id
       status
     }
@@ -223,8 +272,7 @@ export default function PendingApprovals() {
   };
 
   const handleError = (err) => {
-    const errMsg = err.response?.errors?.[0]?.message || err.message || "Operation failed.";
-    toast.error(errMsg);
+    toast.error(extractErrorMessage(err, "Operation failed."));
   };
 
   const { mutate: approveEmployee, isPending: isApprovingEmployee, variables: empAppVars } = useMutation({
@@ -290,6 +338,24 @@ export default function PendingApprovals() {
     onError: handleError
   });
 
+  const { mutate: approveOffboarding } = useMutation({
+    mutationFn: (variables) => gqlClient.request(APPROVE_OFFBOARDING, variables),
+    onSuccess: () => { toast.success("Offboarding approved!"); invalidate(); },
+    onError: handleError
+  });
+
+  const { mutate: rejectOffboarding } = useMutation({
+    mutationFn: (variables) => gqlClient.request(REJECT_OFFBOARDING, variables),
+    onSuccess: () => { toast.success("Offboarding rejected!"); invalidate(); },
+    onError: handleError
+  });
+
+  const { mutate: approveProbation } = useMutation({
+    mutationFn: (variables) => gqlClient.request(APPROVE_PROBATION, variables),
+    onSuccess: () => { toast.success("Probation request updated!"); invalidate(); },
+    onError: handleError
+  });
+
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -313,11 +379,9 @@ export default function PendingApprovals() {
   };
 
   if (error) return (
-    <div className="p-8 text-center mt-10">
-      <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg">
-        <AlertCircle className="w-5 h-5" />
-        <span>Error loading approvals: {error.message}</span>
-      </div>
+    <div className="flex justify-center items-center h-64 text-red-500 bg-red-50 p-4 rounded-lg text-center max-w-lg mx-auto mt-10 shadow-sm border border-red-100">
+      <AlertCircle className="w-6 h-6 mr-3 shrink-0" />
+      <span>Error loading approvals: {extractErrorMessage(error)}</span>
     </div>
   );
 
@@ -345,6 +409,9 @@ export default function PendingApprovals() {
     const emp = data?.employees?.find(e => e.id === p.employeeId);
     return emp?.employmentStatus !== 'DRAFT';
   }) || [];
+
+  const pendingOffboardings = data?.allOffboardings?.filter(o => o.status === 'PENDING') || [];
+  const pendingProbations = data?.allProbationRequests?.filter(p => p.status === 'PENDING') || [];
 
   const standalonePendingDocuments = pendingDocuments.filter(d => !pendingEmployees.some(e => e.id === d.employeeId));
 
@@ -411,24 +478,13 @@ export default function PendingApprovals() {
           <TabsList className="bg-slate-50/80 border border-slate-100 p-1.5 rounded-xl flex-wrap h-auto">
             <TabsTrigger value="unified" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex gap-2">
               <UserCircle className="w-4 h-4" />
-              Unified Reviews
-              {unifiedEmployeeIds.length > 0 && <Badge variant="secondary" className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0 min-w-[20px]">{unifiedEmployeeIds.length}</Badge>}
-            </TabsTrigger>
-
-            <TabsTrigger value="documents" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex gap-2">
-              <FileText className="w-4 h-4" />
-              Documents
-              {standalonePendingDocuments.length > 0 && <Badge variant="secondary" className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0 min-w-[20px]">{standalonePendingDocuments.length}</Badge>}
+              Profile Reviews
+              {(unifiedEmployeeIds.length + pendingProfiles.length + pendingProbations.length + pendingOffboardings.length) > 0 && <Badge variant="secondary" className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0 min-w-[20px]">{unifiedEmployeeIds.length + pendingProfiles.length + pendingProbations.length + pendingOffboardings.length}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="leaves" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex gap-2">
               <CalendarRange className="w-4 h-4" />
               Leave Requests
               {pendingLeaves.length > 0 && <Badge variant="secondary" className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0 min-w-[20px]">{pendingLeaves.length}</Badge>}
-            </TabsTrigger>
-            <TabsTrigger value="profiles" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex gap-2">
-              <UserCircle className="w-4 h-4" />
-              Profile Updates
-              {pendingProfiles.length > 0 && <Badge variant="secondary" className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0 min-w-[20px]">{pendingProfiles.length}</Badge>}
             </TabsTrigger>
           </TabsList>
 
@@ -436,123 +492,151 @@ export default function PendingApprovals() {
             <TabsContent value="unified" className="m-0 focus-visible:outline-none">
               {loading ? (
                 <ApprovalsSkeleton />
-              ) : unifiedEmployeeIds.length === 0 ? (
+              ) : (unifiedEmployeeIds.length === 0 && pendingProfiles.length === 0 && pendingProbations.length === 0 && pendingOffboardings.length === 0) ? (
                 <EmptyState message="No pending reviews across the organization." icon={UserCircle} />
               ) : (
-                <div className="space-y-3">
-                  {unifiedEmployeeIds.map(empId => {
-                    const eDocs = pendingDocuments.filter(d => d.employeeId === empId).length;
-                    const eProfs = pendingProfiles.filter(p => p.employeeId === empId).length;
-                    const ePendingOnboarding = pendingEmployees.some(e => e.id === empId);
+                <div className="space-y-8">
+                  {/* Profile Completions (Unified View) */}
+                  {unifiedEmployeeIds.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold text-slate-800 border-b pb-2 mb-4">Profile Completions</h3>
+                      {unifiedEmployeeIds.map(empId => {
+                        const eDocs = pendingDocuments.filter(d => d.employeeId === empId).length;
+                        const eProfs = pendingProfiles.filter(p => p.employeeId === empId).length;
+                        const ePendingOnboarding = pendingEmployees.some(e => e.id === empId);
 
-                    return (
-                      <motion.div 
-                        key={empId} 
-                        whileHover={{ y: -2 }}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border border-slate-200/60 rounded-xl bg-white shadow-sm hover:shadow-md transition-all gap-4 group"
-                      >
-                        <div>
-                          <h4 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{getEmployeeName(empId)}</h4>
-                          <p className="text-sm text-slate-500 mt-1">{getEmployeeJobTitle(empId)} • <span className="font-medium text-slate-600">{getEmployeeDept(empId)}</span></p>
-                          <div className="flex gap-2 mt-2">
-                            {ePendingOnboarding && <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">Pending Activation</Badge>}
-                            {eProfs > 0 && <Badge variant="outline" className="text-indigo-600 border-indigo-200 bg-indigo-50">{eProfs} Profile Changes</Badge>}
-                            {eDocs > 0 && <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">{eDocs} Documents</Badge>}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button 
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
-                            onClick={() => setSelectedUnifiedEmployeeId(empId)}
+                        return (
+                          <motion.div 
+                            key={empId} 
+                            whileHover={{ y: -2 }}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border border-slate-200/60 rounded-xl bg-white shadow-sm hover:shadow-md transition-all gap-4 group"
                           >
-                            Review & Action
-                          </Button>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="documents" className="m-0 focus-visible:outline-none">
-              {loading ? (
-                <ApprovalsSkeleton />
-              ) : standalonePendingDocuments.length === 0 ? (
-                <EmptyState message="No pending documents." icon={FileText} />
-              ) : (
-                <div className="space-y-3">
-                  {standalonePendingDocuments.map(doc => (
-                    <motion.div 
-                      key={doc.id} 
-                      whileHover={{ y: -2 }}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border border-slate-200/60 rounded-xl bg-white shadow-sm hover:shadow-md transition-all gap-4 group"
-                    >
-                      <div>
-                        <h4 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{doc.name}</h4>
-                        <p className="text-sm text-slate-500 mt-1">Category: <span className="font-medium text-slate-600">{doc.category}</span> • Uploaded by: {getEmployeeName(doc.employeeId)}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" className="rounded-lg text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2">
-                              <Eye className="w-4 h-4" />
-                              Preview
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col rounded-2xl border-0 shadow-2xl">
-                            <DialogHeader className="px-6 py-4 border-b border-slate-100 bg-white">
-                              <DialogTitle className="text-slate-900">{doc.name}</DialogTitle>
-                              <DialogDescription className="sr-only">Preview of {doc.name}</DialogDescription>
-                            </DialogHeader>
-                            <div className="w-full flex-1 flex items-center justify-center bg-slate-50 relative min-h-[60vh] p-4">
-                              {!doc.fileUrl ? (
-                                <p className="text-slate-500 font-medium">Document URL not available</p>
-                              ) : ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(doc.fileType?.toLowerCase()) || doc.fileType?.startsWith('image/') || doc.fileUrl.match(/\.(jpeg|jpg|gif|png)$/i) ? (
-                                <img src={doc.fileUrl} alt={doc.name} className="max-w-full max-h-full object-contain rounded-lg shadow-sm border border-slate-200" />
-                              ) : doc.fileType?.toLowerCase() === 'pdf' || doc.fileUrl.toLowerCase().endsWith('.pdf') ? (
-                                doc.fileUrl.includes('res.cloudinary.com') ? (
-                                  <div className="flex flex-col items-center w-full h-full overflow-auto">
-                                    <img src={doc.fileUrl.replace(/\.pdf$/i, '.jpg')} alt={doc.name} className="max-w-full h-auto object-contain shadow-sm border border-slate-200 rounded-lg" />
-                                    <p className="text-xs font-medium text-slate-500 mt-3 text-center">Previewing first page. Click "Open in New Tab" to view the full PDF.</p>
-                                  </div>
-                                ) : (
-                                  <object data={doc.fileUrl} type="application/pdf" className="w-full h-full rounded-lg shadow-sm">
-                                    <p className="text-center p-4 text-slate-500 font-medium">Your browser does not support PDFs. <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline">Download the PDF</a>.</p>
-                                  </object>
-                                )
-                              ) : (
-                                <iframe src={doc.fileUrl} className="w-full h-full border-0 rounded-lg shadow-sm bg-white" title={doc.name} />
-                              )}
-                              {doc.fileUrl && (
-                                <a 
-                                  href={doc.fileUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer" 
-                                  className="absolute bottom-6 right-6 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg hover:bg-slate-800 transition-colors z-10 font-medium flex items-center gap-2"
-                                >
-                                  <Eye className="w-4 h-4" /> Open Original
-                                </a>
-                              )}
+                            <div>
+                              <h4 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{getEmployeeName(empId)}</h4>
+                              <p className="text-sm text-slate-500 mt-1">{getEmployeeJobTitle(empId)} • <span className="font-medium text-slate-600">{getEmployeeDept(empId)}</span></p>
+                              <div className="flex gap-2 mt-2">
+                                {ePendingOnboarding && <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">Pending Activation</Badge>}
+                                {eProfs > 0 && <Badge variant="outline" className="text-indigo-600 border-indigo-200 bg-indigo-50">{eProfs} Profile Changes</Badge>}
+                                {eDocs > 0 && <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">{eDocs} Documents</Badge>}
+                              </div>
                             </div>
-                          </DialogContent>
-                        </Dialog>
-                        <RejectDialog onReject={(reason) => rejectDocument({ id: doc.id, reason, attachmentUrl: "" })} title={`Reject Document: ${doc.name}`} />
-                        <Button 
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
-                          onClick={() => approveDocument({ id: doc.id })}
-                          disabled={isApprovingDoc && docAppVars?.id === doc.id}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button 
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
+                                onClick={() => setSelectedUnifiedEmployeeId(empId)}
+                              >
+                                Review & Action
+                              </Button>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Profile Updates */}
+                  {pendingProfiles.length > 0 && (
+                    <div className="space-y-3 mt-8">
+                      <h3 className="text-lg font-semibold text-slate-800 border-b pb-2 mb-4">Profile Updates</h3>
+                      {pendingProfiles.map(update => (
+                        <motion.div 
+                          key={update.id} 
+                          whileHover={{ y: -2 }}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border border-slate-200/60 rounded-xl bg-white shadow-sm hover:shadow-md transition-all gap-4 group"
                         >
-                          {isApprovingDoc && docAppVars?.id === doc.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="w-4 h-4" />
-                          )}
-                          Approve
-                        </Button>
-                      </div>
-                    </motion.div>
-                  ))}
+                          <div>
+                            <h4 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{getEmployeeName(update.employeeId)}</h4>
+                            <p className="text-sm text-slate-500 mt-1">
+                              Requested change to <span className="font-semibold text-slate-700">{update.fieldName}</span>
+                            </p>
+                            <div className="flex items-center gap-2 mt-2 text-sm border border-slate-100 bg-slate-50 p-2 rounded-lg inline-flex">
+                              <span className="text-slate-400 line-through font-medium">{update.currentValue || '(empty)'}</span>
+                              <span className="text-slate-300">→</span>
+                              <span className="text-indigo-600 font-semibold">{update.requestedValue}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <RejectDialog onReject={(reason) => rejectProfile({ id: update.id, reason, attachmentUrl: "" })} title="Reject Profile Update" />
+                            <Button 
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
+                              onClick={() => approveProfile({ id: update.id })}
+                              disabled={isApprovingProfile && profAppVars?.id === update.id}
+                            >
+                              {isApprovingProfile && profAppVars?.id === update.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-4 h-4" />
+                              )}
+                              Approve
+                            </Button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Probation Requests */}
+                  {pendingProbations.length > 0 && (
+                    <div className="space-y-3 mt-8">
+                      <h3 className="text-lg font-semibold text-slate-800 border-b pb-2 mb-4">Probation Requests</h3>
+                      {pendingProbations.map(prob => (
+                        <motion.div 
+                          key={prob.id} 
+                          whileHover={{ y: -2 }}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border border-slate-200/60 rounded-xl bg-white shadow-sm hover:shadow-md transition-all gap-4 group"
+                        >
+                          <div>
+                            <h4 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{prob.employee?.fullName || 'Unknown'}</h4>
+                            <p className="text-sm text-slate-500 mt-1">
+                              Requested Probation Period: <span className="font-medium text-slate-700">{new Date(safeDate(prob.startDate)).toLocaleDateString()}</span> to <span className="font-medium text-slate-700">{new Date(safeDate(prob.endDate)).toLocaleDateString()}</span>
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <RejectDialog onReject={(reason) => approveProbation({ id: prob.id, status: 'REJECTED', comments: reason })} title="Reject Probation Request" />
+                            <Button 
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
+                              onClick={() => approveProbation({ id: prob.id, status: 'APPROVED' })}
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              Approve
+                            </Button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Offboarding Requests */}
+                  {pendingOffboardings.length > 0 && (
+                    <div className="space-y-3 mt-8">
+                      <h3 className="text-lg font-semibold text-slate-800 border-b pb-2 mb-4">Offboarding Requests</h3>
+                      {pendingOffboardings.map(off => (
+                        <motion.div 
+                          key={off.id} 
+                          whileHover={{ y: -2 }}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border border-slate-200/60 rounded-xl bg-white shadow-sm hover:shadow-md transition-all gap-4 group"
+                        >
+                          <div>
+                            <h4 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{off.employee?.fullName || 'Unknown'}</h4>
+                            <p className="text-sm text-slate-500 mt-1">
+                              Offboarding Type: <span className="font-semibold text-slate-700">{off.exitType}</span> • Exit Date: <span className="font-medium text-slate-700">{new Date(safeDate(off.exitDate)).toLocaleDateString()}</span>
+                            </p>
+                            {off.reason && <p className="text-sm text-slate-600 mt-2 bg-slate-50 p-2 rounded-lg border border-slate-100">"{off.reason}"</p>}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <RejectDialog onReject={(reason) => rejectOffboarding({ id: off.id, comments: reason })} title="Reject Offboarding" />
+                            <Button 
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
+                              onClick={() => approveOffboarding({ id: off.id })}
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              Approve
+                            </Button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </TabsContent>
@@ -615,50 +699,6 @@ export default function PendingApprovals() {
               )}
             </TabsContent>
 
-            <TabsContent value="profiles" className="m-0 focus-visible:outline-none">
-              {loading ? (
-                <ApprovalsSkeleton />
-              ) : pendingProfiles.length === 0 ? (
-                <EmptyState message="No pending profile updates." icon={UserCircle} />
-              ) : (
-                <div className="space-y-3">
-                  {pendingProfiles.map(update => (
-                    <motion.div 
-                      key={update.id} 
-                      whileHover={{ y: -2 }}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border border-slate-200/60 rounded-xl bg-white shadow-sm hover:shadow-md transition-all gap-4 group"
-                    >
-                      <div>
-                        <h4 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{getEmployeeName(update.employeeId)}</h4>
-                        <p className="text-sm text-slate-500 mt-1">
-                          Requested change to <span className="font-semibold text-slate-700">{update.fieldName}</span>
-                        </p>
-                        <div className="flex items-center gap-2 mt-2 text-sm border border-slate-100 bg-slate-50 p-2 rounded-lg inline-flex">
-                          <span className="text-slate-400 line-through font-medium">{update.currentValue || '(empty)'}</span>
-                          <span className="text-slate-300">→</span>
-                          <span className="text-indigo-600 font-semibold">{update.requestedValue}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <RejectDialog onReject={(reason) => rejectProfile({ id: update.id, reason, attachmentUrl: "" })} title="Reject Profile Update" />
-                        <Button 
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 rounded-lg shadow-sm"
-                          onClick={() => approveProfile({ id: update.id })}
-                          disabled={isApprovingProfile && profAppVars?.id === update.id}
-                        >
-                          {isApprovingProfile && profAppVars?.id === update.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="w-4 h-4" />
-                          )}
-                          Approve
-                        </Button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
           </div>
         </Tabs>
       </motion.div>

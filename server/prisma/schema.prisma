@@ -26,6 +26,7 @@ model User {
   auditLogs           AuditLog[]         @relation("AuditActor")
   notifications       Notification[]
   promotionRequests   PromotionRequest[]
+  probationRequests   ProbationRequest[]
   employee            Employee?          @relation(fields: [employeeId], references: [id])
   organization        Organization       @relation(fields: [organizationId], references: [id])
 }
@@ -170,6 +171,7 @@ model Employee {
   salaryHistory           SalaryHistory[]
   suspensions             Suspension[]
   user                    User?
+  probationRequests       ProbationRequest[]
 }
 
 model EmployeeStatusHistory {
@@ -411,10 +413,14 @@ model ApprovalRecord {
   payrollRunId        String?
   promotionRequestId  String?
   suspensionRequestId String?
+  probationRequestId  String?
+  offboardingId       String?
   leaveRequest        LeaveRequest?     @relation(fields: [leaveRequestId], references: [id])
   payrollRun          PayrollRun?       @relation(fields: [payrollRunId], references: [id])
   promotionRequest    PromotionRequest? @relation(fields: [promotionRequestId], references: [id])
   suspensionRequest   Suspension?       @relation(fields: [suspensionRequestId], references: [id])
+  probationRequest    ProbationRequest? @relation(fields: [probationRequestId], references: [id])
+  offboarding         Offboarding?      @relation(fields: [offboardingId], references: [id])
 }
 
 model PromotionRequest {
@@ -429,6 +435,20 @@ model PromotionRequest {
   status             ApprovalStatus   @default(PENDING)
   isExecuted         Boolean          @default(false)
   effectiveDate      DateTime
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  approvals          ApprovalRecord[]
+  employee           Employee         @relation(fields: [employeeId], references: [id])
+  requestedBy        User             @relation(fields: [requestedById], references: [id])
+}
+
+model ProbationRequest {
+  id                 String           @id @default(uuid())
+  employeeId         String
+  requestedById      String
+  startDate          DateTime
+  endDate            DateTime
+  status             ApprovalStatus   @default(PENDING)
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   approvals          ApprovalRecord[]
@@ -509,9 +529,11 @@ model Offboarding {
   accessRevoked         Boolean  @default(false)
   handoverComplete      Boolean  @default(false)
   finalPayrollProcessed Boolean  @default(false)
+  status                ApprovalStatus @default(PENDING)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   employee              Employee @relation(fields: [employeeId], references: [id])
+  approvals             ApprovalRecord[]
 }
 
 model Policy {

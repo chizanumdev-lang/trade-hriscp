@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { extractErrorMessage } from "@/lib/utils";
 
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { format as dateFnsFormat } from "date-fns";
@@ -110,6 +111,9 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
 
   const [showOffboardDialog, setShowOffboardDialog] = useState(false);
   const [offboardForm, setOffboardForm] = useState({ type: 'RESIGNATION', exitDate: '', reason: '' });
+
+  const [showProbationDialog, setShowProbationDialog] = useState(false);
+  const [probationForm, setProbationForm] = useState({ startDate: '', endDate: '' });
 
   const { data: employee, isLoading, isError, error } = useQuery({
     queryKey: ['employee', employeeId],
@@ -379,25 +383,49 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
     enabled: !!employee && !!promoteForm.employeeGrade
   });
 
-  const offboardEmployeeMutation = useMutation({
+  const requestOffboardingMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      const OFFBOARD_EMP = gql`
-        mutation OffboardEmployee($id: ID!, $input: OffboardEmployeeInput!) {
-          offboardEmployee(id: $id, input: $input) {
+      const REQUEST_OFFBOARDING = gql`
+        mutation RequestOffboarding($id: ID!, $input: OffboardEmployeeInput!) {
+          requestOffboarding(id: $id, input: $input) {
             id
-            employmentStatus
+            status
           }
         }
       `;
-      return await gqlClient.request(OFFBOARD_EMP, { id, input: data });
+      return await gqlClient.request(REQUEST_OFFBOARDING, { id, input: data });
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries(['employee', variables.id]);
-      toast.success("Employee offboarded successfully.");
+      queryClient.invalidateQueries(['pendingApprovals']);
+      toast.success("Offboarding request submitted for approval.");
     },
     onError: (err) => {
       console.error(err);
-      toast.error("Failed to offboard employee.");
+      toast.error(extractErrorMessage(err, "Failed to submit offboarding request."));
+    }
+  });
+
+  const requestProbationMutation = useMutation({
+    mutationFn: async ({ data }) => {
+      const REQUEST_PROBATION = gql`
+        mutation RequestProbation($input: RequestProbationInput!) {
+          requestProbation(input: $input) {
+            id
+            status
+          }
+        }
+      `;
+      return await gqlClient.request(REQUEST_PROBATION, { input: data });
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries(['employee', employeeId]);
+      queryClient.invalidateQueries(['pendingApprovals']);
+      toast.success("Probation request submitted for approval.");
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error("Failed to submit probation request.");
     }
   });
 
@@ -450,8 +478,8 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
       toast.success("Saved successfully");
     },
     onError: (error) => {
-      console.error("Mutation error:", error);
-      toast.error("Failed to save: " + error.message);
+      console.error(error);
+      toast.error(extractErrorMessage(error, "Failed to save data."));
     }
   });
 
@@ -2149,6 +2177,9 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                         Suspend Employee
                       </DropdownMenuItem>
                     )}
+                    <DropdownMenuItem onClick={() => setShowProbationDialog(true)}>
+                      Place on Probation
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setShowOffboardDialog(true)} className="text-red-600 focus:text-red-600 focus:bg-red-50">
                       Offboard Employee
                     </DropdownMenuItem>
@@ -2237,8 +2268,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                           toast.success("Employee data approved!");
                           queryClient.invalidateQueries(['employee', employeeId]);
                         } catch (err) {
-                          const errMsg = err.response?.errors?.[0]?.message || err.message || "Failed to approve employee data.";
-                          toast.error(errMsg);
+                          toast.error(extractErrorMessage(err, "Failed to approve employee data."));
                           console.error(err);
                         }
                       }}
@@ -2275,8 +2305,7 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
                           toast.success("Onboarding started! Tasks have been generated.");
                           queryClient.invalidateQueries(['employee', employeeId]);
                         } catch (err) {
-                          const errMsg = err.response?.errors?.[0]?.message || err.message || "Failed to start onboarding.";
-                          toast.error(errMsg);
+                          toast.error(extractErrorMessage(err, "Failed to start onboarding."));
                           console.error(err);
                         }
                       }}
@@ -2517,26 +2546,74 @@ export default function EmployeeDetail({ employeeIdProp, onClose }) {
               <Label>Reason</Label>
               <Textarea value={offboardForm.reason} onChange={e => setOffboardForm({ ...offboardForm, reason: e.target.value })} placeholder="Reason for leaving..." />
             </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowOffboardDialog(false)}>Cancel</Button>
             <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
               onClick={() => {
-                if (!offboardForm.exitDate || !offboardForm.reason) return toast.error('Please fill all fields.');
-                offboardEmployeeMutation.mutate({
+                requestOffboardingMutation.mutate({
                   id: employee.id,
                   data: {
                     exitType: offboardForm.type,
                     exitDate: offboardForm.exitDate,
                     reason: offboardForm.reason
                   }
+                }, {
+                  onSuccess: () => setShowOffboardDialog(false)
                 });
-                setShowOffboardDialog(false);
-                setTimeout(() => navigate('/Employees'), 1000);
               }}
-              disabled={offboardEmployeeMutation.isPending}
-              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              disabled={requestOffboardingMutation.isPending}
             >
-              Confirm Offboarding
+              {requestOffboardingMutation.isPending ? 'Submitting...' : 'Submit Request'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showProbationDialog} onOpenChange={setShowProbationDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Place on Probation</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Start Date</Label>
+              <Input
+                type="date"
+                value={probationForm.startDate}
+                onChange={(e) => setProbationForm({ ...probationForm, startDate: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>End Date</Label>
+              <Input
+                type="date"
+                value={probationForm.endDate}
+                onChange={(e) => setProbationForm({ ...probationForm, endDate: e.target.value })}
+              />
+            </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowProbationDialog(false)}>Cancel</Button>
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              onClick={() => {
+                requestProbationMutation.mutate({
+                  data: {
+                    employeeId: employee.id,
+                    startDate: probationForm.startDate,
+                    endDate: probationForm.endDate
+                  }
+                }, {
+                  onSuccess: () => setShowProbationDialog(false)
+                });
+              }}
+              disabled={requestProbationMutation.isPending}
+            >
+              {requestProbationMutation.isPending ? 'Submitting...' : 'Submit Request'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

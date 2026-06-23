@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { gqlClient } from "@/api/graphqlClient";
+import { gql } from "graphql-request";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

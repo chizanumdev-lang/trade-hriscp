@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { UserCircle, Upload, Lock, Share2, Bell, Save, Check, Linkedin, Twitter, Github, Facebook } from "lucide-react";
+import { UserCircle, Upload, Lock, Share2, Settings, Save, Check, Linkedin, Twitter, Github, Facebook } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Profile() {
@@ -236,7 +236,7 @@ export default function Profile() {
               Social Accounts
             </TabsTrigger>
             <TabsTrigger value="preferences">
-              <Bell className="w-4 h-4 mr-2" />
+              <Settings className="w-4 h-4 mr-2" />
               Preferences
             </TabsTrigger>
           </TabsList>
