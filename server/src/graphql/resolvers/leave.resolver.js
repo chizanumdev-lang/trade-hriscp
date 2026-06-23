@@ -12,12 +12,29 @@ export const leaveResolvers = {
     },
     leaveRequests: async (_, { employeeId }, { prisma, user, requireAuth }) => {
       requireAuth();
-      const where = employeeId ? {
-        employeeId,
-        employee: { organizationId: user.organizationId }
-      } : {
-        employee: { organizationId: user.organizationId }
-      };
+      const isAdmin = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role);
+      const isManager = user.role === 'MANAGER';
+      
+      let where = { employee: { organizationId: user.organizationId } };
+      
+      if (!isAdmin && !isManager) {
+        where.employeeId = user.employeeId;
+      } else if (isManager && !employeeId) {
+        // Manager fetching their own and team's leaves
+        const manager = await prisma.employee.findUnique({ where: { id: user.employeeId } });
+        if (manager && manager.departmentId) {
+          // Find all employees in the same department
+          where.employee = { 
+            departmentId: manager.departmentId, 
+            organizationId: user.organizationId 
+          };
+        } else {
+          where.employeeId = user.employeeId;
+        }
+      } else if (employeeId) {
+        where.employeeId = employeeId;
+      }
+
       return prisma.leaveRequest.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -27,12 +44,28 @@ export const leaveResolvers = {
     paginatedLeaveRequests: async (_, { page = 1, limit = 10, employeeId }, { prisma, user, requireAuth }) => {
       requireAuth();
       const skip = (page - 1) * limit;
-      const where = employeeId ? {
-        employeeId,
-        employee: { organizationId: user.organizationId }
-      } : {
-        employee: { organizationId: user.organizationId }
-      };
+      
+      const isAdmin = ['SUPER_ADMIN', 'HR_ADMIN'].includes(user.role);
+      const isManager = user.role === 'MANAGER';
+      
+      let where = { employee: { organizationId: user.organizationId } };
+      
+      if (!isAdmin && !isManager) {
+        where.employeeId = user.employeeId;
+      } else if (isManager && !employeeId) {
+        const manager = await prisma.employee.findUnique({ where: { id: user.employeeId } });
+        if (manager && manager.departmentId) {
+          where.employee = { 
+            departmentId: manager.departmentId, 
+            organizationId: user.organizationId 
+          };
+        } else {
+          where.employeeId = user.employeeId;
+        }
+      } else if (employeeId) {
+        where.employeeId = employeeId;
+      }
+
       const [leaveRequests, totalCount] = await Promise.all([
         prisma.leaveRequest.findMany({
           where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { employee: true, leaveType: true }
@@ -188,42 +221,8 @@ export const leaveResolvers = {
         }
       });
     },
-    submitLeaveRequest: async (_, { input }, { prisma, user, requireAuth }) => {
-      requireAuth();
-      const employee = await prisma.employee.findUnique({ where: { email: user.email } });
-      if (!employee) throw new Error("Employee record not found for this user");
-
-      const publicHolidays = await prisma.publicHoliday.findMany({
-        where: { organizationId: user.organizationId, date: { gte: new Date(input.startDate), lte: new Date(input.endDate) } }
-      });
-
-      const businessDays = calculateBusinessDays(new Date(input.startDate), new Date(input.endDate), publicHolidays.map(h => h.date));
-      if (businessDays === 0) throw new Error("Requested period contains zero business days.");
-
-      const balanceCheck = await validateLeaveBalance(employee.id, input.leaveTypeId, businessDays, prisma);
-      if (!balanceCheck.isValid) throw new Error(balanceCheck.reason);
-
-      // Deduct available -> pending
-      await prisma.leaveBalance.update({
-        where: { id: balanceCheck.balance.id },
-        data: {
-          available: { decrement: businessDays },
-          pending: { increment: businessDays }
-        }
-      });
-
-      return prisma.leaveRequest.create({
-        data: {
-          employeeId: employee.id,
-          leaveTypeId: input.leaveTypeId,
-          startDate: new Date(input.startDate),
-          endDate: new Date(input.endDate),
-          reason: input.reason,
-          handoverNote: input.handoverNote,
-          attachmentUrl: input.attachmentUrl,
-          status: 'PENDING'
-        }
-      });
+    submitLeaveRequest: async () => {
+      throw new Error("This resolver is implemented in misc.resolver.js");
     },
     approveLeaveRequest: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);

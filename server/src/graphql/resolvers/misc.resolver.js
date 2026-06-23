@@ -9,6 +9,7 @@ import { NotificationService } from '../../services/NotificationService.js';
 import { client as triggerClient } from '../../jobs/trigger.js';
 
 import { applyDynamicBenefits, calculateBenefits } from '../../utils/benefitsMatrix.js';
+import { calculateBusinessDays, validateLeaveBalance } from '../../utils/leaveUtils.js';
 
 const checkAndPromoteEmployee = async (employeeId, prisma) => {
   const emp = await prisma.employee.findUnique({
@@ -1930,13 +1931,36 @@ submitLeaveRequest: async (_, {
     }
   };
 
+  const publicHolidays = await prisma.publicHoliday.findMany({
+    where: { organizationId: user.organizationId, date: { gte: new Date(input.startDate), lte: new Date(input.endDate) } }
+  });
+
+  const calculatedTotalDays = input.isHalfDay 
+    ? 0.5 
+    : input.selectedDates?.length > 0 
+      ? input.selectedDates.length 
+      : calculateBusinessDays(new Date(input.startDate), new Date(input.endDate), publicHolidays.map(h => h.date));
+
+  if (calculatedTotalDays === 0) throw new Error("Requested period contains zero valid days.");
+
+  const balanceCheck = await validateLeaveBalance(employee.id, input.leaveTypeId, calculatedTotalDays, prisma);
+  if (!balanceCheck.isValid) throw new Error(balanceCheck.reason);
+
+  await prisma.leaveBalance.update({
+    where: { id: balanceCheck.balance.id },
+    data: {
+      available: { decrement: calculatedTotalDays },
+      pending: { increment: calculatedTotalDays }
+    }
+  });
+
   const leaveRequest = await prisma.leaveRequest.create({
     data: {
       employeeId: user.employeeId,
       leaveTypeId: input.leaveTypeId,
       startDate: new Date(input.startDate),
       endDate: new Date(input.endDate),
-      totalDays: input.isHalfDay ? 0.5 : input.selectedDates?.length > 0 ? input.selectedDates.length : input.totalDays,
+      totalDays: calculatedTotalDays,
       isHalfDay: input.isHalfDay || false,
       selectedDates: input.selectedDates || null,
       reason: input.reason,

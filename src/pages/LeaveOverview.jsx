@@ -86,11 +86,20 @@ export default function LeaveOverview() {
     }
   }, [leaveTypes]);
 
+  const activeEmployeeId = isAdmin && formData.employee_email 
+    ? employees.find(e => e.email === formData.employee_email)?.id 
+    : user?.employeeId;
+
   const { data: leaveRequests = [] } = useQuery({
-    queryKey: ['leave-requests'],
+    queryKey: ['leave-requests', activeEmployeeId],
     queryFn: async () => {
       const LEAVE_QUERY = gql`
-        query { leaveRequests { id employeeId leaveTypeId startDate endDate totalDays status reason createdAt employee { email fullName } leaveType { name } } }
+        query GetLeaveRequests { 
+          leaveRequests { 
+            id employeeId leaveTypeId startDate endDate totalDays status reason attachmentUrl createdAt 
+            employee { email fullName } leaveType { name } 
+          } 
+        }
       `;
       const data = await gqlClient.request(LEAVE_QUERY);
       return (data.leaveRequests || []).map(l => {
@@ -105,16 +114,14 @@ export default function LeaveOverview() {
           total_days: l.totalDays,
           isHalfDay: l.isHalfDay,
           selectedDates: l.selectedDates,
+          attachment_url: l.attachmentUrl,
           approvers: [] // Mocked
         };
       });
     },
+    enabled: !!activeEmployeeId,
     initialData: [],
   });
-
-  const activeEmployeeId = isAdmin && formData.employee_email 
-    ? employees.find(e => e.email === formData.employee_email)?.id 
-    : user?.employeeId;
 
   const { data: leaveBalances = [], refetch: refetchBalances } = useQuery({
     queryKey: ['leave-balances', activeEmployeeId],
