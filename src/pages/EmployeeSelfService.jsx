@@ -72,9 +72,26 @@ export default function EmployeeSelfService() {
 
   const { data: payrolls = [] } = useQuery({
     queryKey: ['my-payrolls', employee?.id],
-    queryFn: async () => [],
+    queryFn: async () => {
+      const PAYROLL_QUERY = gql`
+        query {
+          myPayrollRecords {
+            id basicSalary allowances grossPay deductions netPay
+            payrollRun { id month startDate endDate status }
+          }
+        }
+      `;
+      const data = await gqlClient.request(PAYROLL_QUERY);
+      return data.myPayrollRecords.map(r => ({
+        ...r,
+        month: r.payrollRun.month,
+        status: r.payrollRun.status,
+        basic_salary: r.basicSalary,
+        net_salary: r.netPay,
+        total_earnings: r.grossPay
+      }));
+    },
     enabled: !!employee,
-    initialData: [],
   });
 
   const { data: leaveRequests = [] } = useQuery({
@@ -160,6 +177,28 @@ export default function EmployeeSelfService() {
     }
   });
 
+  const submitProfileMutation = useMutation({
+    mutationFn: async () => {
+      const mutation = gql`
+        mutation SubmitProfileForReview($employeeId: ID!) {
+          submitProfileForReview(employeeId: $employeeId) {
+            id
+            employmentStatus
+          }
+        }
+      `;
+      return gqlClient.request(mutation, { employeeId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
+      toast.success("Profile submitted for review successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to submit profile: " + error.message);
+      console.error(error);
+    }
+  });
+
   const uploadDocumentMutation = useMutation({
     mutationFn: async (input) => {
       const MUTATION = gql`
@@ -191,31 +230,39 @@ export default function EmployeeSelfService() {
     updateEmployeeMutation.mutate({ id: employee.id, data: editData });
   };
 
-  const handleDownloadPayslip = (payroll) => {
-    const content = `
-PAYSLIP - ${format(new Date(payroll.month + '-01'), 'MMMM yyyy')}
-Employee: ${employee.full_name}
-Position: ${employee.job_title}
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-EARNINGS:
-Basic Salary: ${payroll.basic_salary} SAR
-${Object.entries(payroll.allowances || {}).map(([key, val]) => `${key}: ${val} SAR`).join('\n')}
-Overtime: ${payroll.overtime_amount || 0} SAR
-Total Earnings: ${payroll.total_earnings} SAR
-
-DEDUCTIONS:
-${Object.entries(payroll.deductions || {}).map(([key, val]) => `${key}: ${val} SAR`).join('\n')}
-Total Deductions: ${payroll.total_deductions} SAR
-
-NET SALARY: ${payroll.net_salary} SAR
-    `;
-    
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Payslip_${payroll.month}.txt`;
-    a.click();
+  const handleDownloadPayslip = async (payroll) => {
+    try {
+      setIsGeneratingPdf(true);
+      const MUTATION = gql`
+        mutation GeneratePayslip($recordId: ID!) {
+          generatePayslip(recordId: $recordId)
+        }
+      `;
+      const response = await gqlClient.request(MUTATION, { recordId: payroll.id });
+      const base64Data = response.generatePayslip;
+      
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Payslip_${payroll.month}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error("Failed to generate PDF payslip");
+      console.error(error);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   if (!employee) {
@@ -257,6 +304,10 @@ NET SALARY: ${payroll.net_salary} SAR
     }
   };
 
+  const sortedStatusHistory = employee.statusHistory ? [...employee.statusHistory].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) : [];
+  const rejectionRecord = sortedStatusHistory.find(h => h.previousStatus === 'PENDING_APPROVAL' && h.newStatus === 'DRAFT');
+  const hasBeenRejected = !!rejectionRecord;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-4 md:p-8">
       <motion.div 
@@ -281,11 +332,28 @@ NET SALARY: ${payroll.net_salary} SAR
           <motion.div variants={itemVariants} className="bg-yellow-50/80 backdrop-blur-md border border-yellow-200/60 text-yellow-800 rounded-2xl p-4 mb-6 shadow-sm">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <span className="w-2 h-2 bg-yellow-500 rounded-full inline-block"></span>
-              Draft Status
+              {hasBeenRejected ? "Action Required: Profile Rejected" : "Draft Status"}
             </h3>
-            <p className="mt-1 text-sm">
+            {hasBeenRejected && (
+              <div className="mt-3 p-3 bg-white/60 rounded-xl border border-yellow-100">
+                <p className="text-sm font-medium text-yellow-900 mb-1">Reason for Rejection:</p>
+                <p className="text-sm text-yellow-800">{rejectionRecord.reason || "No reason provided."}</p>
+              </div>
+            )}
+            <p className="mt-3 text-sm">
               Your profile is currently in <strong>DRAFT</strong> status. To proceed to Pending Onboarding, please ensure you have provided your personal details (Phone, Private Email, Date of Birth, Gender, Marital Status, Nationality, National ID Number, Passport Number) below, and uploaded at least one required document in the Documents tab.
             </p>
+            {hasBeenRejected && (
+              <div className="mt-4">
+                <Button 
+                  onClick={() => submitProfileMutation.mutate()} 
+                  disabled={submitProfileMutation.isPending}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                >
+                  {submitProfileMutation.isPending ? "Submitting..." : "Submit Profile for Review"}
+                </Button>
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -603,7 +671,7 @@ NET SALARY: ${payroll.net_salary} SAR
                           }>
                             {payroll.status}
                           </Badge>
-                          <Button size="sm" variant="outline" onClick={() => handleDownloadPayslip(payroll)}>
+                          <Button size="sm" variant="outline" disabled={isGeneratingPdf} onClick={() => handleDownloadPayslip(payroll)}>
                             <Download className="w-4 h-4" />
                           </Button>
                         </div>

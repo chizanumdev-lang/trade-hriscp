@@ -56,6 +56,10 @@ const navigationStructure = [
     isParent: true,
     children: [
       { title: "Payroll", url: createPageUrl("Payroll"), icon: DollarSign },
+      { title: "Compensation", url: createPageUrl("Compensation"), icon: DollarSign },
+      { title: "Adjustments", url: createPageUrl("PayrollAdjustments"), icon: DollarSign },
+      { title: "Reports", url: createPageUrl("PayrollReports"), icon: TrendingUp },
+      { title: "Statutory", url: createPageUrl("SettingsStatutory"), icon: Settings },
       { title: "Loans", url: createPageUrl("Loans"), icon: DollarSign },
       { title: "Expenses", url: createPageUrl("Expenses"), icon: Receipt },
     ]

@@ -107,4 +107,13 @@ organization: async (_, {
   });
 }
   },
+  Mutation: {
+    updateStatutoryConfig: async (_, { config }, { prisma, user, requireRole }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'FINANCE_ADMIN']);
+      return prisma.organization.update({
+        where: { id: user.organizationId },
+        data: { statutoryConfig: config }
+      });
+    }
+  }
 };

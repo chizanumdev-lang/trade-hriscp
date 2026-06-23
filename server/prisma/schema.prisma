@@ -152,6 +152,8 @@ model Organization {
   subscriptionPlan   String   @default("trial")
   subscriptionStatus String   @default("trial")
   featuresEnabled    Json? // { payroll: true, attendance: true, ... }
+  paymentSplit       Json? // e.g., [{ label: "FIRST", percentage: 60 }, { label: "SECOND", percentage: 40 }]
+  statutoryConfig    Json? // e.g., { paye: { enabled: true, rate: 0.05 }, pension: { enabled: true, employerRate: 0.10, employeeRate: 0.08 } }
   isActive           Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -181,6 +183,7 @@ model Department {
   headEmployeeId String?
   isActive       Boolean        @default(true)
   status         ApprovalStatus @default(APPROVED)
+  paymentSplit   Json? // e.g., [{ label: "FIRST", percentage: 60 }, { label: "SECOND", percentage: 40 }]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -248,6 +251,7 @@ model Employee {
   allowances        Json? // { housing, transport, meal, utility, entertainment, thirteenthMonth }
   hmoPlan           String? // Bronze, Silver, Gold, Platinum
   hmoProvider       String?
+  paymentSplit      Json? // e.g., [{ label: "FIRST", percentage: 60 }, { label: "SECOND", percentage: 40 }]
   pensionAdministrator String?
 
   // Work Schedule

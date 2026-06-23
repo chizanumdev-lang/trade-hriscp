@@ -90,10 +90,45 @@ export const leaveResolvers = {
     leaveBalances: async (_, { employeeId }, { prisma, requireAuth }) => {
       requireAuth();
       const currentYear = new Date().getFullYear();
-      return prisma.leaveBalance.findMany({
+      let balances = await prisma.leaveBalance.findMany({
         where: { employeeId, year: currentYear },
         include: { leaveType: true }
       });
+
+      const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
+      if (employee) {
+        const leaveTypes = await prisma.leaveType.findMany({
+          where: { organizationId: employee.organizationId }
+        });
+        
+        const existingTypeIds = balances.map(b => b.leaveTypeId);
+        const missingTypes = leaveTypes.filter(t => !existingTypeIds.includes(t.id));
+        
+        if (missingTypes.length > 0) {
+          for (const type of missingTypes) {
+            await prisma.leaveBalance.create({
+              data: {
+                employeeId,
+                leaveTypeId: type.id,
+                year: currentYear,
+                totalEntitled: type.daysPerYear,
+                used: 0,
+                pending: 0,
+                available: type.daysPerYear,
+                carriedForward: 0,
+                expired: 0
+              }
+            });
+          }
+          
+          balances = await prisma.leaveBalance.findMany({
+            where: { employeeId, year: currentYear },
+            include: { leaveType: true }
+          });
+        }
+      }
+
+      return balances;
     },
     leaveCalendar: async (_, { year, departmentId }, { prisma, user, requireAuth }) => {
       requireAuth();
@@ -227,8 +262,16 @@ export const leaveResolvers = {
       });
       const businessDays = calculateBusinessDays(leave.startDate, leave.endDate, publicHolidays.map(h => h.date));
 
-      // Restore pending -> available
-      if (leave.status === 'PENDING' || leave.status === 'PENDING_HR') {
+      // Restore pending or used -> available
+      if (leave.status === 'APPROVED') {
+        await prisma.leaveBalance.update({
+          where: { employeeId_leaveTypeId_year: { employeeId: leave.employeeId, leaveTypeId: leave.leaveTypeId, year: currentYear } },
+          data: {
+            used: { decrement: businessDays },
+            available: { increment: businessDays }
+          }
+        });
+      } else if (leave.status === 'PENDING' || leave.status === 'PENDING_HR') {
         await prisma.leaveBalance.update({
           where: { employeeId_leaveTypeId_year: { employeeId: leave.employeeId, leaveTypeId: leave.leaveTypeId, year: currentYear } },
           data: {

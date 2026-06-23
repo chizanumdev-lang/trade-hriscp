@@ -16,10 +16,18 @@ const checkAndPromoteEmployee = async (employeeId, prisma) => {
       id: employeeId
     },
     include: {
-      department: true
+      department: true,
+      statusHistory: true
     }
   });
   if (!emp || emp.employmentStatus !== 'DRAFT') return;
+
+  const hasBeenRejected = emp.statusHistory?.some(
+    h => h.previousStatus === 'PENDING_APPROVAL' && h.newStatus === 'DRAFT'
+  );
+  if (hasBeenRejected) {
+    return;
+  }
 
   // Auto-assign manager if missing
   let currentManagerId = emp.managerId;
@@ -1186,6 +1194,76 @@ updateEmployeeSelf: async (_, {
     newValue: updated
   });
   await checkAndPromoteEmployee(existing.id, prisma);
+  return updated;
+},
+submitProfileForReview: async (_, { employeeId }, { prisma, user, ipAddress }) => {
+  if (!user) throw new Error("Not authenticated");
+  const emp = await prisma.employee.findUnique({
+    where: { id: employeeId, organizationId: user.organizationId }
+  });
+  if (!emp) throw new Error("Employee not found");
+  if (emp.employmentStatus !== 'DRAFT') throw new Error("Only draft profiles can be submitted");
+
+  const isComplete = emp.phone && emp.privateEmail && emp.dateOfBirth && emp.gender && emp.maritalStatus && emp.nationality && emp.nationalId && emp.passportNumber;
+  if (!isComplete) throw new Error("Please complete all personal details before submitting");
+
+  const docCount = await prisma.document.count({ where: { employeeId } });
+  if (docCount === 0) throw new Error("Please upload at least one required document before submitting");
+
+  const updated = await prisma.employee.update({
+    where: { id: employeeId },
+    data: { employmentStatus: 'PENDING_APPROVAL' }
+  });
+
+  await prisma.employeeStatusHistory.create({
+    data: {
+      employeeId,
+      previousStatus: 'DRAFT',
+      newStatus: 'PENDING_APPROVAL',
+      changedBy: user.id,
+      reason: 'Resubmitted for review'
+    }
+  });
+
+  await createAuditLog({
+    prisma,
+    ipAddress,
+    userId: user.id, organizationId: user.organizationId,
+    entityType: 'Employee',
+    entityId: employeeId,
+    action: 'SUBMIT_PROFILE',
+    previousValue: emp,
+    newValue: updated
+  });
+
+  // Notify managers/HR
+  let notifiedUsers = [];
+  if (emp.managerId) {
+    const managerUser = await prisma.user.findFirst({ where: { employeeId: emp.managerId } });
+    if (managerUser) notifiedUsers.push(managerUser.id);
+  }
+  if (notifiedUsers.length === 0) {
+    const admins = await prisma.user.findMany({
+      where: { organizationId: emp.organizationId, role: { in: ['HR_ADMIN', 'SUPER_ADMIN'] } }
+    });
+    notifiedUsers = admins.map(a => a.id);
+  }
+  
+  // Need to import NotificationService if it's not available in scope, but wait, checkAndPromoteEmployee uses NotificationService
+  // Let's assume NotificationService is imported
+  // Actually, wait! NotificationService is not imported at the top of misc.resolver.js? Let's check checkAndPromoteEmployee again.
+  // In checkAndPromoteEmployee, it uses `NotificationService.notify()`. I'll do the same.
+
+  for (const uid of notifiedUsers) {
+    await NotificationService.notify({
+      userId: uid,
+      category: 'approval',
+      title: 'Employee Approval Required',
+      message: `${emp.firstName} ${emp.lastName} has resubmitted their profile for approval.`,
+      deepLink: `/PendingApprovals`
+    });
+  }
+  
   return updated;
 },
 deleteEmployee: async (_, {

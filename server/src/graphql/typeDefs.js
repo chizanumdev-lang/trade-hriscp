@@ -83,6 +83,10 @@ export const typeDefs = `#graphql
     name: String!
     country: String
     subscriptionPlan: String
+    subscriptionStatus: String
+    featuresEnabled: JSON
+    paymentSplit: JSON
+    statutoryConfig: JSON
   }
 
   type Employee {
@@ -123,6 +127,7 @@ export const typeDefs = `#graphql
     promotionHistory: [PromotionHistory]
     statusHistory: [EmployeeStatusHistory]
     suspensions: [Suspension!]
+    paymentSplit: JSON
   }
 
   type Department {
@@ -133,6 +138,7 @@ export const typeDefs = `#graphql
     headEmployeeId: String
     employees: [Employee]
     loans: [Loan]
+    paymentSplit: JSON
   }
 
   type Shift {
@@ -189,7 +195,7 @@ export const typeDefs = `#graphql
     employeeId: String!
     leaveTypeId: String!
     year: Int!
-    totalAllocated: Float!
+    totalEntitled: Float!
     used: Float!
     pending: Float!
     available: Float!
@@ -575,10 +581,12 @@ export const typeDefs = `#graphql
     notifications: [Notification]
 
     # Phase 3 Queries
-    payrollRuns: [PayrollRun]
-    payrollRecords(payrollRunId: ID!): [PayrollRecord]
-    myPayrollRecords: [PayrollRecord]
+    payrollRuns: [PayrollRun!]!
+    payrollRecords(payrollRunId: ID!): [PayrollRecord!]!
+    myPayrollRecords: [PayrollRecord!]!
+    payrollAdjustments(employeeId: ID): [PayrollAdjustment!]!
     salaryHistory(employeeId: ID!): [SalaryHistory]
+    compensationStructures: [CompensationStructure!]!
 
     # Phase 4 Queries
     policies: [Policy]
@@ -713,6 +721,21 @@ export const typeDefs = `#graphql
     attachmentUrl: String
   }
 
+  input CompensationStructureInput {
+    name: String!
+    departmentId: String
+    gradeLevel: String
+    effectiveDate: String!
+    components: JSON!
+  }
+
+  input PayrollAdjustmentInput {
+    employeeId: String!
+    type: String!
+    amount: Float!
+    reason: String!
+  }
+
   type Mutation {
     createLoan(input: LoanInput!): Loan!
     register(input: RegisterInput!): AuthPayload!
@@ -723,11 +746,13 @@ export const typeDefs = `#graphql
     createEmployee(input: EmployeeInput!): Employee!
     
     updateOrganizationFeatures(strictLeaveNotice: Boolean!): Organization!
+    updateStatutoryConfig(config: JSON!): Organization!
     updateEmployee(id: ID!, input: UpdateEmployeeInput!, auditAction: String, auditContext: String): Employee!
     suspendEmployee(id: ID!, input: SuspendEmployeeInput!): Employee!
     offboardEmployee(id: ID!, input: OffboardEmployeeInput!): Employee!
 
     updateEmployeeSelf(input: UpdateEmployeeInput!): Employee!
+    submitProfileForReview(employeeId: ID!): Employee!
     deleteEmployee(id: ID!): Boolean
     startOnboarding(employeeId: ID!): Employee
     approveEmployeeData(employeeId: ID!): Employee!
@@ -784,12 +809,21 @@ export const typeDefs = `#graphql
     approvePayrollRun(id: ID!): PayrollRun!
     rejectPayrollRun(id: ID!, reason: String
     attachmentUrl: String!): PayrollRun!
+    lockPayrollRun(id: ID!): PayrollRun!
+    generatePaymentInstructions(payrollRunId: ID!): [PaymentBatch!]!
     generatePayslip(recordId: ID!): String!
+    createCompensationStructure(input: CompensationStructureInput!): CompensationStructure!
+    updateCompensationStructure(id: ID!, input: CompensationStructureInput!): CompensationStructure!
+    assignEmployeeCompensation(employeeId: ID!, compensationStructureId: ID!, salaryAmount: Float!, overrides: JSON, effectiveDate: String!): EmployeeCompensation!
     requestCompensationUpdate(employeeId: ID!, basicSalary: Float
     hmoPlan: String
     hmoProvider: String
     pensionAdministrator: String!, allowances: String, reason: String
     attachmentUrl: String!): SalaryHistory!
+
+    createPayrollAdjustment(input: PayrollAdjustmentInput!): PayrollAdjustment!
+    approvePayrollAdjustment(id: ID!): PayrollAdjustment!
+    rejectPayrollAdjustment(id: ID!, reason: String): PayrollAdjustment!
 
     # Phase 4 Mutations
     createPolicy(title: String!, category: String!, content: String, requiresAck: Boolean): Policy

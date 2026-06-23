@@ -1,6 +1,7 @@
 import { NotificationService } from '../../services/NotificationService.js';
 import { createAuditLog, recordApprovalEvent } from '../../utils/audit.js';
 import { calculatePayslip, generatePaymentBatches } from '../../utils/payrollUtils.js';
+import { generatePayslipPdf } from '../../utils/pdfGenerator.js';
 
 export const payrollResolvers = {
   Query: {
@@ -15,7 +16,11 @@ export const payrollResolvers = {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'FINANCE_ADMIN']);
       return prisma.payrollRun.findMany({
         where: { organizationId: user.organizationId },
-        orderBy: { month: 'desc' }
+        orderBy: { periodStart: 'desc' },
+        include: {
+          payrollRecords: true,
+          paymentBatches: true
+        }
       });
     },
     payrollRecords: async (_, { payrollRunId }, { prisma, user, requireRole }) => {
@@ -35,6 +40,18 @@ export const payrollResolvers = {
       return prisma.payrollRecord.findMany({
         where: { employeeId: employee.id }
       });
+    },
+    payrollAdjustments: async (_, { employeeId }, { prisma, user, requireAuth }) => {
+      requireAuth();
+      const whereClause = { employee: { organizationId: user.organizationId } };
+      if (employeeId) {
+        whereClause.employeeId = employeeId;
+      }
+      return prisma.payrollAdjustment.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        include: { employee: true }
+      });
     }
   },
   Mutation: {
@@ -50,6 +67,8 @@ export const payrollResolvers = {
           employeeCompensation: {
             include: { compensationStructure: true }
           },
+          organization: { select: { paymentSplit: true } },
+          department: { select: { paymentSplit: true } },
           payrollAdjustments: {
             where: { status: 'APPROVED' }
           }
@@ -86,7 +105,14 @@ export const payrollResolvers = {
           emp.payrollAdjustments
         );
 
-        const paymentBatches = generatePaymentBatches([payslip]);
+        let paymentSplit = emp.paymentSplit;
+        if (!paymentSplit && emp.department?.paymentSplit) paymentSplit = emp.department.paymentSplit;
+        if (!paymentSplit && emp.organization?.paymentSplit) paymentSplit = emp.organization.paymentSplit;
+        if (!paymentSplit || !Array.isArray(paymentSplit) || paymentSplit.length === 0) {
+          paymentSplit = [{ label: 'FULL', percentage: 100 }];
+        }
+
+        const paymentBatches = generatePaymentBatches(payslip, paymentSplit);
 
         recordsData.push({
           payrollRunId: payrollRun.id,
@@ -156,14 +182,14 @@ export const payrollResolvers = {
 
       // Create PaymentBatches in the DB
       const records = await prisma.payrollRecord.findMany({ where: { payrollRunId: id } });
-      const batch1Records = [];
-      const batch2Records = [];
+      const batchMap = {};
       
       for (const rec of records) {
         if (rec.paymentBatches) {
-          const batches = rec.paymentBatches;
-          batch1Records.push(...batches.find(b => b.batchLabel === 'FIRST').records);
-          batch2Records.push(...batches.find(b => b.batchLabel === 'SECOND').records);
+          rec.paymentBatches.forEach(b => {
+            if (!batchMap[b.batchLabel]) batchMap[b.batchLabel] = { percentage: b.percentage, records: [] };
+            batchMap[b.batchLabel].records.push(...b.records);
+          });
         }
         
         // Generate actual Payslip DB record
@@ -176,12 +202,16 @@ export const payrollResolvers = {
         });
       }
 
-      await prisma.paymentBatch.createMany({
-        data: [
-          { payrollRunId: id, batchLabel: 'FIRST', percentage: 60, records: batch1Records },
-          { payrollRunId: id, batchLabel: 'SECOND', percentage: 40, records: batch2Records }
-        ]
-      });
+      const paymentBatchData = Object.entries(batchMap).map(([label, data]) => ({
+        payrollRunId: id,
+        batchLabel: label,
+        percentage: data.percentage,
+        records: data.records
+      }));
+
+      if (paymentBatchData.length > 0) {
+        await prisma.paymentBatch.createMany({ data: paymentBatchData });
+      }
 
       // After generation, update payroll run to PAYMENT_GENERATED
       return prisma.payrollRun.update({
@@ -207,8 +237,45 @@ export const payrollResolvers = {
     },
     generatePayslip: async (_, { recordId }, { prisma, requireAuth }) => {
       requireAuth();
-      // Placeholder for actual PDF generation
-      return `https://storage.tradevu.com/payslips/${recordId}.pdf`;
+      const record = await prisma.payrollRecord.findUnique({
+        where: { id: recordId },
+        include: {
+          employee: {
+            include: { department: true }
+          },
+          payrollRun: true
+        }
+      });
+      if (!record) throw new Error('Payroll record not found');
+      
+      const base64Pdf = await generatePayslipPdf(record);
+      return base64Pdf;
+    },
+    createPayrollAdjustment: async (_, { input }, { prisma, user, requireRole }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN']);
+      return prisma.payrollAdjustment.create({
+        data: {
+          employeeId: input.employeeId,
+          type: input.type,
+          amount: input.amount,
+          reason: input.reason,
+          status: 'DRAFT'
+        }
+      });
+    },
+    approvePayrollAdjustment: async (_, { id }, { prisma, user, requireRole }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'FINANCE_ADMIN']);
+      return prisma.payrollAdjustment.update({
+        where: { id },
+        data: { status: 'APPROVED' }
+      });
+    },
+    rejectPayrollAdjustment: async (_, { id, reason }, { prisma, user, requireRole }) => {
+      requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'FINANCE_ADMIN']);
+      return prisma.payrollAdjustment.update({
+        where: { id },
+        data: { status: 'REJECTED' } // We can ignore reason since there's no reason field on the model, or add it to audit log
+      });
     }
   }
 };

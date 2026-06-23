@@ -370,7 +370,7 @@ export default function LeaveHeatmapCalendar() {
                             </div>
                           </TooltipTrigger>
                           <TooltipContent className="bg-popover text-popover-foreground shadow-md border">
-                            <p className="font-medium text-sm">{getTooltipContent(day)}</p>
+                            <div className="font-medium text-sm">{getTooltipContent(day)}</div>
                           </TooltipContent>
                         </Tooltip>
                       );

@@ -57,27 +57,22 @@ export const calculatePayslip = (employee, compensationStructure, monthData, adj
 };
 
 /**
- * Generates 60/40 payment batches
- * @param {Array} payslips 
+ * Generates custom payment batches based on provided split configuration
+ * @param {object} payslip 
+ * @param {Array} paymentSplit - e.g. [{ label: 'FIRST', percentage: 60 }, { label: 'SECOND', percentage: 40 }]
  * @returns {Array} Array of batches [{ batchLabel, percentage, records }]
  */
-export const generatePaymentBatches = (payslips) => {
-  const batch1 = [];
-  const batch2 = [];
-
-  payslips.forEach(ps => {
-    batch1.push({
-      employeeId: ps.employeeId,
-      amount: Number((ps.netPay * 0.6).toFixed(2))
-    });
-    batch2.push({
-      employeeId: ps.employeeId,
-      amount: Number((ps.netPay * 0.4).toFixed(2))
-    });
+export const generatePaymentBatches = (payslip, paymentSplit = [{ label: 'FULL', percentage: 100 }]) => {
+  return paymentSplit.map(split => {
+    return {
+      batchLabel: split.label,
+      percentage: split.percentage,
+      records: [
+        {
+          employeeId: payslip.employeeId,
+          amount: Number((payslip.netPay * (split.percentage / 100)).toFixed(2))
+        }
+      ]
+    };
   });
-
-  return [
-    { batchLabel: 'FIRST', percentage: 60, records: batch1 },
-    { batchLabel: 'SECOND', percentage: 40, records: batch2 }
-  ];
 };

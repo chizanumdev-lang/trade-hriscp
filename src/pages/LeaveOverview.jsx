@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plane, Plus, Calendar, CheckCircle, XCircle, Clock, Upload, Paperclip } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 export default function LeaveOverview() {
   const queryClient = useQueryClient();
@@ -93,21 +94,25 @@ export default function LeaveOverview() {
     initialData: [],
   });
 
+  const activeEmployeeId = isAdmin && formData.employee_email 
+    ? employees.find(e => e.email === formData.employee_email)?.id 
+    : user?.employeeId;
+
   const { data: leaveBalances = [], refetch: refetchBalances } = useQuery({
-    queryKey: ['leave-balances', user?.employeeId],
+    queryKey: ['leave-balances', activeEmployeeId],
     queryFn: async () => {
-      if (!user?.employeeId) return [];
+      if (!activeEmployeeId) return [];
       const BALANCES_QUERY = gql`
         query GetBalances($employeeId: ID!) { 
           leaveBalances(employeeId: $employeeId) { 
-            id leaveTypeId entitlement used pending available carriedForward expired 
+            id leaveTypeId totalEntitled used pending available carriedForward expired 
           } 
         }
       `;
-      const data = await gqlClient.request(BALANCES_QUERY, { employeeId: user.employeeId });
+      const data = await gqlClient.request(BALANCES_QUERY, { employeeId: activeEmployeeId });
       return data.leaveBalances || [];
     },
-    enabled: !!user?.employeeId,
+    enabled: !!activeEmployeeId,
   });
 
   const createLeaveMutation = useMutation({
@@ -160,7 +165,8 @@ export default function LeaveOverview() {
     },
     onError: (error) => {
       console.error(error);
-      alert(error.message || "Failed to submit leave request.");
+      const msg = error.response?.errors?.[0]?.message || error.message || "Failed to submit leave request.";
+      toast.error(msg);
     }
   });
 
@@ -204,7 +210,7 @@ export default function LeaveOverview() {
       setFormData(prev => ({ ...prev, attachment_url: 'https://example.com/mock.pdf' }));
     } catch (error) {
       console.error("Error uploading file:", error);
-      alert("Failed to upload file. Please try again.");
+      toast.error("Failed to upload file. Please try again.");
       setFormData(prev => ({ ...prev, attachment_url: '' })); // Clear attachment on error
     }
     setUploadingFile(false);
@@ -249,6 +255,15 @@ export default function LeaveOverview() {
     return days;
   };
 
+  const safeDate = (val) => {
+    if (!val) return new Date();
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d;
+    const num = Number(val);
+    if (!isNaN(num)) return new Date(num);
+    return new Date();
+  };
+
   const handleDateChange = (field, value) => {
     const newData = { ...formData, [field]: value };
     if (field === 'start_date' || field === 'end_date') {
@@ -271,7 +286,8 @@ export default function LeaveOverview() {
 
   const myRequests = leaveRequests.filter(r => r.employee_email === user?.email);
   const pendingApprovals = leaveRequests.filter(r => 
-    r.status === 'PENDING'
+    r.employee_email !== user?.email && 
+    (r.status === 'PENDING' || r.status === 'PENDING_HR' || r.status === 'PENDING_SUPER_ADMIN')
   );
 
   const statusColors = {
@@ -323,7 +339,7 @@ export default function LeaveOverview() {
                     <p className="text-sm font-medium text-slate-500 uppercase">{type.name}</p>
                     <p className="text-3xl font-bold text-blue-600 my-2">{balance.available}</p>
                     <p className="text-xs text-slate-400">
-                      Entitlement: {balance.entitlement} | Used: {balance.used} | Pending: {balance.pending}
+                      Entitlement: {balance.totalEntitled} | Used: {balance.used} | Pending: {balance.pending}
                     </p>
                   </CardContent>
                 </Card>
@@ -353,7 +369,7 @@ export default function LeaveOverview() {
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (requiresAttachment && !formData.attachment_url) {
-                    alert("Please upload a supporting document for your leave request.");
+                    toast.error("Please upload a supporting document for your leave request.");
                     return;
                   }
                   createLeaveMutation.mutate(formData);
@@ -578,8 +594,8 @@ export default function LeaveOverview() {
                           <p><strong>Type:</strong> {request.leave_type.replace('_', ' ')} {request.isHalfDay && <Badge variant="secondary" className="ml-1 text-[10px]">Half Day</Badge>}</p>
                           <p><strong>Duration:</strong> {
                             request.selectedDates && request.selectedDates.length > 0 
-                              ? request.selectedDates.map(d => format(new Date(d), 'MMM d')).join(', ')
-                              : `${format(new Date(request.start_date), 'MMM d')} - ${format(new Date(request.end_date), 'MMM d')}`
+                              ? request.selectedDates.map(d => format(safeDate(d), 'MMM d')).join(', ')
+                              : `${format(safeDate(request.start_date), 'MMM d')} - ${format(safeDate(request.end_date), 'MMM d')}`
                           } ({request.total_days} days)</p>
                           <p><strong>Reason:</strong> {request.reason}</p>
                           {request.attachment_url && (
@@ -653,8 +669,8 @@ export default function LeaveOverview() {
                             <p className="flex items-center gap-2">
                               <Calendar className="w-4 h-4" />
                               {request.selectedDates && request.selectedDates.length > 0
-                                ? request.selectedDates.map(d => format(new Date(d), 'MMM d')).join(', ')
-                                : `${format(new Date(request.start_date), 'MMM d, yyyy')} - ${format(new Date(request.end_date), 'MMM d, yyyy')}`
+                                ? request.selectedDates.map(d => format(safeDate(d), 'MMM d')).join(', ')
+                                : `${format(safeDate(request.start_date), 'MMM d, yyyy')} - ${format(safeDate(request.end_date), 'MMM d, yyyy')}`
                               }
                             </p>
                             <p><strong>Days:</strong> {request.total_days} {request.isHalfDay && <Badge variant="secondary" className="ml-1 text-[10px]">Half Day</Badge>}</p>

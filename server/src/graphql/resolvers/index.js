@@ -12,6 +12,7 @@ import { approvalsResolvers } from './approvals.resolver.js';
 import { performanceResolvers } from './performance.resolver.js';
 import { policyResolvers } from './policy.resolver.js';
 import { miscResolvers } from './misc.resolver.js';
+import { compensationResolvers } from './compensation.resolver.js';
 
 export const resolvers = merge(
   authResolvers,
@@ -26,5 +27,6 @@ export const resolvers = merge(
   approvalsResolvers,
   performanceResolvers,
   policyResolvers,
-  miscResolvers
+  miscResolvers,
+  compensationResolvers
 );
