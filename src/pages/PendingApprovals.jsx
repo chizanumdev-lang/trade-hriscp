@@ -45,7 +45,11 @@ const GET_PENDING_APPROVALS = gql`
       totalDays
       status
       reason
+      attachmentUrl
       createdAt
+      employee {
+        email
+      }
     }
     profileUpdateRequests {
       id
@@ -297,6 +301,15 @@ export default function PendingApprovals() {
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };
 
+  const safeDate = (val) => {
+    if (!val) return new Date();
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d;
+    const num = Number(val);
+    if (!isNaN(num)) return new Date(num);
+    return new Date();
+  };
+
   if (error) return (
     <div className="p-8 text-center mt-10">
       <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg">
@@ -314,10 +327,13 @@ export default function PendingApprovals() {
     return emp?.employmentStatus !== 'DRAFT';
   }) || [];
 
-  const isAdmin = ['HR_ADMIN', 'SUPER_ADMIN'].includes(user?.role);
+  const isAdmin = ['HR_ADMIN', 'SUPER_ADMIN', 'admin'].includes(user?.role) || user?.is_organization_owner;
   const pendingLeaves = data?.leaveRequests?.filter(l => {
+    // Exclude own requests
+    if (l.employee?.email === user?.email || l.employeeId === user?.employeeId) return false;
+    
     if (isAdmin) {
-      return l.status === 'PENDING' || l.status === 'PENDING_HR';
+      return l.status === 'PENDING_HR' || l.status === 'PENDING_SUPER_ADMIN';
     }
     return l.status === 'PENDING';
   }) || [];
@@ -559,10 +575,22 @@ export default function PendingApprovals() {
                             {leave.totalDays} Days
                           </Badge>
                           <span className="text-sm text-slate-500">
-                            {new Date(leave.startDate).toLocaleDateString()} <span className="text-slate-300 mx-1">→</span> {new Date(leave.endDate).toLocaleDateString()}
+                            {safeDate(leave.startDate).toLocaleDateString()} <span className="text-slate-300 mx-1">→</span> {safeDate(leave.endDate).toLocaleDateString()}
                           </span>
                         </div>
                         {leave.reason && <p className="text-sm text-slate-500 italic mt-2 bg-slate-50 p-2 rounded-lg border border-slate-100">"{leave.reason}"</p>}
+                        {leave.attachmentUrl && (
+                           <div className="mt-2">
+                             <a 
+                               href={leave.attachmentUrl} 
+                               target="_blank" 
+                               rel="noopener noreferrer" 
+                               className="text-blue-600 hover:underline text-sm flex items-center gap-1"
+                             >
+                               <FileText className="w-3 h-3" /> View Attachment
+                             </a>
+                           </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <RejectDialog onReject={(reason) => rejectLeave({ id: leave.id, reason, attachmentUrl: "" })} title="Reject Leave Request" />

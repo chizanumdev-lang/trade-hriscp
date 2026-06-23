@@ -158,7 +158,8 @@ login: async (_, {
   email,
   password
 }, {
-  prisma
+  prisma,
+  ipAddress
 }) => {
   try {
   const user = await prisma.user.findUnique({
@@ -170,6 +171,17 @@ login: async (_, {
   const isValid = await comparePassword(password, user.passwordHash);
   if (!isValid) throw new Error("Invalid credentials");
   const token = generateToken(user);
+
+  await createAuditLog({
+    prisma,
+    ipAddress,
+    userId: user.id,
+    organizationId: user.organizationId,
+    entityType: 'User',
+    entityId: user.id,
+    action: 'LOGIN'
+  });
+
     return {
       token,
       user
@@ -179,6 +191,24 @@ login: async (_, {
     if (error.message === "Invalid credentials") throw error;
     throw new Error("An error occurred during login. Please try again.");
   }
+},
+logout: async (_, __, {
+  prisma,
+  user,
+  requireAuth,
+  ipAddress
+}) => {
+  requireAuth();
+  await createAuditLog({
+    prisma,
+    ipAddress,
+    userId: user.id,
+    organizationId: user.organizationId,
+    entityType: 'User',
+    entityId: user.id,
+    action: 'LOGOUT'
+  });
+  return true;
 },
 clearProfileGate: async (_, __, {
   prisma,

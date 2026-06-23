@@ -114,13 +114,18 @@ auditLogs: async (_, {
     },
     take: limit || 100,
     include: {
-      actor: true
+      actor: {
+        include: {
+          employee: true
+        }
+      }
     }
   });
   return logs.map(log => ({
     ...log,
     previousValue: log.previousValue ? JSON.stringify(log.previousValue) : null,
-    newValue: log.newValue ? JSON.stringify(log.newValue) : null
+    newValue: log.newValue ? JSON.stringify(log.newValue) : null,
+    details: log.details ? JSON.stringify(log.details) : null
   }));
 },
 compensationBands: async (_, __, {

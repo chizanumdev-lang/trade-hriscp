@@ -201,7 +201,7 @@ export default function Layout({ children }) {
     query GetPendingCounts {
       employees { id employmentStatus }
       documents { id status employeeId }
-      leaveRequests { id status }
+      leaveRequests { id status employeeId employee { email } }
       profileUpdateRequests { id status employeeId }
     }
   `;
@@ -212,7 +212,7 @@ export default function Layout({ children }) {
     enabled: !!user?.organizationId && (user?.role?.includes('ADMIN') || user?.role === 'admin' || user?.isOrgOwner),
   });
 
-  const isAdmin = ['HR_ADMIN', 'SUPER_ADMIN'].includes(user?.role);
+  const isAdmin = ['HR_ADMIN', 'SUPER_ADMIN', 'admin'].includes(user?.role) || user?.is_organization_owner;
   const pendingCount = pendingData ? 
     (pendingData.employees?.filter(e => e.employmentStatus === 'PENDING_APPROVAL').length || 0) +
     (pendingData.documents?.filter(d => {
@@ -221,7 +221,8 @@ export default function Layout({ children }) {
       return emp?.employmentStatus !== 'DRAFT';
     }).length || 0) +
     (pendingData.leaveRequests?.filter(l => {
-      if (isAdmin) return l.status === 'PENDING' || l.status === 'PENDING_HR';
+      if (l.employee?.email === user?.email || l.employeeId === user?.employeeId) return false;
+      if (isAdmin) return l.status === 'PENDING_HR' || l.status === 'PENDING_SUPER_ADMIN';
       return l.status === 'PENDING';
     }).length || 0) +
     (pendingData.profileUpdateRequests?.filter(p => {

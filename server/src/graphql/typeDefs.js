@@ -7,6 +7,7 @@ export const typeDefs = `#graphql
     role: String!
     organizationId: String!
     employeeId: String
+    employee: Employee
     isOrgOwner: Boolean
     lastLogin: String
     avatarUrl: String
@@ -232,6 +233,8 @@ export const typeDefs = `#graphql
     reason: String
     attachmentUrl: String
     createdAt: String!
+    employee: Employee
+    leaveType: LeaveType
   }
 
   type LeavePlan {
@@ -300,9 +303,11 @@ export const typeDefs = `#graphql
     entityType: String!
     entityId: String!
     action: String!
-    previousValue: String
-    newValue: String
+    previousValue: JSON
+    newValue: JSON
+    details: JSON
     ipAddress: String
+    location: String
     createdAt: String!
   }
 
@@ -740,6 +745,7 @@ export const typeDefs = `#graphql
     createLoan(input: LoanInput!): Loan!
     register(input: RegisterInput!): AuthPayload!
     login(email: String!, password: String!): AuthPayload!
+    logout: Boolean!
     clearProfileGate: User!
     uploadProfilePicture(file: String!): User!
     

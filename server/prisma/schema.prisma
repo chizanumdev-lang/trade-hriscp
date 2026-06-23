@@ -611,7 +611,9 @@ model AuditLog {
   action        String // CREATE, UPDATE, DELETE, STATUS_CHANGE, etc.
   previousValue Json?
   newValue      Json?
+  details       Json?
   ipAddress     String?
+  location      String?
   createdAt     DateTime @default(now())
 
   @@index([entityType, entityId])

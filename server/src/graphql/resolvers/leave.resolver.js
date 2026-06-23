@@ -1,5 +1,5 @@
 import { NotificationService } from '../../services/NotificationService.js';
-import { recordApprovalEvent } from '../../utils/audit.js';
+import { recordApprovalEvent, createAuditLog } from '../../utils/audit.js';
 import { calculateBusinessDays, validateLeaveBalance } from '../../utils/leaveUtils.js';
 
 export const leaveResolvers = {
@@ -219,7 +219,7 @@ export const leaveResolvers = {
         }
       });
     },
-    approveLeaveRequest: async (_, { id }, { prisma, user, requireRole }) => {
+    approveLeaveRequest: async (_, { id }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       const leave = await prisma.leaveRequest.findUnique({
         where: { id },
@@ -250,9 +250,20 @@ export const leaveResolvers = {
 
       const updated = await prisma.leaveRequest.update({ where: { id }, data: { status: nextStatus } });
       await recordApprovalEvent({ entityType: 'LeaveRequest', entityId: id, approverUserId: user.id, action: nextStatus, previousStatus: leave.status });
+
+      await createAuditLog({
+        userId: user.id,
+        organizationId: user.organizationId,
+        entityType: 'LeaveRequest',
+        entityId: id,
+        action: nextStatus,
+        previousValue: JSON.stringify({ status: leave.status }),
+        newValue: JSON.stringify({ status: nextStatus })
+      });
+
       return updated;
     },
-    rejectLeaveRequest: async (_, { id, reason }, { prisma, user, requireRole }) => {
+    rejectLeaveRequest: async (_, { id, reason }, { prisma, user, requireRole, ipAddress }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER']);
       const leave = await prisma.leaveRequest.findUnique({ where: { id }, include: { employee: true } });
       
@@ -283,9 +294,20 @@ export const leaveResolvers = {
 
       const updated = await prisma.leaveRequest.update({ where: { id }, data: { status: 'REJECTED', rejectionReason: reason } });
       await recordApprovalEvent({ entityType: 'LeaveRequest', entityId: id, approverUserId: user.id, action: 'REJECTED', comments: reason, previousStatus: leave.status });
+
+      await createAuditLog({
+        userId: user.id,
+        organizationId: user.organizationId,
+        entityType: 'LeaveRequest',
+        entityId: id,
+        action: 'REJECTED',
+        previousValue: JSON.stringify({ status: leave.status }),
+        newValue: JSON.stringify({ status: 'REJECTED', reason })
+      });
+
       return updated;
     },
-    cancelLeaveRequest: async (_, { id, reason }, { prisma, user, requireAuth }) => {
+    cancelLeaveRequest: async (_, { id, reason }, { prisma, user, requireAuth, ipAddress }) => {
       requireAuth();
       const leave = await prisma.leaveRequest.findUnique({ where: { id }, include: { employee: true } });
       
@@ -308,10 +330,22 @@ export const leaveResolvers = {
         });
       }
 
-      return prisma.leaveRequest.update({
+      const updated = await prisma.leaveRequest.update({
         where: { id },
         data: { status: 'CANCELLED', cancellationReason: reason, cancelledAt: new Date(), cancelledById: user.id }
       });
+
+      await createAuditLog({
+        userId: user.id,
+        organizationId: user.organizationId,
+        entityType: 'LeaveRequest',
+        entityId: id,
+        action: 'CANCELLED',
+        previousValue: JSON.stringify({ status: leave.status }),
+        newValue: JSON.stringify({ status: 'CANCELLED', reason })
+      });
+
+      return updated;
     },
     createPublicHoliday: async (_, { input }, { prisma, user, requireRole }) => {
       requireRole(['SUPER_ADMIN', 'HR_ADMIN']);

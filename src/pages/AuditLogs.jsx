@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { gqlClient } from '@/api/graphqlClient';
 import { gql } from 'graphql-request';
 import { format } from 'date-fns';
-import { Shield, Search, Filter, Monitor } from 'lucide-react';
+import { Shield, Search, Filter, Monitor, Eye } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { AuditLogDetailsModal } from '@/components/AuditLogDetailsModal';
 
 const GET_AUDIT_LOGS = gql`
   query GetAuditLogs($entityType: String, $action: String, $limit: Int) {
@@ -14,13 +15,19 @@ const GET_AUDIT_LOGS = gql`
       actor {
         email
         role
+        employee {
+          fullName
+          phone
+        }
       }
       entityType
       entityId
       action
       previousValue
       newValue
+      details
       ipAddress
+      location
       createdAt
     }
   }
@@ -29,6 +36,7 @@ const GET_AUDIT_LOGS = gql`
 export default function AuditLogs() {
   const [entityTypeFilter, setEntityTypeFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
+  const [selectedLog, setSelectedLog] = useState(null);
 
   const { data: { auditLogs = [] } = {}, isLoading } = useQuery({
     queryKey: ['auditLogs', entityTypeFilter, actionFilter],
@@ -38,6 +46,18 @@ export default function AuditLogs() {
       limit: 100
     }),
   });
+
+  const formatAction = (action, entityType) => {
+    if (!action) return 'Unknown Action';
+    const formattedAction = action.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+    
+    if (['Create', 'Update', 'Delete'].includes(formattedAction) && entityType) {
+      const cleanEntity = entityType.replace(/([A-Z])/g, ' $1').trim();
+      return `${formattedAction} ${cleanEntity}`;
+    }
+    
+    return formattedAction;
+  };
 
   const renderChanges = (log) => {
     try {
@@ -132,18 +152,24 @@ export default function AuditLogs() {
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {isLoading ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-slate-500">Loading audit logs...</td>
+                  <td colSpan="5" className="px-6 py-8 text-center text-slate-500">Loading audit logs...</td>
                 </tr>
               ) : auditLogs.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
                     <Shield className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-                    No audit logs found.
+                    <p>No audit logs match your filters.</p>
                   </td>
                 </tr>
               ) : (
-                auditLogs.map(log => (
-                  <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                auditLogs.map(log => {
+                  const actorName = log.actor?.employee ? log.actor.employee.fullName : (log.actor?.email || 'System');
+                  return (
+                  <tr 
+                    key={log.id} 
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                    onClick={() => setSelectedLog(log)}
+                  >
                     <td className="px-6 py-3">
                       <div className="text-slate-900 font-medium">
                         {format(new Date(parseInt(log.createdAt)), 'MMM d, yyyy')}
@@ -153,7 +179,7 @@ export default function AuditLogs() {
                       </div>
                     </td>
                     <td className="px-6 py-3">
-                      <div className="text-slate-900 font-medium">{log.actor?.email || 'System'}</div>
+                      <div className="text-slate-900 font-medium">{actorName}</div>
                       <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-500">{log.actor?.role || 'SYSTEM'}</div>
                     </td>
                     <td className="px-6 py-3">
@@ -164,7 +190,7 @@ export default function AuditLogs() {
                     </td>
                     <td className="px-6 py-3">
                       <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-semibold uppercase tracking-wider">
-                        {log.action}
+                        {formatAction(log.action, log.entityType)}
                       </span>
                     </td>
                     <td className="px-6 py-3">
@@ -172,21 +198,31 @@ export default function AuditLogs() {
                     </td>
                     <td className="px-6 py-3">
                       {log.ipAddress ? (
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-mono">
-                          <Monitor className="w-3 h-3 text-slate-400" />
-                          {log.ipAddress}
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-mono">
+                            <Monitor className="w-3 h-3 text-slate-400" />
+                            {log.ipAddress}
+                          </div>
+                          {log.location && <div className="text-[10px] text-slate-400">{log.location}</div>}
                         </div>
                       ) : (
                         <span className="text-xs text-slate-400 italic">Not tracked</span>
                       )}
                     </td>
                   </tr>
-                ))
+                );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
+      
+      <AuditLogDetailsModal 
+        isOpen={!!selectedLog} 
+        onClose={() => setSelectedLog(null)} 
+        log={selectedLog} 
+      />
     </div>
   );
 }

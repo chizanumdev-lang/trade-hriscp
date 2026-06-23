@@ -19,6 +19,12 @@ const ME_QUERY = gql`
   }
 `;
 
+const LOGOUT_MUTATION = gql`
+  mutation Logout {
+    logout
+  }
+`;
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -67,7 +73,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = (shouldRedirect = true) => {
+  const logout = async (shouldRedirect = true) => {
+    try {
+      if (isAuthenticated) {
+        await gqlClient.request(LOGOUT_MUTATION);
+      }
+    } catch (e) {
+      console.error('Failed to log out on server:', e);
+    }
+
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('token');

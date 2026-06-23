@@ -14,6 +14,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plane, Plus, Calendar, CheckCircle, XCircle, Clock, Upload, Paperclip } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function LeaveOverview() {
   const queryClient = useQueryClient();
@@ -21,10 +32,11 @@ export default function LeaveOverview() {
   const [employee, setEmployee] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
-  const isAdmin = user?.role === 'admin' || user?.is_organization_owner;
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'HR_ADMIN' || user?.is_organization_owner;
+  const isManager = user?.role === 'MANAGER';
   const [formData, setFormData] = useState({
     employee_email: user?.email || '',
-    leave_type: 'annual',
+    leave_type: '',
     start_date: '',
     end_date: '',
     reason: '',
@@ -68,20 +80,26 @@ export default function LeaveOverview() {
     initialData: [],
   });
 
+  useEffect(() => {
+    if (leaveTypes.length > 0 && !formData.leave_type) {
+      setFormData(prev => ({ ...prev, leave_type: leaveTypes[0].id }));
+    }
+  }, [leaveTypes]);
+
   const { data: leaveRequests = [] } = useQuery({
     queryKey: ['leave-requests'],
     queryFn: async () => {
       const LEAVE_QUERY = gql`
-        query { leaveRequests { id employeeId leaveTypeId startDate endDate totalDays status reason createdAt } }
+        query { leaveRequests { id employeeId leaveTypeId startDate endDate totalDays status reason createdAt employee { email fullName } leaveType { name } } }
       `;
       const data = await gqlClient.request(LEAVE_QUERY);
       return (data.leaveRequests || []).map(l => {
-        const type = leaveTypes.find(t => t.id === l.leaveTypeId)?.name || 'annual';
+        const typeName = l.leaveType?.name || 'Annual Leave';
         return {
           ...l,
-          employee_email: l.employeeId, // Assuming employeeId is email for now since we lack full populating
-          employee_name: l.employeeId,
-          leave_type: type.toLowerCase(),
+          employee_email: l.employee?.email || l.employeeId,
+          employee_name: l.employee?.fullName || l.employeeId,
+          leave_type: typeName,
           start_date: l.startDate,
           end_date: l.endDate,
           total_days: l.totalDays,
@@ -148,11 +166,13 @@ export default function LeaveOverview() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       refetchBalances();
       setShowForm(false);
       setFormData({
         employee_email: employee?.email || '',
-        leave_type: 'annual',
+        leave_type: leaveTypes.length > 0 ? leaveTypes[0].id : '',
         start_date: '',
         end_date: '',
         reason: '',
@@ -195,9 +215,23 @@ export default function LeaveOverview() {
         return gqlClient.request(CANCEL_LEAVE, { id });
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      
+      let actionText = 'updated';
+      if (variables.status === 'APPROVED') actionText = 'approved';
+      if (variables.status === 'REJECTED') actionText = 'rejected';
+      if (variables.status === 'CANCELLED') actionText = 'cancelled';
+      
+      toast.success(`Leave request successfully ${actionText}`);
     },
+    onError: (error) => {
+      console.error("Failed to update leave request:", error);
+      const msg = error.response?.errors?.[0]?.message || error.message || "Failed to update leave request.";
+      toast.error(msg);
+    }
   });
 
   const handleFileUpload = async (e) => {
@@ -285,17 +319,23 @@ export default function LeaveOverview() {
   };
 
   const myRequests = leaveRequests.filter(r => r.employee_email === user?.email);
-  const pendingApprovals = leaveRequests.filter(r => 
-    r.employee_email !== user?.email && 
-    (r.status === 'PENDING' || r.status === 'PENDING_HR' || r.status === 'PENDING_SUPER_ADMIN')
-  );
+  const pendingApprovals = leaveRequests.filter(r => {
+    if (r.employee_email === user?.email) return false;
+    if (isAdmin) {
+      return r.status === 'PENDING' || r.status === 'PENDING_HR' || r.status === 'PENDING_SUPER_ADMIN';
+    }
+    if (isManager) {
+      return r.status === 'PENDING';
+    }
+    return false;
+  });
 
   const statusColors = {
-    PENDING: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    PENDING_HR: 'bg-orange-100 text-orange-700 border-orange-200',
-    APPROVED: 'bg-green-100 text-green-700 border-green-200',
-    REJECTED: 'bg-red-100 text-red-700 border-red-200',
-    CANCELLED: 'bg-gray-100 text-gray-700 border-gray-200',
+    APPROVED: 'bg-green-100 text-green-800 border-green-200',
+    PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    PENDING_HR: 'bg-purple-100 text-purple-800 border-purple-200',
+    REJECTED: 'bg-red-100 text-red-800 border-red-200',
+    CANCELLED: 'bg-gray-100 text-gray-800 border-gray-200'
   };
 
   const selectedLeaveTypeObj = leaveTypes.find(t => t.id === formData.leave_type);
@@ -613,22 +653,30 @@ export default function LeaveOverview() {
                           )}
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2">
                         <Button 
                           size="sm" 
                           className="bg-green-600 hover:bg-green-700"
                           onClick={() => handleApprove(request)}
+                          disabled={updateLeaveMutation.isPending}
                         >
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Approve
+                          {updateLeaveMutation.isPending && updateLeaveMutation.variables?.id === request.id && updateLeaveMutation.variables?.status === 'APPROVED' ? (
+                             <>Approving...</>
+                          ) : (
+                            <><CheckCircle className="w-4 h-4 mr-1" /> Approve</>
+                          )}
                         </Button>
                         <Button 
                           size="sm" 
                           variant="destructive"
                           onClick={() => handleReject(request)}
+                          disabled={updateLeaveMutation.isPending}
                         >
-                          <XCircle className="w-4 h-4 mr-1" />
-                          Reject
+                          {updateLeaveMutation.isPending && updateLeaveMutation.variables?.id === request.id && updateLeaveMutation.variables?.status === 'REJECTED' ? (
+                             <>Rejecting...</>
+                          ) : (
+                            <><XCircle className="w-4 h-4 mr-1" /> Reject</>
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -711,18 +759,34 @@ export default function LeaveOverview() {
                       </div>
                       <div className="flex gap-2">
                         {['PENDING', 'PENDING_HR', 'APPROVED'].includes(request.status) && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            className="text-red-600 border-red-200 hover:bg-red-50"
-                            onClick={() => {
-                              if (window.confirm("Are you sure you want to cancel this leave request?")) {
-                                handleCancel(request);
-                              }
-                            }}
-                          >
-                            Cancel
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="text-red-600 border-red-200 hover:bg-red-50"
+                              >
+                                Cancel
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Cancel Leave Request</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to cancel this leave request? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>No, keep it</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => handleCancel(request)} 
+                                  className="bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                  Yes, cancel request
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         )}
                       </div>
                     </CardContent>

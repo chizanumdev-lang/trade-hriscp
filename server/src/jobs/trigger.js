@@ -168,3 +168,141 @@ client.defineJob({
   },
 });
 
+
+// Job 4: Daily task to log milestones like Probation end and Leave start/end
+client.defineJob({
+  id: 'log-daily-milestones',
+  name: 'Log Daily Milestones',
+  version: '1.0.0',
+  trigger: cronTrigger({
+    cron: "5 0 * * *", // Runs every day at 12:05 AM
+  }),
+  run: async (payload, io, ctx) => {
+    await io.logger.info('Starting daily check for milestones...');
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const { AuditEmitterService } = await import('../services/AuditEmitterService.js');
+
+    // Find probations ending today
+    const endingProbations = await io.runTask('fetch-ending-probations', async () => {
+      return prisma.employee.findMany({
+        where: {
+          probationEndDate: {
+            gte: today,
+            lt: tomorrow
+          }
+        }
+      });
+    });
+
+    for (const emp of endingProbations) {
+      AuditEmitterService.emit('AUDIT_LOG_CREATED', {
+        userId: 'system',
+        organizationId: emp.organizationId,
+        action: 'PROBATION_END',
+        entityType: 'Employee',
+        entityId: emp.id,
+        details: { message: `Probation ended for employee ${emp.firstName} ${emp.lastName}` }
+      });
+    }
+
+    // Find leaves starting today
+    const startingLeaves = await io.runTask('fetch-starting-leaves', async () => {
+      return prisma.leaveRequest.findMany({
+        where: {
+          status: 'APPROVED',
+          startDate: {
+            gte: today,
+            lt: tomorrow
+          }
+        },
+        include: { employee: true }
+      });
+    });
+
+    for (const leave of startingLeaves) {
+      AuditEmitterService.emit('AUDIT_LOG_CREATED', {
+        userId: 'system',
+        organizationId: leave.employee.organizationId,
+        action: 'LEAVE_START',
+        entityType: 'LeaveRequest',
+        entityId: leave.id,
+        details: { message: `Leave started for employee ${leave.employee.firstName} ${leave.employee.lastName}` }
+      });
+    }
+
+    // Find leaves ending today
+    const endingLeaves = await io.runTask('fetch-ending-leaves', async () => {
+      return prisma.leaveRequest.findMany({
+        where: {
+          status: 'APPROVED',
+          endDate: {
+            gte: today,
+            lt: tomorrow
+          }
+        },
+        include: { employee: true }
+      });
+    });
+
+    for (const leave of endingLeaves) {
+      AuditEmitterService.emit('AUDIT_LOG_CREATED', {
+        userId: 'system',
+        organizationId: leave.employee.organizationId,
+        action: 'LEAVE_END',
+        entityType: 'LeaveRequest',
+        entityId: leave.id,
+        details: { message: `Leave ended for employee ${leave.employee.firstName} ${leave.employee.lastName}` }
+      });
+    }
+
+    // Find suspensions starting today
+    const startingSuspensions = await io.runTask('fetch-starting-suspensions', async () => {
+      return prisma.statusHistory.findMany({
+        where: {
+          status: 'SUSPENDED',
+          effectiveDate: {
+            gte: today,
+            lt: tomorrow
+          }
+        },
+        include: { employee: true }
+      });
+    });
+
+    for (const susp of startingSuspensions) {
+      AuditEmitterService.emit('AUDIT_LOG_CREATED', {
+        userId: 'system',
+        organizationId: susp.employee.organizationId,
+        action: 'SUSPENSION_START',
+        entityType: 'StatusHistory',
+        entityId: susp.id,
+        details: { message: `Suspension started for employee ${susp.employee.firstName} ${susp.employee.lastName}`, reason: susp.reason }
+      });
+    }
+    
+    // Find suspensions ending today (if your schema has endDate for suspensions)
+    // Note: Assuming `endDate` doesn't exist on StatusHistory. If we had an `endDate`, we would query it similarly.
+
+    // Log the job execution itself
+    AuditEmitterService.emit('AUDIT_LOG_CREATED', {
+      userId: 'system',
+      organizationId: 'system',
+      action: 'CRON_JOB_EXECUTED',
+      entityType: 'Job',
+      entityId: 'log-daily-milestones',
+      details: {
+        probations: endingProbations.length,
+        leavesStarting: startingLeaves.length,
+        leavesEnding: endingLeaves.length,
+        suspensionsStarting: startingSuspensions.length
+      }
+    });
+
+    return { status: 'success' };
+  },
+});

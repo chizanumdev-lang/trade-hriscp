@@ -116,16 +116,29 @@ export default function LeaveHeatmapCalendar() {
       });
     }
 
+    const safeDate = (val) => {
+      if (!val) return new Date();
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) return d;
+      const num = Number(val);
+      if (!isNaN(num)) return new Date(num);
+      return new Date();
+    };
+
     if (approvedLeaves) {
       approvedLeaves.forEach(leave => {
         let dates = [];
         if (leave.selectedDates && leave.selectedDates.length > 0) {
           dates = leave.selectedDates;
         } else {
-          const start = new Date(leave.startDate);
-          const end = new Date(leave.endDate);
-          const days = eachDayOfInterval({ start, end });
-          dates = days.map(d => format(d, 'yyyy-MM-dd'));
+          try {
+            const start = safeDate(leave.startDate);
+            const end = safeDate(leave.endDate);
+            const days = eachDayOfInterval({ start, end });
+            dates = days.map(d => format(d, 'yyyy-MM-dd'));
+          } catch (err) {
+            console.error("Invalid leave dates:", leave);
+          }
         }
 
         dates.forEach(date => {

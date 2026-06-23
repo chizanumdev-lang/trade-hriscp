@@ -1954,6 +1954,17 @@ submitLeaveRequest: async (_, {
       sendEmail: true
     });
   }
+  
+  await createAuditLog({
+    prisma,
+    ipAddress,
+    userId: user.id, 
+    organizationId: user.organizationId,
+    entityType: 'LeaveRequest',
+    entityId: leaveRequest.id,
+    action: 'CREATE'
+  });
+  
   return leaveRequest;
 },
 cancelLeaveRequest: async (_, {
